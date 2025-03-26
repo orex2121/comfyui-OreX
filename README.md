@@ -1,6 +1,7 @@
 # comfyui-OreX
-**comfyui-OreX** is a set of nodes for using LLM models via a free API. Currently, the following models are available:
+**comfyui-OreX** is a set of nodes for using LLM models via a free API. 
 
+**Currently, the following models are available:**
 - **deepseek-ai/DeepSeek-R1**: A versatile model for general language tasks.
 - **Qwen/QwQ-32B**: Designed for high-performance language understanding and generation.
 - **meta-llama/Llama-3.2-90B-Vision-Instruct**: Combines vision and language capabilities for multimodal tasks.
@@ -33,6 +34,10 @@
 - **ozone-ai/0x-lite**: Lightweight and efficient for quick language tasks.
 - **mixedbread-ai/mxbai-embed-large-v1**: Designed for embedding and language understanding.
 
-The nodes can operate in the following modes:
+**The nodes can operate in the following modes:**
 - **txt to image**: Generate images from textual descriptions.
 - **image 2 image**: Modify existing images based on textual instructions.
+
+You can get a free API here: https://ai.io.net/ai/api-keys
+
+by StableDif & OreX
