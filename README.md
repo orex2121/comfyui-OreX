@@ -15,7 +15,7 @@
 - Павел К.
 
 ## 📋 Меню узлов
-`1.` [🖼️🔃 Load & Save single and batch images](#1----Load-&-Save-single-and-batch-images) 
+`1.` [🖼️🔃 Load & Save single and batch images](#1----Load-&-Save-single-and-batch-images)  
 `2.` [🖼️🔃 IO NET NODES](#2----IO-NET-NODES)
 
 ## 📝 Описание узлов
