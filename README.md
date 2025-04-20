@@ -16,7 +16,7 @@
 2 -  Павел К.
 
 ## 📋 Меню узлов
-`1.` [🖼️🔃 Load & Save single and batch images](#1----Load & Save single and batch images)
+`1.` [🖼️🔃 Load & Save single and batch images](#1----Load-&-Save-single-and-batch-images)
 
 
 ### 1 - 🖼️🔃 Load & Save single and batch images
