@@ -1,20 +1,25 @@
-# .orex_node - имя файла py, import - имя класса из файла. 
-# Если в файле много классов то перечислить через запятую.
 from .orex_node import IoNet, IoNetVisionUrl
-from .io_net_vision import IoNetVision  # Импорт с правильным именем файла
+from .io_net_vision import IoNetVision
+from .OreXImageLoad import OreXImageLoad
+from .OreXImageSave import OreXImageSave
+from .OreXImageLoadBatch import OreXImageLoadBatch
 
-# Имя узла в comfyui : имя класса
 NODE_CLASS_MAPPINGS = { 
     "orex IoNet Chat": IoNet,
     "orex IoNet Vision Url": IoNetVisionUrl,
-    "orex IoNet Vision": IoNetVision
+    "orex IoNet Vision": IoNetVision,
+    "orex Load Image": OreXImageLoad,
+    "orex Save Image": OreXImageSave,
+    "orex Load Image Batch": OreXImageLoadBatch
 }
 
-# Имя узла в comfyui : отображаеммое название в заголовках и меню
 NODE_DISPLAY_NAME_MAPPINGS = { 
     "orex IoNet Chat": "io.net Chat",
     "orex IoNet Vision Url": "io.net Vision Url",
-    "orex IoNet Vision": "io.net Vision"
+    "orex IoNet Vision": "io.net Vision",
+    "orex Load Image": "🖼️ Load Image (OreX)",
+    "orex Save Image": "💾 Save Image (OreX)",
+    "orex Load Image Batch": "📦 Load Image Batch (OreX)"  # Только коробка (пакетная обработка)
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
