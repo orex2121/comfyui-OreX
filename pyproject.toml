@@ -1,0 +1,14 @@
+[project]
+name = "orex"
+description = "comfyui-OreX is a set of nodes for using LLM models via a free API."
+version = "1.0.0"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/orex2121/comfyui-OreX"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyui-OreX"
+Icon = ""
