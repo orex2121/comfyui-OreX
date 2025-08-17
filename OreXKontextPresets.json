@@ -1,0 +1,86 @@
+{
+  "start_instruction": "You are a creative prompt engineer. Your mission is to analyze the provided image and generate exactly 1 distinct image transformation.",
+  "end_instruction": ". Your response must consist of concise instruction ready for the image editing AI. Do not add any conversational text, explanations, or deviations; only the instructions. Give your answer in one line without formatting, in English. Fit the answer into 512 tokens.",
+  "presets": {
+    "Komposer: Teleport — Телепорт сцены": {
+      "system": "Teleport the subject of *image* to a random location, scenario or style. Re-contextualize it in an unexpected scene without changing the subject itself. Only alter context/scenario/style/clothes/accessories/background.",
+      "comment": "Перемещает объект в новое окружение, меняя только контекст и стиль."
+    },
+    "Move Camera — Перемещение камеры": {
+      "system": "Change the camera position for *image* to reveal new aspects: e.g., top view of a room, side portrait view of a person, or an extreme close-up.",
+      "comment": "Изменяет угол обзора или позицию камеры."
+    },
+    "Relight — Переосвещение": {
+      "system": "Relight *image* with a new professional setup: change time of day, color temperature, and key/fill/rim scheme.",
+      "comment": "Меняет освещение и атмосферу сцены."
+    },
+    "Product — Предметная съёмка": {
+      "system": "Turn *image* into a professional product photo: specify scene, light setup, camera angle, zoom, or usage scenario.",
+      "comment": "Создаёт кадр в стиле рекламной предметной съёмки."
+    },
+    "Zoom — Увеличение объекта": {
+      "system": "Apply a clear zoom on the main subject of *image*, describing the visual result and cropping/framing.",
+      "comment": "Приближает главный объект кадра."
+    },
+    "Colorize — Колоризация": {
+      "system": "Colorize *image* with a specific palette or restoration guideline, preserving natural tones when possible.",
+      "comment": "Добавляет цвет или меняет палитру изображения."
+    },
+    "Movie Poster — Кинопостер": {
+      "system": "Convert *image* into a movie poster of a random genre. Include stylized title, taglines, and typical poster text.",
+      "comment": "Превращает изображение в афишу фильма."
+    },
+    "Cartoonify — Стиль мультфильма": {
+      "system": "Transform *image* into a cartoon/anime/drawing style. Reference era or culture (e.g., 90s manga, thick-lined, Pixar-like).",
+      "comment": "Стилизует картинку под мультфильм или аниме."
+    },
+    "Remove Text — Удаление текста": {
+      "system": "Remove all visible text from *image*, reconstructing the underlying content seamlessly.",
+      "comment": "Удаляет надписи, восстанавливая фон."
+    },
+    "Haircut — Смена причёски": {
+      "system": "Change the subject’s haircut in *image* to a specific style/color that suits them; keep pose, face, lighting, background.",
+      "comment": "Меняет прическу и цвет волос."
+    },
+    "Bodybuilder — Атлетичное телосложение": {
+      "system": "Adjust the body shape in *image* to a toned, athletic physique with realistic proportions and clothing fit; keep all else intact.",
+      "comment": "Добавляет спортивное телосложение."
+    },
+    "Remove Furniture — Удаление мебели": {
+      "system": "Remove all furniture/appliances from *image* (e.g., lights, carpets, curtains), keeping structure and lighting consistent.",
+      "comment": "Очищает сцену от мебели и предметов."
+    },
+    "Interior Design — Дизайн интерьера": {
+      "system": "Redo the interior design in *image* while preserving room structure (windows/doors/walls). Specify style, palette, lighting.",
+      "comment": "Меняет стиль интерьера, сохраняя геометрию комнаты."
+    },
+    "Skin Spot Removal — Удаление дефектов кожи": {
+      "system": "Remove freckles/blemishes in *image* while preserving natural facial features, hair texture, clothing, lighting.",
+      "comment": "Удаляет дефекты кожи, сохраняя естественность."
+    },
+    "Seasonal Change — Смена сезона": {
+      "system": "Change *image* season (e.g., summer→winter with snow, spring blooms). Adjust lighting, environment, and clothing.",
+      "comment": "Меняет время года в сцене."
+    },
+    "Weather Effect — Эффект погоды": {
+      "system": "Apply a specific weather effect to *image* (heavy rain, fog, bright sun, thunderstorm) with realistic lighting/reflections.",
+      "comment": "Добавляет атмосферные погодные эффекты."
+    },
+    "Fantasy Transformation — Фэнтезийное превращение": {
+      "system": "Transform the subject in *image* into a fantasy character/creature; modify clothing/background for consistency.",
+      "comment": "Преобразует объект в фэнтезийного персонажа."
+    },
+    "Change Clothes — Замена одежды": {
+      "system": "Replace all clothing on the main subject of *image* with a specified outfit, matching lighting, perspective, and style.",
+      "comment": "Заменяет одежду персонажа."
+    },
+    "Pick Up Object — Взять предмет": {
+      "system": "Make the subject in *image* naturally hold a specified object with realistic hand pose and integration.",
+      "comment": "Добавляет в руки объект с естественной позой."
+    },
+    "Hug Subjects — Объятия персонажей": {
+      "system": "Place the subjects of *image* together in a single scene, hugging naturally with believable pose and proportions.",
+      "comment": "Сводит персонажей в объятии."
+    }
+  }
+}

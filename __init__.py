@@ -3,6 +3,7 @@ from .io_net_vision import IoNetVision
 from .OreXImageLoad import OreXImageLoad
 from .OreXImageSave import OreXImageSave
 from .OreXImageLoadBatch import OreXImageLoadBatch
+from .OreXKontextPresets import KontextPresetsOrex
 
 NODE_CLASS_MAPPINGS = { 
     "orex IoNet Chat": IoNet,
@@ -10,10 +11,12 @@ NODE_CLASS_MAPPINGS = {
     "orex IoNet Vision": IoNetVision,
     "orex Load Image": OreXImageLoad,
     "orex Save Image": OreXImageSave,
-    "orex Load Image Batch": OreXImageLoadBatch
+    "orex Load Image Batch": OreXImageLoadBatch,
+    "orex Kontext Presets": KontextPresetsOrex
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = { 
+    "orex Kontext Presets": "📦 Kontext Presets (OreX)",
     "orex IoNet Chat": "io.net Chat",
     "orex IoNet Vision Url": "io.net Vision Url",
     "orex IoNet Vision": "io.net Vision",

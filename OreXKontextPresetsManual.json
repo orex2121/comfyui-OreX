@@ -1,0 +1,100 @@
+{
+  "presets": {
+    "➖ Zoom: объекта сцены": {
+      "system": "Zoom on a head.",
+      "comment": "Назови элемент сцены на котором нужен Zoom."
+    },
+    "➖ Relight — Изменяем освещение": {
+      "system": "Relight *image* to Film Noir cinimatic.",
+      "comment": "Виды освещений: Film Noir , Silhouette,   Dark,  Hard Lighting,  hard shadow , Golden Hour,  Blue,  Neon,  black and white,  night,  sepia."
+    },
+    "➖ Удалить всю мебель из комнаты": {
+      "system": "Remove furniture, tables, cabinets, carpets from this photos.",
+      "comment": "Уточните элементы, которые нужно удалить."
+    },
+    "➖ Удалить весь текст": {
+      "system": "⏩ Remove all languages text.",
+      "comment": "Удаляет текст с постеров и изображений."
+    },
+    "➖ Заменить обои, пол и другие объекты интерьера": {
+      "system": "Change the interior design to gray wallpaper and the floor to beige carpet.",
+      "comment": "Укажите что на что нужно заменить."
+    },
+    "⏩ Фотография продукта": {
+      "system": "Change this photo to a professional product photo with a nature background.",
+      "comment": "Укажите окружение и(или) стиль для продукта."
+    },
+    "⏩ Восстановление и колоризация фото 1": {
+      "system": "Restore *image* and colorize it. Remove any scratches.Change the photo to perfection. Keep the face and composition.",
+      "comment": " "
+    },
+    "⏩ Восстановление и колоризация фото 2": {
+      "system": "Restore this photo to perfect condition.",
+      "comment": " "
+    },
+    "⏩ Удаление всех людей с изображения": {
+      "system": "Remove all people in the background.",
+      "comment": " "
+    },
+    "⏩ Удалить провода": {
+      "system": "Remove only wires",
+      "comment": " "
+    },
+    "➖ Удаление объектов": {
+      "system": "Remove the gray donkey from the image.  Naturally reconstruct the background details.",
+      "comment": "Укажите объекты которые следует удалить."
+    },
+    "⏩ Удаление водяных знаков": {
+      "system": "Remove only visible watermarks such as superimposed text, logos, repeating patterns from this image.",
+      "comment": "Очищает сцену от мебели и предметов."
+    },
+    "➖ Замена фона и интеграция персонажа в новый фон": {
+      "system": "In the background is the Roman Colosseum, and the character fits naturally into the surrounding raw photo.",
+      "comment": "Укажите на какой фон перенести персонажа."
+    },
+    "⏩ В стиль Anime": {
+      "system": "Make *image* in anime style. Keep the character recognizable.",
+      "comment": "Можно изменить стиль на другой."
+    },
+    "⏩ В стиле детского рисунка": {
+      "system": "*image*. In the style of a child's drawing. Keep the character's face exactly.",
+      "comment": "Можно изменить стиль на другой."
+    },
+    "⏩ Раскрашивание BW рисунков": {
+      "system": "Adding color to the illustrations in a black and white coloring book.",
+      "comment": "Добавляет атмосферные погодные эффекты."
+    },
+    "⏩ Колоризация фото": {
+      "system": "Colorize this photo *image*.",
+      "comment": "Можно указать оттенки или освещение."
+    },
+    "➖ Стилизация фото в DSLR HDR": {
+      "system": "Stylize this photo *image* into a professional DSLR HDR and professional light. Keep the character recognizable.",
+      "comment": "*image* можно удалить если не нужно описание."
+    },
+    "➖ Старение фотографии": {
+      "system": "Make a very old bw photo. Add cracks, deep scratches, small dust particles, torn edges of paper, faded sepia tone. Satin texture. Light vignette. Fiber paper.",
+      "comment": "Можно убрать BW (черно-белое)."
+    },
+    "➖ Извлечение одежды": {
+      "system": "Extract a plaid shirt onto a white background in a product photography style.",
+      "comment": "Можно детальнее описать одежду."
+    },
+    "➖ Outpaint (Lora: InScene-v1.0)": {
+      "system": "Make a shot of the same scene, but at a lower magnification, showing background.",
+      "comment": "Вместо background нужно описать что будет на фоне."
+    },
+    "➖ Перенос лица (Lora: Overlay-Kontext-Dev-LoRA)": {
+      "system": "Place it woman face over with watercolor style.",
+      "comment": "Пример: Place it a gray cat with a bucket of popcorn."
+    },
+    "⏩ Для видов персонажа (Lora:  kontext-turnaround-sheet-v1)": {
+      "system": "turnaround sheet of this exact character, 4 full-body poses on pure white background: front view, 3/4 left, back view, right — evenly spaced in a clean horizontal row, consistent lighting and style, no background noise, no shadows, same proportions and detailing across all views.",
+      "comment": ", 4 позы в полный рост на чистом белом фоне: вид спереди, 3/4 слева, вид сзади, справа — равномерно распределенные в чистом горизонтальном ряду."
+    },
+    "⏩ Сделать ворсистым (Lora: fluffy-kontext-lora)": {
+      "system": "Make the object fluffy.",
+      "comment": "Вместо object нужно описать объект."
+    }
+  }
+}

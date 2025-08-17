@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+import re
 from datetime import datetime
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -42,12 +43,66 @@ class OreXImageSave:
     OUTPUT_NODE = True
     CATEGORY = "🤫OreX/Image"
 
+    def sanitize_path_segment(self, segment):
+        """Очистка сегментов пути без создания подчеркиваний"""
+        if not segment:
+            return None
+            
+        # Удаляем все недопустимые символы (включая подчеркивания)
+        segment = re.sub(r'[^а-яА-ЯёЁa-zA-Z0-9\-\. ]', '', segment)
+        segment = segment.strip()
+        
+        # Игнорируем сегменты, которые стали пустыми или содержат только точки/дефисы
+        if not segment or all(c in '.-' for c in segment):
+            return None
+            
+        return segment
+
+    def process_output_path(self, path):
+        """Обработка пути с полным удалением недопустимых сегментов"""
+        try:
+            # Применяем шаблоны даты
+            dated_path = datetime.now().strftime(path)
+            
+            # Для абсолютных путей
+            if os.path.isabs(dated_path):
+                drive, rest = os.path.splitdrive(dated_path)
+                parts = [p for p in rest.split(os.sep) if p]
+                
+                # Очищаем и фильтруем сегменты
+                clean_parts = []
+                for part in parts:
+                    cleaned = self.sanitize_path_segment(part)
+                    if cleaned:
+                        clean_parts.append(cleaned)
+                
+                # Собираем путь, сохраняя структуру
+                if clean_parts:
+                    return os.path.normpath(drive + os.sep + os.path.join(*clean_parts))
+                return None
+                
+            # Для относительных путей
+            else:
+                clean_path = []
+                for seg in dated_path.replace('/', '\\').split('\\'):
+                    clean_seg = self.sanitize_path_segment(seg)
+                    if clean_seg:
+                        clean_path.append(clean_seg)
+                
+                if clean_path:
+                    return os.path.normpath(os.path.join(self.output_dir, *clean_path))
+                return None
+                
+        except Exception as e:
+            print(f"[OreX] Path processing error: {str(e)}")
+            return None
+
     def get_available_filename(self, base_path, base_name, extension, is_empty_name=False):
         if is_empty_name:
             counter = self.empty_name_counter
             self.empty_name_counter += 1
-            filename = f"{self.filename_separator}{counter:04d}.{extension}"
-            return os.path.join(base_path, filename).replace('/', '\\'), counter
+            filename = f"{self.filename_separator}{counter:0{self.counter_digits}d}.{extension}"
+            return os.path.join(base_path, filename), counter
         else:
             counter_key = os.path.basename(base_name)
             if counter_key in self.counters:
@@ -59,8 +114,8 @@ class OreXImageSave:
                              if f.split('_')[-1].split('.')[0].isdigit()], default=0)
                 self.counters[counter_key] = last_num + 1
             
-            filename = f"{base_name}{self.filename_separator}{self.counters[counter_key]:04d}.{extension}"
-            return os.path.join(base_path, filename).replace('/', '\\'), self.counters[counter_key]
+            filename = f"{base_name}{self.filename_separator}{self.counters[counter_key]:0{self.counter_digits}d}.{extension}"
+            return os.path.join(base_path, filename), self.counters[counter_key]
 
     def save_image(self, output_path, create_processed_folder, create_current_date_folder, images, 
                  filename_prefix_1, filename_prefix_2, filename_prefix_3, filename_separator, 
@@ -68,45 +123,32 @@ class OreXImageSave:
         
         self.filename_separator = filename_separator
         full_paths = []
-        current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # Обработка output_path
-        if "%" in output_path:
-            try:
-                date_folder = datetime.now().strftime(output_path)
-                base_dir = os.path.join(self.output_dir, date_folder).replace('/', '\\')
-                
-                if create_processed_folder:
-                    base_dir = os.path.join(base_dir, "Processed").replace('/', '\\')
-                
-                if create_current_date_folder:
-                    save_dir = os.path.join(base_dir, current_date).replace('/', '\\')
-                else:
-                    save_dir = base_dir
-                    
-            except:
-                base_dir = self.output_dir
-                if create_processed_folder:
-                    base_dir = os.path.join(base_dir, "Processed").replace('/', '\\')
-                if create_current_date_folder:
-                    save_dir = os.path.join(base_dir, current_date).replace('/', '\\')
-                else:
-                    save_dir = base_dir
-        else:
-            base_dir = self.output_dir
-            if output_path.strip():
-                base_dir = os.path.join(base_dir, output_path).replace('/', '\\')
-            
+        # Обработка пути назначения
+        processed_path = self.process_output_path(output_path) if output_path else self.output_dir
+        
+        if not processed_path:
+            print("[OreX] Invalid path specified, using default output directory")
+            processed_path = self.output_dir
+        
+        # Создаем структуру каталогов
+        try:
             if create_processed_folder:
-                base_dir = os.path.join(base_dir, "Processed").replace('/', '\\')
+                processed_path = os.path.join(processed_path, "Processed")
             
             if create_current_date_folder:
-                save_dir = os.path.join(base_dir, current_date).replace('/', '\\')
+                current_date = datetime.now().strftime("%Y-%m-%d")
+                save_dir = os.path.join(processed_path, current_date)
             else:
-                save_dir = base_dir
-        
-        os.makedirs(save_dir, exist_ok=True)
+                save_dir = processed_path
+            
+            os.makedirs(save_dir, exist_ok=True)
+                
+        except Exception as e:
+            print(f"[OreX] Directory creation failed: {str(e)}")
+            save_dir = self.output_dir
 
+        # Сохранение изображений
         for image in images:
             try:
                 is_empty_name = not (filename_prefix_1 or filename_prefix_2 or filename_prefix_3)
@@ -119,7 +161,10 @@ class OreXImageSave:
                     base_filename = filename_separator.join(filename_parts)
                     filepath, _ = self.get_available_filename(save_dir, base_filename, "png")
 
-                img = Image.fromarray(np.clip(255. * image.cpu().numpy(), 0, 255).astype(np.uint8))
+                # Конвертация и сохранение изображения
+                img_array = np.clip(255. * image.cpu().numpy(), 0, 255).astype(np.uint8)
+                img = Image.fromarray(img_array)
+                
                 if embed_workflow:
                     metadata = PngInfo()
                     if prompt: metadata.add_text("prompt", json.dumps(prompt))
@@ -133,17 +178,17 @@ class OreXImageSave:
                 full_paths.append(filepath)
 
             except Exception as e:
-                print(f"[OreX Error] Failed to save image: {str(e)}")
+                print(f"[OreX] Image save failed: {str(e)}")
                 full_paths.append("")
 
         return (images, full_paths[0] if full_paths else "")
 
 NODE_CLASS_MAPPINGS = {
-    "orex Save Image": OreXImageSave
+    "OreX Image Save": OreXImageSave
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "orex Save Image": "💾 Save Image (OreX)"
+    "OreX Image Save": "💾 OreX Image Save"
 }
 
-__all__ = ['NODE_CLASS_MAPPINGS']
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
