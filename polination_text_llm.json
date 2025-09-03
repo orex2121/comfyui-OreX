@@ -1,0 +1,388 @@
+[
+    {
+        "name": "deepseek-reasoning",
+        "original_name": "us.deepseek.r1-v1:0",
+        "description": "DeepSeek R1 0528 (Bedrock)",
+        "maxInputChars": 5000,
+        "reasoning": true,
+        "provider": "bedrock",
+        "tier": "seed",
+        "community": false,
+        "aliases": [
+            "deepseek-r1-0528"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": false,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "gemini",
+        "original_name": "google/gemini-2.5-flash-lite",
+        "description": "Gemini 2.5 Flash Lite (api.navy)",
+        "provider": "api.navy",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "gemini-2.5-flash-lite"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "gpt-5-nano",
+        "description": "OpenAI GPT-5 Nano",
+        "original_name": "gpt-5-nano-2025-08-07",
+        "provider": "azure",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "gpt-5-nano"
+        ],
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "mistral",
+        "original_name": "mistral-small-3.1-24b-instruct-2503",
+        "description": "Mistral Small 3.1 24B",
+        "provider": "scaleway",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "mistral-small-3.1-24b-instruct"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "nova-fast",
+        "description": "Amazon Nova Micro (Bedrock)",
+        "original_name": "amazon.nova-micro-v1:0",
+        "provider": "bedrock",
+        "community": false,
+        "tier": "anonymous",
+        "aliases": [
+            "nova-micro-v1"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "openai",
+        "description": "OpenAI GPT-5 Nano",
+        "provider": "azure",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "gpt-5-nano"
+        ],
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "original_name": "gpt-5-nano-2025-08-07",
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "openai-audio",
+        "original_name": "gpt-4o-mini-audio-preview-2024-12-17",
+        "description": "OpenAI GPT-4o Mini Audio Preview",
+        "maxInputChars": 2000,
+        "voices": [
+            "alloy",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "shimmer",
+            "coral",
+            "verse",
+            "ballad",
+            "ash",
+            "sage",
+            "amuch",
+            "dan"
+        ],
+        "provider": "azure",
+        "tier": "seed",
+        "community": false,
+        "aliases": [
+            "gpt-4o-mini-audio-preview"
+        ],
+        "input_modalities": [
+            "text",
+            "image",
+            "audio"
+        ],
+        "output_modalities": [
+            "audio",
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": true
+    },
+    {
+        "name": "openai-fast",
+        "description": "OpenAI GPT-4.1 Nano",
+        "provider": "azure",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "gpt-4.1-nano"
+        ],
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "openai-large",
+        "original_name": "gpt-4.1-2025-04-14",
+        "description": "OpenAI GPT-4.1",
+        "maxInputChars": 5000,
+        "provider": "azure",
+        "tier": "flower",
+        "community": false,
+        "aliases": [
+            "gpt-4.1"
+        ],
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "openai-reasoning",
+        "original_name": "openai/o4-mini",
+        "description": "OpenAI o4-mini (api.navy)",
+        "provider": "api.navy",
+        "tier": "seed",
+        "community": false,
+        "aliases": [
+            "o4-mini"
+        ],
+        "reasoning": true,
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "qwen-coder",
+        "original_name": "qwen2.5-coder-32b-instruct",
+        "description": "Qwen 2.5 Coder 32B",
+        "provider": "scaleway",
+        "tier": "anonymous",
+        "community": false,
+        "aliases": [
+            "qwen2.5-coder-32b-instruct"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "roblox-rp",
+        "description": "Llama 3.1 8B Instruct (Cross-Region Bedrock)",
+        "original_name": "us.meta.llama3-1-8b-instruct-v1:0",
+        "provider": "bedrock",
+        "tier": "seed",
+        "community": false,
+        "aliases": [
+            "llama-roblox",
+            "llama-fast-roblox"
+        ],
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "bidara",
+        "description": "BIDARA (Biomimetic Designer and Research Assistant by NASA)",
+        "provider": "azure",
+        "tier": "anonymous",
+        "community": true,
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "evil",
+        "description": "Evil",
+        "provider": "scaleway",
+        "uncensored": true,
+        "tier": "seed",
+        "community": true,
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "midijourney",
+        "description": "MIDIjourney",
+        "provider": "azure",
+        "tier": "anonymous",
+        "community": true,
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "mirexa",
+        "description": "Mirexa AI Companion",
+        "provider": "azure",
+        "tier": "seed",
+        "community": true,
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "rtist",
+        "description": "Rtist",
+        "provider": "azure",
+        "tier": "seed",
+        "community": true,
+        "input_modalities": [
+            "text"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": false,
+        "audio": false
+    },
+    {
+        "name": "sur",
+        "description": "Sur AI Assistant",
+        "provider": "scaleway",
+        "tier": "seed",
+        "community": true,
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    },
+    {
+        "name": "unity",
+        "description": "Unity Unrestricted Agent",
+        "provider": "scaleway",
+        "uncensored": true,
+        "tier": "seed",
+        "community": true,
+        "input_modalities": [
+            "text",
+            "image"
+        ],
+        "output_modalities": [
+            "text"
+        ],
+        "tools": true,
+        "vision": true,
+        "audio": false
+    }
+]
