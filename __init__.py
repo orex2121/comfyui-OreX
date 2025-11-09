@@ -3,6 +3,7 @@ from .io_net_vision import IoNetVision
 from .OreXImageLoad import OreXImageLoad
 from .OreXImageSave import OreXImageSave
 from .OreXImageLoadBatch import OreXImageLoadBatch
+from .OreXImageLoadBatchSize import OreXImageLoadBatchSize
 from .OreXKontextPresets import KontextPresetsOrex
 from .OrexPollinationsTextLLM import PollinationsTextGenOrex
 
@@ -13,18 +14,20 @@ NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
     "orex Save Image": OreXImageSave,
     "orex Load Image Batch": OreXImageLoadBatch,
+    "orex Load Image Batch Size": OreXImageLoadBatchSize,
     "orex Kontext Presets": KontextPresetsOrex,
     "orex Polination Text Gen": PollinationsTextGenOrex
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = { 
-    "orex Kontext Presets": "📦 Kontext Presets (OreX)",
     "orex IoNet Chat": "io.net Chat",
     "orex IoNet Vision Url": "io.net Vision Url",
     "orex IoNet Vision": "io.net Vision",
     "orex Load Image": "🖼️ Load Image (OreX)",
     "orex Save Image": "💾 Save Image (OreX)",
     "orex Load Image Batch": "📦 Load Image Batch (OreX)",
+    "orex Load Image Batch Size": "📦 Load Image Batch Size (OreX)",
+    "orex Kontext Presets": "📦 Kontext Presets (OreX)",    
     "orex Polination Text Gen": "💬 Polination Text Gen (OreX)"
 }
 

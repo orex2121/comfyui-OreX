@@ -20,7 +20,7 @@ class OreXImageLoadBatchSize:
         }
 
     RETURN_TYPES = ("IMAGE", "STRING", "STRING", "INT")
-    RETURN_NAMES = ("IMAGES", "FILENAMES", "FOLDER_PATH", "COUNT")
+    RETURN_NAMES = ("image", "filename", "folder_path", "number_of_files")
     FUNCTION = "load_batch"
     OUTPUT_NODE = True
     OUTPUT_IS_LIST = (True, True, False, False)
