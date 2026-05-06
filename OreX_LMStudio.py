@@ -389,19 +389,21 @@ class OreXLMStudio:
                 if not include_reasoning:
                     import re
                     # 1. Remove fully closed reasoning/thinking tags
-                    # Handles <|channel>thought...<channel|> and variations
                     final_content = re.sub(r'<\|?channel\|?>.*?<\|?channel\|?>', '', final_content, flags=re.DOTALL | re.IGNORECASE)
-                    # Handles <thinking>...</thinking>, <think>...</think>, <reasoning>...</reasoning>
                     final_content = re.sub(r'<(thinking|think|reasoning)>.*?</\1>', '', final_content, flags=re.DOTALL | re.IGNORECASE)
                     
-                    # 2. Remove unclosed tags (in case generation stopped due to max_tokens limits)
+                    # 2. Handle missing opening tags (model starts directly with thoughts and ends with closing tag)
+                    final_content = re.sub(r'^.*?</(thinking|think|reasoning)>', '', final_content, flags=re.DOTALL | re.IGNORECASE)
+                    final_content = re.sub(r'^.*?(?:<channel\|>|</channel>)', '', final_content, flags=re.DOTALL | re.IGNORECASE)
+                    
+                    # 3. Remove unclosed tags (in case generation stopped due to max_tokens limits)
                     final_content = re.sub(r'<\|?channel\|?>.*$', '', final_content, flags=re.DOTALL | re.IGNORECASE)
                     final_content = re.sub(r'<(thinking|think|reasoning)>.*$', '', final_content, flags=re.DOTALL | re.IGNORECASE)
 
-                    # 3. Remove any remaining thinking markers (e.g., [Thinking...])
+                    # 4. Remove any remaining thinking markers (e.g., [Thinking...])
                     final_content = re.sub(r'\[Thinking.*?\]', '', final_content, flags=re.DOTALL | re.IGNORECASE)
                     
-                    # 4. Clean up extra whitespace and newlines
+                    # 5. Clean up extra whitespace and newlines
                     final_content = '\n'.join(line for line in final_content.splitlines() if line.strip())
                     final_content = final_content.strip()
                 
