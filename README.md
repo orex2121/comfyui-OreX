@@ -1,7 +1,7 @@
 # 🤫 Comfyui - OreX nodes 
 
 Это активно наполняемый набор узлов для разных задач. На данный момент в комплект набора входят узлы:
-- Для работы с бесплатными онлайн LLM моделями (большой набор). Узлы Text to prompt - для расширения подсказки или общения с LLM моделью. Узлы Image URL to Prompt - для описания изображений поданых по ссылке. Узлы Image to Prompt - для описания входного изображения из Load Image.
+- Для работы с LM-Studio моделями.
 - Узлы для одиночной и пакетной загрузки и сохранения изображений с расширинным функционалом.
 
 💡 Набор узлов активно развивается 💡
@@ -16,7 +16,6 @@
 
 ## 📋 Меню узлов
 `1.` [🖼️🔃 Load & Save single and batch images](#1----Load-&-Save-single-and-batch-images)  
-`2.` [🖼️🔃 IO NET NODES](#2----IO-NET-NODES)
 
 ## 📝 Описание узлов
 
@@ -41,31 +40,6 @@
 - Файлы всегда обрабатываются от меньшего к большему, seed нужен только для возможности повторного запуска схемы, если выберите fixed то схема повторно запускаться не будет.
 
 ![Show Text](screenshots/Save-Load-Image-workflow2.jpg)
-*** 
-### 2. 🖼️🔃 IO NET NODES
-
-**Узел io.net Chat**
-- Для общения или расширения подсказки с помощью LLM модели.
-- Поддерживает системный Prompt.
-- Большое кол-во поддерживаемых моделей.
-- Бесплатное API можно получить тут: `https://ai.io.net/ai/api-keys`
-- 
-![Show Text](screenshots/ionet-txt2prompt.png)
-
-**Узел io.net Vision url**
-- Для описания изображения поданого по ссылке или общение с LLM моделью относительно изображения поданого по ссылке.
-- Бесплатное API можно получить тут: `https://ai.io.net/ai/api-keys`
-- 
-![Show Text](screenshots/ionet-img-url2prompt.png)
-
-**Узел io.net Vision**
-- Для описания входного изображения из Load Image или общение с LLM моделью относительно изображения.
-- Бесплатное API можно получить тут: `https://ai.io.net/ai/api-keys`
-- 
-![Show Text](screenshots/ionet-img2prompt.png)
-
-**Поддерживаемые модели в режиме чата:** deepseek-ai/DeepSeek-R1, Qwen/QwQ-32B, deepseek-ai/DeepSeek-R1-Distill-Llama-70B, meta-llama/Llama-3.3-70B-Instruct, deepseek-ai/DeepSeek-R1-Distill-Qwen-32B, neuralmagic/Llama-3.1-Nemotron-70B-Instruct-HF-FP8-dynamic, и много других моделей.
-**Поддерживаемые модели в режиме анализа изображений:** meta-llama/Llama-3.2-90B-Vision-Instruct, Qwen/Qwen2-VL-7B-Instruct.
 
 ___
 **by StableDif & OreX**
