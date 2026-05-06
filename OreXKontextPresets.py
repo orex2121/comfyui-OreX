@@ -81,9 +81,10 @@ class KontextPresetsOrex(object):
                     "label_on": "Image description ON",
                     "label_off": "Image description OFF"
                 }),
-                "image_description": ("STRING", {
-                    "forceInput": True,
-                    "optional": True
+        "image_description": ("STRING", {
+                    "default": "",
+                    "multiline": True,
+                    "forceInput": True
                 }),
                 "Enable_Preset": ("BOOLEAN", {
                     "default": True,
