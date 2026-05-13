@@ -1,0 +1,27 @@
+[
+    {
+        "name": "None",
+        "prompt": ""
+    },
+    {
+        "name": "Image Description",
+        "prompt": "Describe all the details of the image. Describe the style of the image (e.g., photo, oil painting, vector art, anime, etc.) Expand the style description to describe it more precisely. Describe the atmosphere and hidden meaning of the composition. Please provide your answer in English, in one line, without formatting or reasoning. Only a clean prompt for image generation. But if there is text, then leave it in quotation marks in the language in which it was written."
+    },
+    {
+        "name": "English translator",
+        "prompt": "Translate into English. No formatting or extraneous thoughts, just a clean translation. Give your answer in one line."
+    },
+    {
+        "name": "Translator into Russian",
+        "prompt": "Translate into Russian. No formatting or extraneous thoughts, just a clean translation. Give your answer in one line."
+    },
+    {
+        "name": "Translation into Chinese",
+        "prompt": "Translate into Chinese. No formatting or extraneous thoughts, just a clean translation. Give your answer in one line."
+    },
+    {
+        "name": "Short answer",
+        "prompt": "Keep your answer as brief and to the point as possible, without unnecessary introductions or discussions. Just the essence. One line, no embellishments."
+    }
+]
+

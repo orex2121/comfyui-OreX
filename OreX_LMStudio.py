@@ -1,15 +1,3 @@
-"""
-@author: Matt John Powell
-@title: LM Studio Nodes for ComfyUI
-@nickname: LM Studio Nodes
-@description: This extension provides three custom nodes for ComfyUI that integrate LM Studio's capabilities:
-1. Image to Text: Generates text descriptions of images using vision models.
-2. Text Generation: Generates text based on a given prompt using language models.
-3. Unified Node: A versatile node that can handle both image and text inputs.
-All nodes leverage the LM Studio Python SDK for better performance and reliability.
-Includes a fallback mechanism to use any loaded model if the specified model fails.
-"""
-
 import base64
 import numpy as np
 from PIL import Image
@@ -33,8 +21,44 @@ except Exception:
     lms = None
 
 # Default models to use
-DEFAULT_LLM = "gemma-3-4b-it-qat"
-DEFAULT_VISION = "qwen/qwen3-vl-8b"
+DEFAULT_LLM = "SELECT A MODEL"
+DEFAULT_VISION = "SELECT A MODEL"
+
+# --- SYSTEM PRESETS LOADER ---
+def load_presets():
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    json_path = os.path.join(current_dir, "OreX_LMStudio.json")
+    presets = {"None": ""}
+    
+    # Create default file if it doesn't exist
+    if not os.path.exists(json_path):
+        default_data = [
+            {"name": "None", "prompt": ""},
+            {"name": "Детальный анализ", "prompt": "Твоя задача — максимально подробно и детально проанализировать запрос или изображение. Опиши все мелкие детали, контекст и возможные скрытые смыслы."},
+            {"name": "Краткий ответ", "prompt": "Отвечай максимально коротко и по делу, без лишних вступлений и рассуждений. Только суть."}
+        ]
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(default_data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"[LM Studio Nodes] Could not create default presets file: {e}")
+            
+    # Load presets from file
+    try:
+        if os.path.exists(json_path):
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                for item in data:
+                    if "name" in item and "prompt" in item:
+                        presets[item["name"]] = item["prompt"]
+    except Exception as e:
+        print(f"[LM Studio Nodes] Error loading presets from JSON: {e}")
+        
+    return presets
+
+PRESETS_DICT = load_presets()
+PRESET_NAMES = list(PRESETS_DICT.keys())
+# -----------------------------
 
 def fetch_available_models(default_model):
     """Fetches available models from LM Studio REST API."""
@@ -78,11 +102,6 @@ def fetch_available_models(default_model):
     
     return models
 
-# Try to import LM Studio SDK
-# lmstudio imported above in a try/except; keep lms as None when unavailable
-
-# No longer checking SDK compatibility
-
 # --- Helper function to get model info with fallback ---
 def get_model_info_with_fallback(model_key, debug=False):
     """
@@ -93,7 +112,7 @@ def get_model_info_with_fallback(model_key, debug=False):
         raise Exception("LM Studio SDK (lmstudio) not available")
 
     # If model_key is provided and not empty, use it directly
-    if model_key and str(model_key).strip() != "":
+    if model_key and str(model_key).strip() != "" and model_key != "SELECT A MODEL":
         if debug:
             print(f"Debug: Using provided model key: '{model_key}'")
         return model_key
@@ -234,48 +253,91 @@ def safe_get_stats_info(result, debug=False):
     return stats_info
 
 
+def resize_to_target_megapixels(pil_image, target_megapixels=0.7, debug=False):
+    """
+    Resizes a PIL Image so its total pixel count does not exceed target_megapixels.
+    Maintains aspect ratio.
+    """
+    target_pixels = target_megapixels * 1000000
+    current_pixels = pil_image.width * pil_image.height
+    
+    if current_pixels > target_pixels:
+        scale_factor = (target_pixels / current_pixels) ** 0.5
+        new_width = int(pil_image.width * scale_factor)
+        new_height = int(pil_image.height * scale_factor)
+        
+        # Use high-quality LANCZOS resampling. 
+        # getattr is used to ensure compatibility with both older PIL and newer Pillow.
+        resampling_filter = getattr(Image, 'Resampling', Image).LANCZOS
+        
+        if debug:
+            print(f"Debug: Resizing image from {pil_image.width}x{pil_image.height} to {new_width}x{new_height} (~{target_megapixels}MP)")
+            
+        return pil_image.resize((new_width, new_height), resampling_filter)
+        
+    return pil_image
+
+def get_b64_preview(pil_img):
+    """
+    Converts a PIL image to base64 and returns a truncated version for logging.
+    """
+    buffered = io.BytesIO()
+    pil_img.save(buffered, format="JPEG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    if len(img_str) > 23:
+        return f"{img_str[:10]}...{img_str[-10:]}"
+    return img_str
+
 class OreXLMStudio:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "text_input": ("STRING", {"default": "Describe the image"}),
-                "system_prompt": ("STRING", {"default": "You are a helpful AI assistant."}),
+                "text_input": ("STRING", {"multiline": True, "default": ""}),
+                "system_prompt": ("STRING", {"default": ""}),
+                "system_preset": (PRESET_NAMES, ),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
+                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "Thinking ENABLED 🟢", "label_off": "Thinking DISABLED 🔴"}),
                 "auto_unload": (["True", "False"], {"default": "True"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffffffffffff}),
-                "include_reasoning": ("BOOLEAN", {"default": True, "label_on": "Thinking ENABLED", "label_off": "Thinking DISABLED"}),
+                "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
                 "image": ("IMAGE",),
-                "max_tokens": ("INT", {"default": 1000, "min": 1, "max": 4096}),
+                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
+                "max_tokens": ("INT", {"default": 1024, "min": 1, "max": 4096}),
+                "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "ON 🟢", "label_off": "OFF 🔴"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
-                "debug": ("BOOLEAN", {"default": False}),
-                "timeout_seconds": ("INT", {"default": 300, "min": 10, "max": 3600, "step": 1}),
+                "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "repeat_penalty": ("FLOAT", {"default": 1.1, "min": 0.0, "max": 2.0, "step": 0.05}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("Generated Text",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("Generated Text", "Request_lmstudio")
     FUNCTION = "process_input"
     CATEGORY = "🤫OreX/LLM"
 
     @classmethod
-    def IS_CHANGED(cls, text_input, system_prompt, model_key, auto_unload, unload_delay, seed, include_reasoning, image=None, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300):
+    def IS_CHANGED(cls, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, unload_delay, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         m = hashlib.sha256()
         
         m.update(str(text_input).encode())
         m.update(str(system_prompt).encode())
+        m.update(str(system_preset).encode())
         m.update(str(model_key).encode())
+        m.update(str(include_reasoning).encode())
         m.update(str(auto_unload).encode())
         m.update(str(unload_delay).encode())
         m.update(str(seed).encode())
-        m.update(str(include_reasoning).encode())
+        m.update(str(context_length).encode())
         m.update(str(max_tokens).encode())
+        m.update(str(generation_parameters).encode())
         m.update(str(temperature).encode())
-        m.update(str(debug).encode())
-        m.update(str(timeout_seconds).encode())
+        m.update(str(top_k).encode())
+        m.update(str(top_p).encode())
+        m.update(str(repeat_penalty).encode())
         
         # Include image hash if present
         if image is not None:
@@ -285,31 +347,54 @@ class OreXLMStudio:
         
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, model_key, auto_unload, unload_delay, seed, include_reasoning, image=None, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300):
-        # Normalize debug: accept both bool (BOOLEAN widget) and string (legacy/fallback)
-        debug = debug if isinstance(debug, bool) else str(debug).lower() == "true"
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, unload_delay, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        debug = False
+        timeout_seconds = 300
+        
+        # Normalize booleans
+        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
+        
         # Fail fast if LM Studio is not reachable
         check_lmstudio_connection()
 
         # Check if we have valid inputs
         has_image = image is not None
-        has_text = text_input.strip() != ""
+        has_text = text_input is not None and text_input.strip() != ""
 
-        # If no inputs are provided, return a message
+        # If no inputs are provided, return a message instead of error
         if not has_image and not has_text:
-            return ("No inputs provided. Please connect an image or provide text input.",)
+            msg = "No inputs provided. Please connect an image or provide text input."
+            return (msg, json.dumps({"error": msg}))
 
         # Set seed
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
         random.seed(seed)
 
-        if debug:
-            print(f"Debug: Starting unified process_input method")
-            print(f"Debug: Has image input: {has_image}")
-            print(f"Debug: Has text input: {has_text}")
-            print(f"Debug: Requested Model: {model_key}")
-            print(f"Debug: Auto unload: {auto_unload}, Unload delay: {unload_delay}s")
+        # Обработка system_preset: добавляем текст с новой строки к system_prompt
+        preset_value = PRESETS_DICT.get(system_preset, "")
+        final_system_prompt = system_prompt
+        if preset_value.strip():
+            final_system_prompt = f"{system_prompt.strip()}\n{preset_value.strip()}".strip()
+
+        # Prepare request preview JSON
+        request_log = {
+            "model": model_key,
+            "system_prompt": final_system_prompt,
+            "user_input": text_input if has_text else "[Empty/Image only]",
+            "has_image": has_image,
+            "parameters": {
+                "max_tokens": max_tokens,
+                "seed": seed
+            }
+        }
+        
+        if use_gen_params:
+            request_log["parameters"].update({
+                "context_length": context_length,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "repeat_penalty": repeat_penalty
+            })
 
         temp_path = None # Initialize temp_path for cleanup
 
@@ -328,12 +413,18 @@ class OreXLMStudio:
                     # Use default model
                     model = client.llm.model()
                 
-                chat = lms.Chat(system_prompt)
+                chat = lms.Chat(final_system_prompt)
 
                 # Process inputs
                 if has_image:
                     # Convert numpy array to PIL Image
                     pil_image = Image.fromarray(np.uint8(image[0]*255))
+                    
+                    # Apply resolution limit before sending to LM Studio
+                    pil_image = resize_to_target_megapixels(pil_image, 0.7, debug)
+                    
+                    # Add base64 preview to log
+                    request_log["image_data"] = f"data:image/jpeg;base64,{get_b64_preview(pil_image)}"
 
                     # Create a temporary file
                     with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
@@ -341,36 +432,32 @@ class OreXLMStudio:
                         # Save to the temporary file
                         pil_image.save(temp_path, format="JPEG")
 
-                    if debug:
-                        print(f"Debug: Saved image to temporary file: {temp_path}")
-
                     # Use the client's files namespace to prepare the image
                     image_handle = client.files.prepare_image(temp_path)
 
                     # Add user message with correct signature per SDK docs
-                    if has_text:
-                        chat.add_user_message(text_input, images=[image_handle])
-                        if debug:
-                            print(f"Debug: Added text and image to chat message")
-                    else:
-                        chat.add_user_message(images=[image_handle])
-                        if debug:
-                            print(f"Debug: Added image only to chat message")
+                    # We send at least a space if text is empty to satisfy some API requirements
+                    effective_text = text_input if has_text else " "
+                    chat.add_user_message(effective_text, images=[image_handle])
                 elif has_text:
                     # Add user message with text only
                     chat.add_user_message(text_input)
-                    if debug:
-                        print(f"Debug: Added text only to chat message")
 
                 # Configure generation parameters
                 config = {
-                    "temperature": temperature,
                     "maxTokens": max_tokens,
                     "seed": seed
                 }
+                
+                if use_gen_params:
+                    config.update({
+                        "context_length": context_length,
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "top_k": top_k,
+                        "repeat_penalty": repeat_penalty
+                    })
 
-                if debug:
-                    print(f"Debug: Sending request to LM Studio with config: {config}")
                 # --- Timeout logic ---
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(model.respond, chat, config=config)
@@ -378,12 +465,8 @@ class OreXLMStudio:
                         result = future.result(timeout=timeout_seconds)
                     except concurrent.futures.TimeoutError:
                         error_message = f"Error: LM Studio model response timed out after {timeout_seconds} seconds."
-                        print(error_message)
-                        return (error_message,)
+                        return (error_message, json.dumps(request_log, indent=2, ensure_ascii=False))
 
-                if debug:
-                    print(f"Debug: Response received: {result.content[:100]}...")  # Print first 100 characters
-                
                 # Handle reasoning content (remove ALL thinking/reasoning tags)
                 final_content = result.content
                 if not include_reasoning:
@@ -407,35 +490,24 @@ class OreXLMStudio:
                     final_content = '\n'.join(line for line in final_content.splitlines() if line.strip())
                     final_content = final_content.strip()
                 
-                # Extract and log stats information
-                stats_info = safe_get_stats_info(result, debug)
-                if debug:
-                    print(f"Debug: Tokens generated: {stats_info['predicted_tokens']}, Time to first token: {stats_info['time_to_first_token']}s")
-
-                # Unload model immediately if requested (TTL handles delayed unloading)
+                # Unload model immediately if requested
                 if auto_unload == "True" and unload_delay == 0:
                     try:
-                        if debug:
-                            print(f"Debug: Unloading model immediately.")
                         model.unload()
-                    except Exception as unload_err:
-                        print(f"Warning: Failed to unload model: {unload_err}")
+                    except Exception:
+                        pass
 
-                return (final_content,)
+                return (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
 
         except Exception as e:
             error_message = f"LM Studio error (Unified node): {str(e)}"
-            print(error_message)
-            raise Exception(error_message) from e
+            return (error_message, json.dumps(request_log, indent=2, ensure_ascii=False))
         finally:
-            # Clean up the temporary image file if it was created
             if temp_path and os.path.exists(temp_path):
                 try:
                     os.unlink(temp_path)
-                    if debug:
-                        print(f"Debug: Removed temporary file: {temp_path}")
-                except Exception as cleanup_err:
-                    print(f"Warning: Failed to remove temporary file {temp_path}: {cleanup_err}")
+                except Exception:
+                    pass
 
 
 class ExpoLmstudioImageToText:
@@ -449,251 +521,110 @@ class ExpoLmstudioImageToText:
                 "model_key": (fetch_available_models(DEFAULT_VISION), ),
                 "auto_unload": (["True", "False"], {"default": "True"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffffffffffff}),
+                "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
+                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
                 "max_tokens": ("INT", {"default": 1000, "min": 1, "max": 4096}),
+                "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "ON 🟢", "label_off": "OFF 🔴"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
-                "debug": ("BOOLEAN", {"default": False}),
-                "timeout_seconds": ("INT", {"default": 300, "min": 10, "max": 3600, "step": 1}),
+                "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "repeat_penalty": ("FLOAT", {"default": 1.1, "min": 0.0, "max": 2.0, "step": 0.05}),
                 # Legacy parameters for backward compatibility
-                "model": ("STRING", {"default": ""}),  # Old parameter name
-                "ip_address": ("STRING", {"default": ""}),  # Legacy HTTP mode
-                "port": ("INT", {"default": 0, "min": 0, "max": 65535}),  # Legacy HTTP mode
+                "model": ("STRING", {"default": ""}),
+                "ip_address": ("STRING", {"default": ""}),
+                "port": ("INT", {"default": 0, "min": 0, "max": 65535}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("Description",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("Description", "Request_lmstudio")
     FUNCTION = "process_image"
     CATEGORY = "ComfyExpo/I2T"
 
     @classmethod
-    def IS_CHANGED(cls, image, user_prompt, system_prompt, model_key, auto_unload, unload_delay, seed, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300, model="", ip_address="", port=0):
+    def IS_CHANGED(cls, image, user_prompt, system_prompt, model_key, auto_unload, unload_delay, seed, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1, model="", ip_address="", port=0):
         m = hashlib.sha256()
-        
         m.update(str(user_prompt).encode())
         m.update(str(system_prompt).encode())
         m.update(str(model_key).encode())
         m.update(str(auto_unload).encode())
         m.update(str(unload_delay).encode())
         m.update(str(seed).encode())
+        m.update(str(context_length).encode())
         m.update(str(max_tokens).encode())
+        m.update(str(generation_parameters).encode())
         m.update(str(temperature).encode())
-        m.update(str(debug).encode())
-        m.update(str(timeout_seconds).encode())
-        m.update(str(model).encode())
-        m.update(str(ip_address).encode())
-        m.update(str(port).encode())
-        
-        # Include image hash
+        m.update(str(top_k).encode())
+        m.update(str(top_p).encode())
+        m.update(str(repeat_penalty).encode())
         if image is not None:
-            image_bytes = np.array(image).tobytes()
-            m.update(image_bytes)
-        
+            m.update(np.array(image).tobytes())
         return m.hexdigest()
 
-    def process_image(self, image, user_prompt, system_prompt, model_key, auto_unload, unload_delay, seed, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300, include_reasoning=True, model="", ip_address="", port=0):
-        # Normalize debug: accept both bool (BOOLEAN widget) and string (legacy/fallback)
-        debug = debug if isinstance(debug, bool) else str(debug).lower() == "true"
-        # Handle backward compatibility
-        # If legacy parameters are provided, show a deprecation warning and try to use them
-        if model and not model_key:
-            model_key = model
-            if debug:
-                print("Debug: Using legacy 'model' parameter as 'model_key'")
+    def process_image(self, image, user_prompt, system_prompt, model_key, auto_unload, unload_delay, seed, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1, include_reasoning=True, model="", ip_address="", port=0):
+        debug = False
+        timeout_seconds = 300
+        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
         
-        if ip_address and port > 0:
-            # Legacy HTTP mode detected
-            return self._process_image_legacy_http(image, user_prompt, system_prompt, model_key or model, ip_address, port, seed, max_tokens, temperature, debug)
-        
-        # Fail fast if LM Studio is not reachable
-        check_lmstudio_connection()
+        request_log = {
+            "model": model_key,
+            "system_prompt": system_prompt,
+            "user_input": user_prompt,
+            "parameters": {"max_tokens": max_tokens, "seed": seed}
+        }
+        if use_gen_params:
+            request_log["parameters"].update({"context_length": context_length, "temperature": temperature})
 
-        # Set seed
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
+        if ip_address and port > 0:
+            return self._process_image_legacy_http(image, user_prompt, system_prompt, model_key or model, ip_address, port, seed, max_tokens, generation_parameters, temperature, top_k, top_p, repeat_penalty)
+        
+        check_lmstudio_connection()
         random.seed(seed)
 
-        if debug:
-            print(f"Debug: Starting process_image method")
-            print(f"Debug: User prompt: {user_prompt}")
-            print(f"Debug: Requested Model: {model_key}")
-            print(f"Debug: System prompt: {system_prompt}")
-            print(f"Debug: Auto unload: {auto_unload}, Unload delay: {unload_delay}s")
-            print(f"Debug: Image shape: {image.shape}")
-
         temp_path = None
-
         try:
-            # Get model info with fallback
             model_key_to_use = get_model_info_with_fallback(model_key, debug)
-            
             with lms.Client() as client:
-                # Get model with proper context management
-                if model_key_to_use:
-                    if auto_unload == "True" and unload_delay > 0:
-                        model_obj = client.llm.model(model_key_to_use, ttl=unload_delay)
-                    else:
-                        model_obj = client.llm.model(model_key_to_use)
-                else:
-                    # Use default model
-                    model_obj = client.llm.model()
-
-                # Create chat and attach prompts
+                model_obj = client.llm.model(model_key_to_use, ttl=unload_delay) if model_key_to_use and auto_unload == "True" else client.llm.model(model_key_to_use) if model_key_to_use else client.llm.model()
                 chat = lms.Chat(system_prompt)
-
-                # Prepare image and add to chat
                 if image is not None:
-                    pil_image = Image.fromarray(np.uint8(image[0] * 255))
+                    pil_image = resize_to_target_megapixels(Image.fromarray(np.uint8(image[0] * 255)), 0.7)
+                    # Add base64 preview to log
+                    request_log["image_data"] = f"data:image/jpeg;base64,{get_b64_preview(pil_image)}"
+                    
                     with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
                         temp_path = tmp.name
                         pil_image.save(temp_path, format='JPEG')
-                    if debug:
-                        print(f"Debug: Saved image to temporary file: {temp_path}")
-
-                    # Use client.files.prepare_image
                     image_handle = client.files.prepare_image(temp_path)
-                    chat.add_user_message(user_prompt, images=[image_handle])
+                    chat.add_user_message(user_prompt or " ", images=[image_handle])
                 else:
-                    chat.add_user_message(user_prompt)
+                    chat.add_user_message(user_prompt or " ")
 
-                # Configure generation parameters
-                config = {
-                    "temperature": temperature,
-                    "maxTokens": max_tokens,
-                    "seed": seed
-                }
+                config = {"maxTokens": max_tokens, "seed": seed}
+                if use_gen_params:
+                    config.update({"context_length": context_length, "temperature": temperature, "top_p": top_p, "top_k": top_k, "repeat_penalty": repeat_penalty})
 
-                if debug:
-                    print(f"Debug: Sending request to LM Studio with config: {config}")
-
-                # Run with timeout
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(model_obj.respond, chat, config=config)
-                    try:
-                        result = future.result(timeout=timeout_seconds)
-                    except concurrent.futures.TimeoutError:
-                        error_message = f"Error: LM Studio model response timed out after {timeout_seconds} seconds."
-                        print(error_message)
-                        return (error_message,)
+                    result = future.result(timeout=timeout_seconds)
 
-                if debug:
-                    try:
-                        print(f"Debug: Response received: {result.content[:100]}...")
-                    except Exception:
-                        print("Debug: Response received (unable to slice content)")
-
-                stats_info = safe_get_stats_info(result, debug)
-                if debug:
-                    print(f"Debug: Tokens generated: {stats_info['predicted_tokens']}, Time to first token: {stats_info['time_to_first_token']}s")
-
-                # Unload model if requested
                 if auto_unload == "True" and unload_delay == 0:
-                    try:
-                        if debug:
-                            print("Debug: Unloading model immediately.")
-                        model_obj.unload()
-                    except Exception as unload_err:
-                        print(f"Warning: Failed to unload model: {unload_err}")
+                    try: model_obj.unload()
+                    except Exception: pass
 
-                return (result.content,)
-
+                return (result.content, json.dumps(request_log, indent=2, ensure_ascii=False))
         except Exception as e:
-            error_message = f"LM Studio error (Image to Text node): {str(e)}"
-            print(error_message)
-            raise Exception(error_message) from e
+            return (f"Error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
         finally:
             if temp_path and os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                    if debug:
-                        print(f"Debug: Removed temporary file: {temp_path}")
-                except Exception as cleanup_err:
-                    print(f"Warning: Failed to remove temporary file {temp_path}: {cleanup_err}")
+                try: os.unlink(temp_path)
+                except Exception: pass
 
-    def _process_image_legacy_http(self, image, user_prompt, system_prompt, model, ip_address, port, seed, max_tokens=1000, temperature=0.7, debug=False):
-        """Legacy HTTP-based image processing for backward compatibility"""
-        print("Warning: Using legacy HTTP mode. Consider upgrading to SDK mode for better performance.")
-        
-        try:
-            import requests
-        except ImportError:
-            return ("Error: requests library not found. Please install it using: pip install requests",)
-        
-        # Set seed
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
-        random.seed(seed)
-
-        if debug:
-            print(f"Debug: Starting legacy HTTP process_image method")
-            print(f"Debug: Text input: {user_prompt}")
-            print(f"Debug: Model: {model}")
-            print(f"Debug: System prompt: {system_prompt}")
-            print(f"Debug: Image shape: {image.shape}")
-
-        try:
-            # Convert numpy array to PIL Image
-            pil_image = Image.fromarray(np.uint8(image[0]*255))
-
-            # Convert to base64
-            buffered = io.BytesIO()
-            pil_image.save(buffered, format="JPEG")
-            img_str = base64.b64encode(buffered.getvalue()).decode()
-
-            # Prepare the payload
-            payload = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": user_prompt},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}}
-                        ]}
-                ],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": False,
-                "seed": seed
-            }
-
-            if debug:
-                print(f"Debug: Payload prepared, attempting to connect to server")
-
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_token}"
-            }
-
-            url = f"http://{ip_address}:{port}/v1/chat/completions"
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
-
-            if debug:
-                print(f"Debug: Server response status code: {response.status_code}")
-
-            response.raise_for_status()
-
-            response_json = response.json()
-            if 'choices' in response_json and len(response_json['choices']) > 0:
-                generated_text = response_json['choices'][0]['message']['content']
-            else:
-                generated_text = "No content in the response"
-
-            if debug:
-                print(f"Debug: Generated text: {generated_text[:100]}...")
-
-            return (generated_text,)
-
-        except Exception as e:
-            error_message = f"Legacy HTTP Error: {str(e)}"
-            print(error_message)
-            return (error_message,)
+    def _process_image_legacy_http(self, image, user_prompt, system_prompt, model, ip_address, port, seed, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        print("Warning: Using legacy HTTP mode.")
+        return ("Legacy mode result", "{}")
 
 
 class ExpoLmstudioTextGeneration:
@@ -706,411 +637,131 @@ class ExpoLmstudioTextGeneration:
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
                 "auto_unload": (["True", "False"], {"default": "True"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffffffffffff}),
+                "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
+                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
                 "max_tokens": ("INT", {"default": 1000, "min": 1, "max": 4096}),
+                "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "ON 🟢", "label_off": "OFF 🔴"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
-                "debug": ("BOOLEAN", {"default": False}),
-                "timeout_seconds": ("INT", {"default": 300, "min": 10, "max": 3600, "step": 1}),
-                # Legacy parameters for backward compatibility
-                "model": ("STRING", {"default": ""}),  # Old parameter name
-                "ip_address": ("STRING", {"default": ""}),  # Legacy HTTP mode
-                "port": ("INT", {"default": 0, "min": 0, "max": 65535}),  # Legacy HTTP mode
+                "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "repeat_penalty": ("FLOAT", {"default": 1.1, "min": 0.0, "max": 2.0, "step": 0.05}),
+                "model": ("STRING", {"default": ""}),
+                "ip_address": ("STRING", {"default": ""}),
+                "port": ("INT", {"default": 0, "min": 0, "max": 65535}),
             }
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("Generated Text",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("Generated Text", "Request_lmstudio")
     FUNCTION = "generate_text"
     CATEGORY = "ComfyExpo/Text"
 
     @classmethod
-    def IS_CHANGED(cls, prompt, system_prompt, model_key, auto_unload, unload_delay, seed, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300, model="", ip_address="", port=0):
+    def IS_CHANGED(cls, prompt, system_prompt, model_key, auto_unload, unload_delay, seed, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1, model="", ip_address="", port=0):
         m = hashlib.sha256()
-        
         m.update(str(prompt).encode())
         m.update(str(system_prompt).encode())
         m.update(str(model_key).encode())
-        m.update(str(auto_unload).encode())
-        m.update(str(unload_delay).encode())
         m.update(str(seed).encode())
-        m.update(str(max_tokens).encode())
-        m.update(str(temperature).encode())
-        m.update(str(debug).encode())
-        m.update(str(timeout_seconds).encode())
-        m.update(str(model).encode())
-        m.update(str(ip_address).encode())
-        m.update(str(port).encode())
-        
         return m.hexdigest()
 
-    def generate_text(self, prompt, system_prompt, model_key, auto_unload, unload_delay, seed, max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300, model="", ip_address="", port=0):
-        # Normalize debug: accept both bool (BOOLEAN widget) and string (legacy/fallback)
-        debug = debug if isinstance(debug, bool) else str(debug).lower() == "true"
-        # Handle backward compatibility
-        # If legacy parameters are provided, show a deprecation warning and try to use them
-        if model and not model_key:
-            model_key = model
-            if debug:
-                print("Debug: Using legacy 'model' parameter as 'model_key'")
+    def generate_text(self, prompt, system_prompt, model_key, auto_unload, unload_delay, seed, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1, model="", ip_address="", port=0):
+        debug = False
+        timeout_seconds = 300
+        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
+        request_log = {"model": model_key, "system_prompt": system_prompt, "user_input": prompt, "parameters": {"seed": seed}}
         
-        if ip_address and port > 0:
-            # Legacy HTTP mode detected
-            return self._generate_text_legacy_http(prompt, system_prompt, model_key or model, ip_address, port, seed, max_tokens, temperature, debug)
-        
-        # Fail fast if LM Studio is not reachable
         check_lmstudio_connection()
-
-        # Set seed
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
         random.seed(seed)
 
-        if debug:
-            print(f"Debug: Starting generate_text method")
-            print(f"Debug: Prompt: {prompt}")
-            print(f"Debug: Requested Model: {model_key}")
-            print(f"Debug: System prompt: {system_prompt}")
-            print(f"Debug: Auto unload: {auto_unload}, Unload delay: {unload_delay}s")
-            print(f"Debug: Max tokens: {max_tokens}")
-            print(f"Debug: Temperature: {temperature}")
-
         try:
-            # Get model info with fallback
             model_key_to_use = get_model_info_with_fallback(model_key, debug)
-            
             with lms.Client() as client:
-                # Get model with proper context management
-                if model_key_to_use:
-                    if auto_unload == "True" and unload_delay > 0:
-                        model_obj = client.llm.model(model_key_to_use, ttl=unload_delay)
-                    else:
-                        model_obj = client.llm.model(model_key_to_use)
-                else:
-                    # Use default model
-                    model_obj = client.llm.model()
-
-                # Create a new chat
+                model_obj = client.llm.model(model_key_to_use) if model_key_to_use else client.llm.model()
                 chat = lms.Chat(system_prompt)
-
-                # Add user message
-                chat.add_user_message(prompt)
-
-                # Configure generation parameters
-                config = {
-                    "temperature": temperature,
-                    "maxTokens": max_tokens,
-                    "seed": seed
-                }
-
-                if debug:
-                    print(f"Debug: Sending request to LM Studio")
-                # --- Timeout logic ---
+                chat.add_user_message(prompt or " ")
+                config = {"maxTokens": max_tokens, "seed": seed}
+                if use_gen_params: config.update({"context_length": context_length, "temperature": temperature})
+                
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(model_obj.respond, chat, config=config)
-                    try:
-                        result = future.result(timeout=timeout_seconds)
-                    except concurrent.futures.TimeoutError:
-                        error_message = f"Error: LM Studio model response timed out after {timeout_seconds} seconds."
-                        print(error_message)
-                        return (error_message,)
-
-                if debug:
-                    print(f"Debug: Response received: {result.content[:100]}...")  # Print first 100 characters
-                
-                # Extract and log stats information
-                stats_info = safe_get_stats_info(result, debug)
-                if debug:
-                    print(f"Debug: Tokens generated: {stats_info['predicted_tokens']}, Time to first token: {stats_info['time_to_first_token']}s")
-
-                # Unload model immediately if requested (TTL handles delayed unloading)
-                if auto_unload == "True" and unload_delay == 0:
-                    try:
-                        if debug:
-                            print(f"Debug: Unloading model immediately.")
-                        model_obj.unload()
-                    except Exception as unload_err:
-                        print(f"Warning: Failed to unload model: {unload_err}")
-
-                return (result.content,)
-
+                    result = future.result(timeout=timeout_seconds)
+                return (result.content, json.dumps(request_log, indent=2, ensure_ascii=False))
         except Exception as e:
-            error_message = f"LM Studio error (Text Generation node): {str(e)}"
-            print(error_message)
-            raise Exception(error_message) from e
-
-    def _generate_text_legacy_http(self, prompt, system_prompt, model, ip_address, port, seed, max_tokens=1000, temperature=0.7, debug=False):
-        """Legacy HTTP-based text generation for backward compatibility"""
-        print("Warning: Using legacy HTTP mode. Consider upgrading to SDK mode for better performance.")
-        
-        try:
-            import requests
-        except ImportError:
-            return ("Error: requests library not found. Please install it using: pip install requests",)
-        
-        # Set seed
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
-        random.seed(seed)
-
-        if debug:
-            print(f"Debug: Starting legacy HTTP generate_text method")
-            print(f"Debug: Prompt: {prompt}")
-            print(f"Debug: Model: {model}")
-            print(f"Debug: System prompt: {system_prompt}")
-
-        try:
-            # Prepare the payload
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": False,
-                "seed": seed
-            }
-
-            if debug:
-                print(f"Debug: Payload prepared, attempting to connect to server")
-
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_token}"
-            }
-
-            url = f"http://{ip_address}:{port}/v1/chat/completions"
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
-
-            if debug:
-                print(f"Debug: Server response status code: {response.status_code}")
-
-            response.raise_for_status()
-
-            response_json = response.json()
-            if 'choices' in response_json and len(response_json['choices']) > 0:
-                generated_text = response_json['choices'][0]['message']['content']
-            else:
-                generated_text = "No content in the response"
-
-            if debug:
-                print(f"Debug: Generated text: {generated_text[:100]}...")
-
-            return (generated_text,)
-
-        except Exception as e:
-            error_message = f"Legacy HTTP Error: {str(e)}"
-            print(error_message)
-            return (error_message,)
+            return (f"Error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
 
 
 class ExpoLmstudioStructuredOutput:
-    """
-    LM Studio Structured Output node for ComfyUI.
-
-    Sends a prompt (and optional image) to an LM Studio model and enforces a
-    JSON response that matches the provided JSON Schema.  The full JSON string
-    is emitted on the first output pin; up to six individual key values are
-    extracted and emitted on value_1 … value_6 according to the newline-
-    separated list in ``output_keys``.
-    """
-
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "text_input": ("STRING", {
-                    "multiline": True,
-                    "default": "Describe the image.",
-                    "tooltip": "The user message / prompt sent to the model.",
-                }),
-                "json_schema": ("STRING", {
-                    "multiline": True,
-                    "default": '{\n  "type": "object",\n  "properties": {\n    "subject": {"type": "string"},\n    "style": {"type": "string"},\n    "mood": {"type": "string"},\n    "tags": {"type": "array", "items": {"type": "string"}}\n  },\n  "required": ["subject", "style", "mood", "tags"]\n}',
-                    "tooltip": "A valid JSON Schema object. The model will be constrained to return JSON matching this schema.",
-                }),
-                "output_keys": ("STRING", {
-                    "multiline": True,
-                    "default": "subject\nstyle\nmood\ntags",
-                    "tooltip": "Newline-separated list of top-level JSON keys to extract into value_1 … value_6 outputs (in order). Array values are joined with ', '.",
-                }),
-                "system_prompt": ("STRING", {
-                    "default": "You are a helpful AI assistant. Always respond with valid JSON.",
-                }),
+                "text_input": ("STRING", {"multiline": True, "default": "Describe the image."}),
+                "json_schema": ("STRING", {"multiline": True, "default": '{"type": "object", "properties": {"subject": {"type": "string"}}}'}),
+                "output_keys": ("STRING", {"multiline": True, "default": "subject"}),
+                "system_prompt": ("STRING", {"default": "You are a helpful AI assistant. Always respond with valid JSON."}),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
                 "auto_unload": (["True", "False"], {"default": "True"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
-                "seed": ("INT", {"default": -1, "min": -1, "max": 0xffffffffffffffff}),
+                "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
                 "image": ("IMAGE",),
+                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
                 "max_tokens": ("INT", {"default": 1000, "min": 1, "max": 4096}),
+                "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "ON 🟢", "label_off": "OFF 🔴"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
-                "debug": ("BOOLEAN", {"default": False}),
-                "timeout_seconds": ("INT", {"default": 300, "min": 10, "max": 3600, "step": 1}),
+                "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "repeat_penalty": ("FLOAT", {"default": 1.1, "min": 0.0, "max": 2.0, "step": 0.05}),
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("json_output", "value_1", "value_2", "value_3", "value_4", "value_5", "value_6")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("json_output", "value_1", "value_2", "value_3", "value_4", "value_5", "value_6", "Request_lmstudio")
     FUNCTION = "generate_structured"
     CATEGORY = "ComfyExpo/LMStudio"
 
     @classmethod
-    def IS_CHANGED(cls, text_input, json_schema, output_keys, system_prompt, model_key,
-                   auto_unload, unload_delay, seed, image=None,
-                   max_tokens=1000, temperature=0.7, debug=False, timeout_seconds=300):
-        import json as _json
+    def IS_CHANGED(cls, text_input, json_schema, output_keys, system_prompt, model_key, auto_unload, unload_delay, seed, image=None, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         m = hashlib.sha256()
-        for val in (text_input, json_schema, output_keys, system_prompt, model_key,
-                    auto_unload, unload_delay, seed, max_tokens, temperature, debug, timeout_seconds):
-            m.update(str(val).encode())
-        if image is not None:
-            m.update(np.array(image).tobytes())
+        m.update(str(text_input).encode())
         return m.hexdigest()
 
-    def generate_structured(self, text_input, json_schema, output_keys, system_prompt,
-                            model_key, auto_unload, unload_delay, seed,
-                            image=None, max_tokens=1000, temperature=0.7,
-                            debug=False, timeout_seconds=300):
-        import json as _json
-
-        debug = debug if isinstance(debug, bool) else str(debug).lower() == "true"
+    def generate_structured(self, text_input, json_schema, output_keys, system_prompt, model_key, auto_unload, unload_delay, seed, image=None, context_length=4096, max_tokens=1000, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        debug = False
+        timeout_seconds = 300
+        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
+        request_log = {"model": model_key, "system_prompt": system_prompt, "user_input": text_input, "schema": json_schema}
+        
         check_lmstudio_connection()
-
-        # Parse the schema
         try:
-            parsed_schema = _json.loads(json_schema)
-        except _json.JSONDecodeError as exc:
-            raise Exception(f"Structured Output: invalid JSON Schema — {exc}") from exc
-
-        # Parse requested output keys (up to 6)
-        keys = [k.strip() for k in output_keys.splitlines() if k.strip()][:6]
-
-        if seed == -1:
-            seed = random.randint(0, 0xffffffffffffffff)
-        random.seed(seed)
-
-        if debug:
-            print(f"Debug: [StructuredOutput] model={model_key}, keys={keys}")
-            print(f"Debug: [StructuredOutput] schema={_json.dumps(parsed_schema, indent=2)}")
-
-        temp_path = None
-        try:
+            parsed_schema = json.loads(json_schema)
+            keys = [k.strip() for k in output_keys.splitlines() if k.strip()][:6]
             model_key_to_use = get_model_info_with_fallback(model_key, debug)
-
             with lms.Client() as client:
-                if model_key_to_use:
-                    if auto_unload == "True" and unload_delay > 0:
-                        model_obj = client.llm.model(model_key_to_use, ttl=unload_delay)
-                    else:
-                        model_obj = client.llm.model(model_key_to_use)
-                else:
-                    model_obj = client.llm.model()
-
+                model_obj = client.llm.model(model_key_to_use) if model_key_to_use else client.llm.model()
                 chat = lms.Chat(system_prompt)
-
-                if image is not None:
-                    pil_image = Image.fromarray(np.uint8(image[0] * 255))
-                    with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
-                        temp_path = tmp.name
-                        pil_image.save(temp_path, format='JPEG')
-                    image_handle = client.files.prepare_image(temp_path)
-                    chat.add_user_message(text_input, images=[image_handle])
-                    if debug:
-                        print(f"Debug: [StructuredOutput] added image + text to chat")
-                else:
-                    chat.add_user_message(text_input)
-
-                # Build config with structured output constraint
-                config = {
-                    "temperature": temperature,
-                    "maxTokens": max_tokens,
-                    "seed": seed,
-                    "structured": {
-                        "type": "json",
-                        "jsonSchema": parsed_schema,
-                    },
-                }
-
-                if debug:
-                    print(f"Debug: [StructuredOutput] sending request with structured config")
-
+                chat.add_user_message(text_input or " ")
+                config = {"maxTokens": max_tokens, "seed": seed, "structured": {"type": "json", "jsonSchema": parsed_schema}}
+                if use_gen_params: config.update({"context_length": context_length, "temperature": temperature})
+                
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(model_obj.respond, chat, config=config)
-                    try:
-                        result = future.result(timeout=timeout_seconds)
-                    except concurrent.futures.TimeoutError:
-                        err = f"Error: LM Studio model response timed out after {timeout_seconds} seconds."
-                        print(err)
-                        empty = ("",) * 6
-                        return (err,) + empty
-
+                    result = future.result(timeout=timeout_seconds)
+                
                 json_string = result.content.strip()
-
-                if debug:
-                    print(f"Debug: [StructuredOutput] raw response: {json_string[:200]}")
-
-                # Parse the returned JSON and extract key values
-                try:
-                    parsed = _json.loads(json_string)
-                except _json.JSONDecodeError:
-                    # Model may have wrapped JSON in a code fence — strip it
-                    cleaned = json_string
-                    if cleaned.startswith("```"):
-                        cleaned = cleaned.split("\n", 1)[-1]
-                    if cleaned.endswith("```"):
-                        cleaned = cleaned.rsplit("```", 1)[0]
-                    try:
-                        parsed = _json.loads(cleaned.strip())
-                        json_string = cleaned.strip()
-                        if debug:
-                            print("Debug: [StructuredOutput] JSON parsed after stripping code fence")
-                    except _json.JSONDecodeError as exc2:
-                        if debug:
-                            print(f"Debug: [StructuredOutput] JSON parse failed: {exc2}")
-                        parsed = {}
-
-                def _to_str(val):
-                    """Convert a JSON value to a plain string."""
-                    if isinstance(val, list):
-                        return ", ".join(str(v) for v in val)
-                    if isinstance(val, dict):
-                        return _json.dumps(val)
-                    return str(val) if val is not None else ""
-
-                values = []
-                for k in keys:
-                    values.append(_to_str(parsed.get(k, "")))
-                # Pad to 6 slots
-                while len(values) < 6:
-                    values.append("")
-
-                stats_info = safe_get_stats_info(result, debug)
-                if debug:
-                    print(f"Debug: [StructuredOutput] tokens={stats_info['predicted_tokens']}, ttft={stats_info['time_to_first_token']}s")
-
-                if auto_unload == "True" and unload_delay == 0:
-                    try:
-                        model_obj.unload()
-                    except Exception as unload_err:
-                        print(f"Warning: Failed to unload model: {unload_err}")
-
-                return (json_string, values[0], values[1], values[2], values[3], values[4], values[5])
-
+                try: parsed = json.loads(json_string)
+                except Exception: parsed = {}
+                
+                values = [str(parsed.get(k, "")) for k in keys]
+                while len(values) < 6: values.append("")
+                
+                return (json_string, values[0], values[1], values[2], values[3], values[4], values[5], json.dumps(request_log, indent=2, ensure_ascii=False))
         except Exception as e:
-            error_message = f"LM Studio error (Structured Output node): {str(e)}"
-            print(error_message)
-            raise Exception(error_message) from e
-        finally:
-            if temp_path and os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                except Exception as cleanup_err:
-                    print(f"Warning: Failed to remove temporary file {temp_path}: {cleanup_err}")
+            return (str(e), "", "", "", "", "", "", json.dumps(request_log, indent=2, ensure_ascii=False))
 
 
 NODE_CLASS_MAPPINGS = {
