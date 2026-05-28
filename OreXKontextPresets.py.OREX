@@ -23,8 +23,7 @@ def _load_json(path, default):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            print(f"[OreX LLM] Предупреждение при чтении JSON ({os.path.basename(path)}): {str(e)}")
+        except Exception:
             return default
     return default
 
@@ -41,8 +40,6 @@ def _load_manual_presets():
 
 def _load_manual_prompt_text():
     data = _load_manual_presets()
-    if not data:
-        return ""
     lines = []
     for key, item in data.items():
         title = key.strip()
@@ -79,29 +76,28 @@ class KontextPresetsOrex(object):
                     "default": "",
                     "multiline": True
                 }),
-                # --- Переключатели с поддержкой исходного регистра и красивыми маркерами ---
                 "image_description_enabled": ("BOOLEAN", {
                     "default": True,
-                    "label_on": "🟢 Image description ON",
-                    "label_off": "🔴 Image description OFF"
+                    "label_on": "Image description ON",
+                    "label_off": "Image description OFF"
                 }),
-                "image_description": ("STRING", {
+        "image_description": ("STRING", {
                     "default": "",
                     "multiline": True,
                     "forceInput": True
                 }),
                 "Enable_Preset": ("BOOLEAN", {
                     "default": True,
-                    "label_on": "🟢 ON",
-                    "label_off": "🔴 OFF"
+                    "label_on": "ON",
+                    "label_off": "OFF"
                 }),
                 "preset": (preset_keys, {
                     "default": preset_keys[0],
                 }),
                 "Manual_Preset": ("BOOLEAN", {
                     "default": False,
-                    "label_on": "🟢 ON",
-                    "label_off": "🔴 OFF"
+                    "label_on": "ON",
+                    "label_off": "OFF"
                 }),
                 "manual_preset": (manual_presets, {
                     "default": manual_presets[0],
@@ -131,7 +127,7 @@ class KontextPresetsOrex(object):
         if not text:
             return ""
         if "*image*" in text:
-            if enabled and image_desc and image_desc.strip():
+            if enabled and image_desc.strip():
                 return text.replace("*image*", image_desc.strip())
         return text
 
@@ -148,35 +144,30 @@ class KontextPresetsOrex(object):
 
         parts = []
 
-        if start_instruction and start_instruction.strip():
+        if start_instruction.strip():
             parts.append(start_instruction.strip())
 
-        if manual_prompt and manual_prompt.strip():
-            manual_cleaned = self._apply_image_substitution(manual_prompt.strip(), image_description, image_description_enabled)
-            if manual_cleaned.strip():
-                parts.append(manual_cleaned.strip())
+        manual_cleaned = self._apply_image_substitution(manual_prompt.strip(), image_description, image_description_enabled)
+        if manual_cleaned:
+            parts.append(manual_cleaned)
 
         if Enable_Preset:
             preset_text = self._resolve_preset_text(preset)
-            if preset_text:
-                substituted = self._apply_image_substitution(preset_text, image_description, image_description_enabled)
-                if substituted and substituted.strip():
-                    parts.append(substituted.strip())
+            substituted = self._apply_image_substitution(preset_text, image_description, image_description_enabled)
+            if substituted.strip():
+                parts.append(substituted.strip())
 
         if Manual_Preset:
             manual_text = self._resolve_manual_preset_text(manual_preset)
-            if manual_text:
-                substituted = self._apply_image_substitution(manual_text, image_description, image_description_enabled)
-                if substituted and substituted.strip():
-                    parts.append(substituted.strip())
+            substituted = self._apply_image_substitution(manual_text, image_description, image_description_enabled)
+            if substituted.strip():
+                parts.append(substituted.strip())
 
-        if end_instruction and end_instruction.strip():
+        if end_instruction.strip():
             parts.append(end_instruction.strip())
 
-        # Чистая сборка с двойным переносом строк для лучшего понимания текста LLM моделями
-        final = "\n\n".join(parts).strip()
+        final = " ".join(parts).strip()
         manual_text_file = _load_manual_prompt_text()
-        
         return (final, manual_text_file)
 
     def is_changed(self,
@@ -215,14 +206,16 @@ class KontextPresetsOrex(object):
 
         return hasher.hexdigest()
 
-# ========= Register (Убираем дублирование системных имён) =========
+# ========= Register =========
 
 NODE_CLASS_MAPPINGS = {
-    "KontextPresetsOrex": KontextPresetsOrex
+    "KontextPresetsOrex": KontextPresetsOrex,
+    "flux-kontext-orexnodes": KontextPresetsOrex,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "KontextPresetsOrex": "📆 Kontext Presets (OreX)"
+    "KontextPresetsOrex": "📆 Kontext Presets (OreX)",
+    "flux-kontext-orexnodes": "Flux Kontext (OreXNodes)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
