@@ -9,7 +9,6 @@ function getHitArea(node, pos, widget) {
     const height = 260;
     const width = node.size[0];
 
-    // Если курсор не над холстом рамки, игнорируем
     if (my < y || my > y + height) return null;
 
     const { w, h } = widget.getOutputDimensions(node);
@@ -50,7 +49,6 @@ app.registerExtension({
         if (nodeData.name === "orex Ratio") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
 
-            // --- 1. ПЕРЕХВАТ МЫШИ НА УРОВНЕ УЗЛА ТОЛЬКО ДЛЯ HOVER-ЭФФЕКТОВ ---
             const onMouseMove = nodeType.prototype.onMouseMove;
             nodeType.prototype.onMouseMove = function(e, pos, canvas) {
                 if (onMouseMove) onMouseMove.apply(this, arguments);
@@ -58,7 +56,6 @@ app.registerExtension({
                 const widget = this.widgets?.find(w => w.name === "ratio_preview");
                 if (!widget) return false;
 
-                // Меняем курсор только когда мы просто водим мышкой (не тащим рамку)
                 if (!this.dragging) {
                     const hit = getHitArea(this, pos, widget);
                     const cursors = { 
@@ -84,13 +81,11 @@ app.registerExtension({
                     onNodeCreated.apply(this, arguments);
                 }
                 
-                // Устанавливаем кастомный цвет узла (#855185)
                 this.color = "#855185";
-                this.bgcolor = "#5f3a5f"; // Слегка затемненный оттенок для заголовка
+                this.bgcolor = "#5f3a5f"; 
                 
-                // Прячем служебные параметры и настраиваем переключатель
                 const setupWidgetsAndCallbacks = () => {
-                    const node = this; // Надежно сохраняем контекст узла для коллбэков
+                    const node = this; 
                     
                     const cw = node.widgets?.find(w => w.name === "custom_width");
                     if (cw) { cw.type = "hidden"; cw.computeSize = () => [0, -4]; }
@@ -108,69 +103,38 @@ app.registerExtension({
                     const mpWidget = node.widgets?.find(w => w.name === "Megapixel");
                     const ratioWidget = node.widgets?.find(w => w.name === "ratio");
                     
-                    // --- ДОБАВЛЯЕМ СЛУШАТЕЛЬ ДЛЯ РУЧНОГО ИЗМЕНЕНИЯ MEGAPIXEL ---
                     if (mpWidget && !mpWidget._setupDone) {
                         const origMpCallback = mpWidget.callback;
                         mpWidget.callback = function(value, appCanvas, node_arg, pos, event) {
                             if (origMpCallback) origMpCallback.apply(this, arguments);
-                            
-                            const cleanRatio = ratioWidget?.value?.split(' ')[0];
-                            // Выполняем пересчет рамки, если мы не тащим её мышью и включен Custom
-                            if (!node._is_dragging_sync && cleanRatio === "Custom") {
-                                const use1024 = baseWidget ? !!baseWidget.value : true;
-                                const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
-                                const targetArea = value * basePixels;
-                                
-                                let curW = cw ? cw.value : 1024;
-                                let curH = ch ? ch.value : 1024;
-                                let ar = curW / curH; // Сохраняем текущие пропорции рамки
-                                if (isNaN(ar) || ar === 0) ar = 1;
-                                
-                                let newH = Math.sqrt(targetArea / ar);
-                                let newW = newH * ar;
-                                
-                                if (cw) cw.value = Math.max(64, Math.round(newW));
-                                if (ch) ch.value = Math.max(64, Math.round(newH));
-                            }
-                            node.setDirtyCanvas(true);
+                            node.setDirtyCanvas(true); // Форсируем перерисовку, которая сама синхронизирует скрытые поля
                         };
                         mpWidget._setupDone = true;
                     }
 
-                    // --- ДОБАВЛЯЕМ СЛУШАТЕЛЬ ДЛЯ РУЧНОГО ПЕРЕКЛЮЧЕНИЯ БАЗЫ 1024^2 ---
                     if (baseWidget && !baseWidget._hookDone) {
                         const origBaseCallback = baseWidget.callback;
                         baseWidget.callback = function(value, appCanvas, node_arg, pos, event) {
                             if (origBaseCallback) origBaseCallback.apply(this, arguments);
-                            
-                            const cleanRatio = ratioWidget?.value?.split(' ')[0];
-                            // Пересчитываем рамку при переключении базы, сохраняя те же пропорции
-                            if (!node._is_dragging_sync && cleanRatio === "Custom" && mpWidget) {
-                                const use1024 = !!value;
-                                const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
-                                const targetArea = mpWidget.value * basePixels;
-                                
-                                let curW = cw ? cw.value : 1024;
-                                let curH = ch ? ch.value : 1024;
-                                let ar = curW / curH; 
-                                if (isNaN(ar) || ar === 0) ar = 1;
-                                
-                                let newH = Math.sqrt(targetArea / ar);
-                                let newW = newH * ar;
-                                
-                                if (cw) cw.value = Math.max(64, Math.round(newW));
-                                if (ch) ch.value = Math.max(64, Math.round(newH));
-                            }
                             node.setDirtyCanvas(true);
                         };
                         baseWidget._hookDone = true;
+                    }
+
+                    // Добавляем коллбэк на изменение Ratio, чтобы обновлять холст сразу
+                    if (ratioWidget && !ratioWidget._hookDone) {
+                        const origRatioCallback = ratioWidget.callback;
+                        ratioWidget.callback = function(value, appCanvas, node_arg, pos, event) {
+                            if (origRatioCallback) origRatioCallback.apply(this, arguments);
+                            node.setDirtyCanvas(true);
+                        };
+                        ratioWidget._hookDone = true;
                     }
                 };
 
                 setupWidgetsAndCallbacks();
                 setTimeout(setupWidgetsAndCallbacks.bind(this), 100);
 
-                // --- 2. ЛОГИКА ИНТЕРАКТИВНОГО ХОЛСТА И ПЕРЕТАСКИВАНИЯ ---
                 const canvasWidget = {
                     type: "custom_canvas", 
                     name: "ratio_preview",
@@ -181,32 +145,41 @@ app.registerExtension({
                         const cleanRatio = ratioVal.split(' ')[0];
                         const mult = node.widgets?.find(w => w.name === "Multiplicity")?.value || 16;
                         
+                        let outW = 1024;
+                        let outH = 1024;
+
                         if (cleanRatio === "Custom") {
                             let cw_val = node.widgets?.find(w => w.name === "custom_width")?.value || 1024;
                             let ch_val = node.widgets?.find(w => w.name === "custom_height")?.value || 1024;
-                            return {
-                                w: Math.max(mult, Math.round(cw_val / mult) * mult),
-                                h: Math.max(mult, Math.round(ch_val / mult) * mult)
-                            };
+                            outW = Math.max(mult, Math.round(cw_val / mult) * mult);
+                            outH = Math.max(mult, Math.round(ch_val / mult) * mult);
+                        } else {
+                            const mp = node.widgets?.find(w => w.name === "Megapixel")?.value || 1.0;
+                            const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
+                            const use1024 = baseWidget ? !!baseWidget.value : true;
+                            const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
+                            const targetPixels = mp * basePixels;
+                            
+                            const parts = cleanRatio.split(':');
+                            const rw = Number(parts[0]) || 1;
+                            const rh = Number(parts[1]) || 1;
+                            const ratioFraction = rw / rh;
+                            let hBase = Math.sqrt(targetPixels / ratioFraction);
+                            let wBase = hBase * ratioFraction;
+                            
+                            outW = Math.max(mult, Math.round(wBase / mult) * mult);
+                            outH = Math.max(mult, Math.round(hBase / mult) * mult);
                         }
-                        
-                        const mp = node.widgets?.find(w => w.name === "Megapixel")?.value || 1.0;
-                        const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
-                        const use1024 = baseWidget ? !!baseWidget.value : true;
-                        const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
-                        const targetPixels = mp * basePixels;
-                        
-                        const parts = cleanRatio.split(':');
-                        const rw = Number(parts[0]) || 1;
-                        const rh = Number(parts[1]) || 1;
-                        const ratioFraction = rw / rh;
-                        let hBase = Math.sqrt(targetPixels / ratioFraction);
-                        let wBase = hBase * ratioFraction;
-                        
-                        return {
-                            w: Math.max(mult, Math.round(wBase / mult) * mult),
-                            h: Math.max(mult, Math.round(hBase / mult) * mult)
-                        };
+
+                        // ЖЕСТКАЯ СИНХРОНИЗАЦИЯ: Что бы ни происходило, мы принудительно
+                        // записываем рассчитанные визуальные размеры в скрытые поля, 
+                        // чтобы бэкенд Python 100% получил именно то, что на экране.
+                        const cwW = node.widgets?.find(w => w.name === "custom_width");
+                        const chW = node.widgets?.find(w => w.name === "custom_height");
+                        if (cwW && cwW.value !== outW) cwW.value = outW;
+                        if (chW && chW.value !== outH) chW.value = outH;
+
+                        return { w: outW, h: outH };
                     },
                     
                     computeSize: function(width) {
@@ -217,7 +190,6 @@ app.registerExtension({
                         this.last_y = y;
                         const height = 260;
                         
-                        // Дублируем настройку текста переключателя
                         const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
                         if (baseWidget && baseWidget.options) {
                             baseWidget.options.on = "🟢 ENABLED";
@@ -227,6 +199,7 @@ app.registerExtension({
                         ctx.fillStyle = "#1e1e1e";
                         ctx.fillRect(0, y, width, height);
                         
+                        // Вызов getOutputDimensions здесь также автоматически синхронизирует скрытые поля
                         const { w, h } = this.getOutputDimensions(node);
                         
                         if (!node.dragging) {
@@ -237,7 +210,6 @@ app.registerExtension({
                         const cx = width / 2;
                         const cy = y + height / 2;
                         
-                        // Сетка 128x128
                         const gridSize = 128 * scale;
                         ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
                         ctx.lineWidth = 1;
@@ -248,7 +220,6 @@ app.registerExtension({
                         for (let yy = cy - gridSize; yy > y; yy -= gridSize) { ctx.moveTo(0, yy); ctx.lineTo(width, yy); }
                         ctx.stroke();
                         
-                        // Рамка
                         const boxW = w * scale;
                         const boxH = h * scale;
                         const bx = cx - boxW / 2;
@@ -261,7 +232,6 @@ app.registerExtension({
                         ctx.lineWidth = 2;
                         ctx.strokeRect(bx, by, boxW, boxH);
                         
-                        // Центральный прицел
                         ctx.strokeStyle = "rgba(170, 255, 0, 0.8)";
                         ctx.lineWidth = 1;
                         ctx.beginPath();
@@ -269,7 +239,6 @@ app.registerExtension({
                         ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy + 10);
                         ctx.stroke();
                         
-                        // Текст размера
                         ctx.font = "bold 16px Arial"; 
                         ctx.textAlign = "center"; 
                         ctx.shadowColor = "black"; 
@@ -281,7 +250,6 @@ app.registerExtension({
                         ctx.shadowBlur = 0; 
                     },
                     
-                    // Перехват событий мыши НА УРОВНЕ ВИДЖЕТА (надежно работает в LiteGraph)
                     mouse: function(event, pos, node) {
                         const [mx, my] = pos;
                         const y = this.last_y || 0;
@@ -307,10 +275,6 @@ app.registerExtension({
                                 const ratioW = node.widgets?.find(w => w.name === "ratio");
                                 if (ratioW && ratioW.value !== "Custom") {
                                     ratioW.value = "Custom";
-                                    const cwW = node.widgets?.find(w => w.name === "custom_width");
-                                    const chW = node.widgets?.find(w => w.name === "custom_height");
-                                    if (cwW) cwW.value = w;
-                                    if (chW) chW.value = h;
                                 }
                                 return true;
                             }
@@ -353,7 +317,6 @@ app.registerExtension({
                             if (cwW) cwW.value = Math.max(64, Math.round(newW));
                             if (chW) chW.value = Math.max(64, Math.round(newH));
                             
-                            // Авто-синхронизация Megapixel во время перетаскивания
                             const mult = node.widgets?.find(w => w.name === "Multiplicity")?.value || 16;
                             const finalW = Math.max(mult, Math.round(newW / mult) * mult);
                             const finalH = Math.max(mult, Math.round(newH / mult) * mult);
@@ -384,7 +347,6 @@ app.registerExtension({
                     }
                 };
                 
-                // Очистка старых переопределений из предыдущих версий, чтобы не было конфликтов
                 delete nodeType.prototype.onDrawForeground;
                 delete nodeType.prototype.computeSize;
 

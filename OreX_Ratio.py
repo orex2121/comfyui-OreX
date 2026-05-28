@@ -1,5 +1,6 @@
 import torch
 import math
+import comfy.model_management
 
 class OreXRatio:
     @classmethod
@@ -50,13 +51,23 @@ class OreXRatio:
         width = int(round(w_base / Multiplicity) * Multiplicity)
         height = int(round(h_base / Multiplicity) * Multiplicity)
 
-        # 1. Стандартный латент (SD 1.5, SDXL)
-        latent_image = torch.zeros([1, 4, height // 8, width // 8])
+        # Получаем правильное устройство и тип данных, как в базовом узле ComfyUI
+        device = comfy.model_management.intermediate_device()
+        dtype = comfy.model_management.intermediate_dtype()
+
+        # 1. Стандартный латент (SD 1.5, SDXL) с параметрами ComfyUI
+        latent_image = torch.zeros([1, 4, height // 8, width // 8], device=device, dtype=dtype)
         
         # 2. Латент для SD3 и Flux 1
-        sd3_flux1_latent = torch.zeros([1, 16, height // 8, width // 8])
+        sd3_flux1_latent = torch.zeros([1, 16, height // 8, width // 8], device=device, dtype=dtype)
 
         # 3. Латент для Flux 2
-        flux2_latent = torch.zeros([1, 128, height // 16, width // 16])
+        flux2_latent = torch.zeros([1, 128, height // 16, width // 16], device=device, dtype=dtype)
 
-        return (width, height, {"samples": latent_image}, {"samples": sd3_flux1_latent}, {"samples": flux2_latent})
+        return (
+            width, 
+            height, 
+            {"samples": latent_image, "downscale_ratio_spacial": 8}, 
+            {"samples": sd3_flux1_latent, "downscale_ratio_spacial": 8}, 
+            {"samples": flux2_latent, "downscale_ratio_spacial": 16}
+        )
