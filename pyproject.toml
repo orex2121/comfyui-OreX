@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-orex" # Уникальное имя пакета (рекомендуется формат comfyui-*)
+version = "1.0.0"
+description = "A collection of custom nodes for ComfyUI by OreX"
+readme = "README.md"
+requires-python = ">=3.9" # ComfyUI работает на 3.9-3.12
+license = { text = "MIT" } # Укажи свою лицензию, если она отличается
+authors = [
+    { name = "Oleg Konuykov (OreX)" }
+]
+dependencies = [
+    # Здесь перечисляются все pip-пакеты, нужные твоим узлам.
+    # ComfyUI Manager установит их автоматически.
+    "torch",
+    "Pillow",
+    # Раскомментируй и добавь то, что нужно для твоих конкретных нод:
+    # "llama-cpp-python",  # если здесь будут лежать логики GGUF LLM
+    # "torchaudio",        # если будешь добавлять узлы для работы с WhisperX или CosyVoice
+]
+
+[project.urls]
+Repository = "https://github.com/orex2121/comfyui-OreX"
+# Ссылка будет отображаться как кнопка в ComfyUI Manager
+
+[tool.comfy]
+PublisherId = "orex"       # Твой ID разработчика в реестре ComfyUI
+DisplayName = "Orex Nodes" # Красивое имя, которое увидят пользователи
+Icon = "🔧"                # Иконка-эмодзи (по желанию)
