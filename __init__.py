@@ -32,6 +32,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Ratio": "📐 Ratio (OreX)" # Добавлено отображаемое имя
 }
 
+UE_VERSION = "1.1"
 WEB_DIRECTORY = "./js"
 
 # Изменено: добавлению WEB_DIRECTORY в список экспорта фронтенда
