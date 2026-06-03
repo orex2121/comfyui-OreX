@@ -9,7 +9,14 @@ import hashlib
 import random
 import urllib.request
 import urllib.error
+import urllib.parse
 import re
+
+# Импортируем SDK, так как он корректно работает с внутренними каналами LM Studio при выгрузке
+try:
+    import lmstudio as lms
+except ImportError:
+    lms = None
 
 # Default models to use
 DEFAULT_LLM = "SELECT A MODEL"
@@ -96,6 +103,64 @@ def api_call_lmstudio(endpoint, payload, timeout_seconds):
     except urllib.error.URLError as e:
         raise Exception(f"LM Studio API request failed: {e}")
 
+def unload_lmstudio_model(model_key):
+    """Выгружает модель из VRAM используя SDK или совместимые эндпоинты LM Studio."""
+    print(f"[LMStudio Nodes] ⏳ Attempting to auto-unload model: {model_key}...")
+    
+    # 1. Попытка выгрузки через официальный SDK (самый надежный способ)
+    if lms is not None:
+        try:
+            with lms.Client() as client:
+                model = client.llm.model(model_key)
+                model.unload()
+            print("[LMStudio Nodes] 🟢 Model unloaded successfully via LM Studio SDK")
+            return
+        except Exception as e:
+            print(f"[LMStudio Nodes] ⚠️ SDK unload attempt failed: {e}. Trying REST API fallback...")
+    else:
+        print("[LMStudio Nodes] ⚠️ 'lmstudio' SDK is not installed. Run 'pip install lmstudio' for best auto-unload support. Trying REST API fallback...")
+
+    # 2. Резервный вариант через REST API (очищен от косячных эндпоинтов, выдающих ошибки)
+    host = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
+    if not host.startswith("http"):
+        host = f"http://{host}"
+        
+    endpoints_to_try = [
+        # Успешный метод из лога (только с instance_id)
+        (f"{host}/api/v1/models/unload", "POST", json.dumps({"instance_id": model_key}).encode('utf-8'))
+    ]
+    
+    success = False
+    for url, method, data in endpoints_to_try:
+        try:
+            headers = {'Content-Type': 'application/json'} if data else {}
+            req = urllib.request.Request(url, data=data, headers=headers, method=method)
+            with urllib.request.urlopen(req, timeout=2.0) as response:
+                status_code = response.getcode()
+                response_body = response.read().decode('utf-8')
+                
+                is_error = False
+                try:
+                    body_json = json.loads(response_body)
+                    if "error" in body_json:
+                        is_error = True
+                except:
+                    if "error" in response_body.lower() or "unexpected endpoint" in response_body.lower():
+                        is_error = True
+                        
+                if is_error:
+                    continue
+                    
+                if status_code in [200, 204]:
+                    print(f"[LMStudio Nodes] 🟢 Model unloaded successfully via REST {method} {url}")
+                    success = True
+                    break
+        except Exception:
+            continue
+            
+    if not success:
+        print(f"[LMStudio Nodes] 🔴 Warning: Could not automatically unload model {model_key}. Check LM Studio logs.")
+
 def _clean_reasoning_content(content):
     """Безопасная очистка скрытых размышлений моделей класса DeepSeek R1."""
     if not content:
@@ -140,6 +205,7 @@ class OreXLMStudio:
                 "system_preset": (PRESET_NAMES, ),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
                 "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ENABLED", "label_off": "🔴 Thinking DISABLED"}),
+                "auto_unload": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
                 "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
@@ -168,7 +234,7 @@ class OreXLMStudio:
             m.update(str(kwargs["image"].shape).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         timeout_seconds = 300
         use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
         
@@ -238,9 +304,19 @@ class OreXLMStudio:
             if not include_reasoning:
                 final_content = _clean_reasoning_content(final_content)
 
-            return (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
+            # Сохраняем результат в переменную
+            res_tuple = (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
+            
         except Exception as e:
-            return (f"LM Studio error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
+            # В случае ошибки также сохраняем результат
+            res_tuple = (f"LM Studio error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
+            
+        # Гарантированно выполняем авто-выгрузку ДО возвращения (return)
+        if auto_unload:
+            unload_lmstudio_model(model_key)
+            
+        # Возвращаем закешированный результат
+        return res_tuple
 
 
 # ========= REGISTRATION (ОСТАВЛЯЕМ СТРОГО ОДИН Базовый УЗЕЛ) =========

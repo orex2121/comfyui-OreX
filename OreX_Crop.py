@@ -29,8 +29,7 @@ class OreXCrop:
                 "width": ("INT", {"default": 512, "min": 0, "max": 16384, "step": 1}),
                 "height": ("INT", {"default": 512, "min": 0, "max": 16384, "step": 1}),
                 "multiplicity": ("INT", {"default": 16, "min": 1, "max": 64, "step": 1}),
-                # Оставили только понятное имя параметра
-                "resolution (MP)": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+                "resolution (MP)": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 0.01}),
                 "upscale_method": (["nearest-exact", "bilinear", "area", "bicubic", "lanczos"], {"default": "bicubic"}),
                 "aspect_ratio": ("STRING", {"default": "Custom"}),
                 "ratio_lock": ("BOOLEAN", {"default": False, "label_on": "🟢 ENABLED", "label_off": "🔴 DISABLED"}),
@@ -47,8 +46,6 @@ class OreXCrop:
     def execute_crop(self, image: torch.Tensor, crop_left: float, crop_right: float, crop_top: float, crop_bottom: float, 
                      width: int = 512, height: int = 512, multiplicity: int = 16, **kwargs):
         
-        # Безопасно достаем параметры из kwargs
-        resolution = kwargs.get("resolution (MP)", 0.0)
         upscale_method = kwargs.get("upscale_method", "bicubic")
         mask = kwargs.get("mask", None)
 
@@ -154,6 +151,5 @@ class OreXCrop:
             "result": (cropped_image, cropped_mask, final_width, final_height)
         }
 
-# Явно задаем имя узла для ComfyUI, чтобы сопоставить с JS
 NODE_CLASS_MAPPINGS = {"orex Crop": OreXCrop}
-NODE_DISPLAY_NAME_MAPPINGS = {"orex Crop": "OreX Crop (Advanced)"}
+NODE_DISPLAY_NAME_MAPPINGS = {"orex Crop": "🔳Crop (OreX)"}

@@ -32,8 +32,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Ratio": "📐 Ratio (OreX)" # Добавлено отображаемое имя
 }
 
-UE_VERSION = "1.1"
+# Изменено: стандартное имя переменной версии для ComfyUI
+__version__ = "1.1.1"
 WEB_DIRECTORY = "./js"
 
-# Изменено: добавлению WEB_DIRECTORY в список экспорта фронтенда
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
+# Изменено: добавлена переменная __version__ для корректного чтения менеджером
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY', '__version__']

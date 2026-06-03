@@ -56,8 +56,8 @@ const parseRatio = (r) => {
     return parseFloat(s) || 1;
 };
 
-// Исправлено: Полный список элементов, имена (name) строго соответствуют виджетам и кнопкам
 const HELP_DESCRIPTIONS = [
+    { icon: "🔢", name: "Ratio Presets", label: "Presets / Шаблоны", desc: "Quick ratios", ru_desc: "Быстрый выбор пропорций" },
     { icon: "⬅️", name: "crop_left", label: "Left Crop / Обрезка слева", desc: "Remove pixels from the left side", ru_desc: "Удалить пиксели с левого края" },
     { icon: "➡️", name: "crop_right", label: "Right Crop / Обрезка справа", desc: "Remove pixels from the right side", ru_desc: "Удалить пиксели с правого края" },
     { icon: "⬆️", name: "crop_top", label: "Top Crop / Обрезка сверху", desc: "Remove pixels from the top", ru_desc: "Удалить пиксели сверху" },
@@ -68,7 +68,6 @@ const HELP_DESCRIPTIONS = [
     { icon: "🖥️", name: "resolution (MP)", label: "Resolution / Разрешение", desc: "Target resolution in megapixels (0 = disabled)", ru_desc: "Целевое разрешение в мегапикселях (0 = откл)" },
     { icon: "⚙️", name: "upscale_method", label: "Upscale Method / Метод апскейла", desc: "Interpolation method for resizing image", ru_desc: "Метод интерполяции при изменении размера" },
     { icon: "📐", name: "aspect_ratio", label: "Aspect Ratio / Пропорции", desc: "Set a specific width-to-height ratio", ru_desc: "Установить соотношение сторон" },
-    { icon: "求", name: "Ratio Presets", label: "Presets / Шаблоны", desc: "Quickly apply standard aspect ratios", ru_desc: "Быстро применить стандартные пропорции" },
     { icon: "🔒", name: "ratio_lock", label: "Ratio Lock / Блок. пропорций", desc: "Maintain the aspect ratio during resize", ru_desc: "Сохранять пропорции при изменении размера" },
     { icon: "🖼️", name: "Full Image", label: "Full Image / Всё изображение", desc: "Reset selection to cover the entire image", ru_desc: "Сбросить выделение на всё изображение" },
     { icon: "🎯", name: "Center", label: "Center / По центру", desc: "Move the current selection box to the center", ru_desc: "Переместить область выделения в центр" },
@@ -99,6 +98,7 @@ app.registerExtension({
             this.imageLoaded = false;
             this.dragging = false;
             this.dragMode = null;
+            this.dragStartRatio = 1; // Сохраняем пропорции для диагонального изменения
             this._isSyncing = false;
             this.previewScale = 1.0;
             this.isHoveringHelp = false;
@@ -200,7 +200,7 @@ app.registerExtension({
                 const [x1, y1] = this.properties.dragStart, [x2, y2] = this.properties.dragEnd;
                 const setIfChanged = (n, val) => {
                     const w = find(n);
-                    if (w && Math.round(w.value * 10) !== Math.round(val * 10)) w.value = Math.round(val * 10) / 10;
+                    if (w && Math.round(w.value * 100) !== Math.round(val * 100)) w.value = Math.round(val * 100) / 100;
                 };
 
                 setIfChanged("crop_left", (x1 / imgW) * 100);
@@ -209,11 +209,14 @@ app.registerExtension({
                 setIfChanged("crop_bottom", ((imgH - y2) / imgH) * 100);
 
                 const curW = Math.abs(x2 - x1), curH = Math.abs(y2 - y1);
+                const mult = Math.max(1, parseInt(find("multiplicity")?.value) || 16);
                 const resWidget = find("resolution (MP)");
                 const res = resWidget ? parseFloat(resWidget.value) || 0 : 0;
-                const mult = Math.max(1, parseInt(find("multiplicity")?.value) || 16);
                 
-                let outW = curW, outH = curH;
+                let outW = curW;
+                let outH = curH;
+
+                // Если resolution (MP) задано, масштабируем итоговый выход под это разрешение
                 if (res > 0 && curH > 0) {
                     const targetArea = res * 1000000;
                     const ratio = curW / curH;
@@ -221,17 +224,48 @@ app.registerExtension({
                     outH = Math.sqrt(targetArea / ratio);
                 }
                 
-                setIfChanged("width", Math.max(mult, Math.round(outW / mult) * mult));
-                setIfChanged("height", Math.max(mult, Math.round(outH / mult) * mult));
+                outW = Math.max(mult, Math.round(outW / mult) * mult);
+                outH = Math.max(mult, Math.round(outH / mult) * mult);
+                
+                setIfChanged("width", outW);
+                setIfChanged("height", outH);
 
                 const arWidget = find("aspect_ratio"), lockWidget = find("ratio_lock"), presetWidget = find("Ratio Presets");
-                if (arWidget && (!lockWidget || !lockWidget.value)) {
-                    const newAR = `${Math.round(curW)}:${Math.round(curH)}`;
-                    if (arWidget.value !== newAR) arWidget.value = newAR;
-                }
+                if (arWidget) {
+                    const currentRatio = curW / curH;
+                    let matchedPreset = null;
+                    
+                    if (presetWidget) {
+                        for (const preset of presetWidget.options.values) {
+                            if (preset !== "Custom" && Math.abs(currentRatio - parseRatio(preset)) < 0.01) {
+                                matchedPreset = preset;
+                                break;
+                            }
+                        }
+                    }
 
-                if (presetWidget && arWidget) {
-                    presetWidget.value = Math.abs((curW / curH) - parseRatio(arWidget.value)) > 0.01 ? "Custom" : (presetWidget.options.values.includes(arWidget.value) ? arWidget.value : "Custom");
+                    if (!lockWidget || !lockWidget.value) {
+                        if (matchedPreset) {
+                            if (arWidget.value !== matchedPreset) arWidget.value = matchedPreset;
+                            if (presetWidget && presetWidget.value !== matchedPreset) presetWidget.value = matchedPreset;
+                        } else {
+                            const currentARVal = arWidget.value;
+                            const matchesCurrentAR = Math.abs(currentRatio - parseRatio(currentARVal)) < 0.01;
+                            
+                            if (!matchesCurrentAR) {
+                                const newAR = `${Math.round(curW)}:${Math.round(curH)}`;
+                                if (arWidget.value !== newAR) arWidget.value = newAR;
+                                if (presetWidget && presetWidget.value !== "Custom") presetWidget.value = "Custom";
+                            } else {
+                                if (presetWidget && presetWidget.value !== "Custom") presetWidget.value = "Custom";
+                            }
+                        }
+                    } else {
+                        if (presetWidget) {
+                            const expectedPreset = presetWidget.options.values.includes(arWidget.value) ? arWidget.value : "Custom";
+                            if (presetWidget.value !== expectedPreset) presetWidget.value = expectedPreset;
+                        }
+                    }
                 }
             } finally { this._isSyncing = wasSyncing; }
         };
@@ -328,6 +362,12 @@ app.registerExtension({
                 if (hit) {
                     this.dragging = true; this.dragMode = hit; this.dragStartImg = imgPos;
                     this.origStart = [...this.properties.dragStart]; this.origEnd = [...this.properties.dragEnd];
+                    
+                    // Запоминаем пропорции при клике для диагонального изменения
+                    const curW = Math.abs(this.origEnd[0] - this.origStart[0]);
+                    const curH = Math.abs(this.origEnd[1] - this.origStart[1]);
+                    this.dragStartRatio = curH !== 0 ? curW / curH : 1;
+
                     return true;
                 }
             }
@@ -355,39 +395,81 @@ app.registerExtension({
         };
 
         proto._handleDrag = function (imgPos) {
-            const dx = imgPos[0] - this.dragStartImg[0], dy = imgPos[1] - this.dragStartImg[1];
-            let [nx1, ny1] = [...this.origStart], [nx2, ny2] = [...this.origEnd];
-            const imgW = this.properties.actualImageWidth, imgH = this.properties.actualImageHeight;
-            const lock = this.widgets.find(wi => wi.name === "ratio_lock")?.value;
-            const rat = lock ? parseRatio(this.widgets.find(wi => wi.name === "aspect_ratio")?.value || "1:1") : 1;
+            let dx = imgPos[0] - this.dragStartImg[0];
+            let dy = imgPos[1] - this.dragStartImg[1];
+            
+            let [nx1, ny1] = [...this.origStart];
+            let [nx2, ny2] = [...this.origEnd];
+            
+            const imgW = this.properties.actualImageWidth;
+            const imgH = this.properties.actualImageHeight;
+            
+            const isCorner = this.dragMode && this.dragMode.length === 2; // "tl", "tr", "bl", "br"
+            const lockWidget = this.widgets.find(wi => wi.name === "ratio_lock")?.value;
+            
+            // Пропорции сохраняются если включен лок ИЛИ мы тянем за диагональный угол
+            const shouldLock = lockWidget || isCorner;
+
+            let rat = 1;
+            if (lockWidget) {
+                rat = parseRatio(this.widgets.find(wi => wi.name === "aspect_ratio")?.value || "1:1");
+            } else if (isCorner) {
+                rat = this.dragStartRatio || 1;
+            }
 
             if (this.dragMode === "move") {
                 const w = nx2 - nx1, h = ny2 - ny1;
-                nx1 = Math.max(0, Math.min(imgW - w, nx1 + dx)); ny1 = Math.max(0, Math.min(imgH - h, ny1 + dy));
-                nx2 = nx1 + w; ny2 = ny1 + h;
+                nx1 = Math.max(0, Math.min(imgW - w, nx1 + dx)); 
+                ny1 = Math.max(0, Math.min(imgH - h, ny1 + dy));
+                nx2 = nx1 + w; 
+                ny2 = ny1 + h;
             } else {
-                if (this.dragMode.includes("l")) nx1 += dx; if (this.dragMode.includes("r")) nx2 += dx;
-                if (this.dragMode.includes("t")) ny1 += dy; if (this.dragMode.includes("b")) ny2 += dy;
+                if (this.dragMode.includes("l")) nx1 += dx; 
+                if (this.dragMode.includes("r")) nx2 += dx;
+                if (this.dragMode.includes("t")) ny1 += dy; 
+                if (this.dragMode.includes("b")) ny2 += dy;
 
-                if (lock) {
-                    const ow = this.origEnd[0] - this.origStart[0], oh = this.origEnd[1] - this.origStart[1];
-                    if (["l", "r"].includes(this.dragMode)) {
-                        let cw = oh * rat;
-                        if (this.dragMode === "l") nx1 = nx2 - cw; else nx2 = nx1 + cw;
-                        ny1 = this.origStart[1]; ny2 = this.origEnd[1];
-                    } else if (["t", "b"].includes(this.dragMode)) {
-                        let ch = ow / rat;
-                        if (this.dragMode === "t") ny1 = ny2 - ch; else ny2 = ny1 + ch;
-                        nx1 = this.origStart[0]; nx2 = this.origEnd[0];
+                if (shouldLock) {
+                    let anchorX = this.dragMode.includes("l") ? this.origEnd[0] : this.origStart[0];
+                    let anchorY = this.dragMode.includes("t") ? this.origEnd[1] : this.origStart[1];
+                    
+                    let activeX = this.dragMode.includes("l") ? nx1 : nx2;
+                    let activeY = this.dragMode.includes("t") ? ny1 : ny2;
+
+                    let nw = Math.abs(activeX - anchorX);
+                    let nh = Math.abs(activeY - anchorY);
+
+                    if (this.dragMode === "l" || this.dragMode === "r") {
+                        nh = nw / rat;
+                    } else if (this.dragMode === "t" || this.dragMode === "b") {
+                        nw = nh * rat;
                     } else {
-                        let cw = Math.abs(nx2 - nx1), ch = Math.abs(ny2 - ny1);
-                        if (cw / rat > ch) ch = cw / rat; else cw = ch * rat;
-                        if (this.dragMode.includes("l")) nx1 = nx2 - cw; else nx2 = nx1 + cw;
-                        if (this.dragMode.includes("t")) ny1 = ny2 - ch; else ny2 = ny1 + ch;
+                        // Для диагоналей используем наибольшее изменение
+                        if (nw / rat > nh) nh = nw / rat; else nw = nh * rat;
                     }
+
+                    let targetX = anchorX + nw * (this.dragMode.includes("l") ? -1 : 1);
+                    let targetY = anchorY + nh * (this.dragMode.includes("t") ? -1 : 1);
+
+                    if (targetX < 0) { targetX = 0; nw = Math.abs(targetX - anchorX); nh = nw / rat; }
+                    if (targetX > imgW) { targetX = imgW; nw = Math.abs(targetX - anchorX); nh = nw / rat; }
+                    
+                    targetY = anchorY + nh * (this.dragMode.includes("t") ? -1 : 1);
+
+                    if (targetY < 0) { targetY = 0; nh = Math.abs(targetY - anchorY); nw = nh * rat; }
+                    if (targetY > imgH) { targetY = imgH; nh = Math.abs(targetY - anchorY); nw = nh * rat; }
+
+                    targetX = anchorX + nw * (this.dragMode.includes("l") ? -1 : 1);
+
+                    if (this.dragMode.includes("l")) nx1 = targetX; else nx2 = targetX;
+                    if (this.dragMode.includes("t")) ny1 = targetY; else ny2 = targetY;
                 }
-                nx1 = Math.max(0, nx1); ny1 = Math.max(0, ny1);
-                nx2 = Math.min(imgW, nx2); ny2 = Math.min(imgH, ny2);
+
+                if (nx1 < 0) nx1 = 0; if (ny1 < 0) ny1 = 0;
+                if (nx2 > imgW) nx2 = imgW; if (ny2 > imgH) ny2 = imgH;
+
+                if (nx2 - nx1 < 16) { if (this.dragMode.includes("l")) nx1 = nx2 - 16; else nx2 = nx1 + 16; }
+                if (ny2 - ny1 < 16) { if (this.dragMode.includes("t")) ny1 = ny2 - 16; else ny2 = ny1 + 16; }
             }
 
             this.properties.dragStart = [Math.round(nx1), Math.round(ny1)];
@@ -417,7 +499,6 @@ app.registerExtension({
             ctx.restore();
         };
 
-        // Исправлено: Динамический и абсолютно надежный расчет координат строк справки
         proto._drawHelpSidebar = function (ctx) {
             const margin = 15, bx = this.size[0] + 15, widgetH = 24;
             const labelFont = "bold 13px Arial", descFont = "normal 11px Arial";
@@ -435,7 +516,6 @@ app.registerExtension({
                 ctx.font = labelFont;
             });
 
-            // Находим начальный Y по первому доступному виджету на панели
             let firstWidget = this.widgets.find(w => w.last_y !== undefined);
             let lastWidget = [...this.widgets].reverse().find(w => w.last_y !== undefined);
             
@@ -446,7 +526,6 @@ app.registerExtension({
             const boxW = (descX - bx) + maxDescW + margin;
             const by = minWidgetY - 45, boxH = (lastWidgetY + widgetH + 10) - by;
 
-            // Рендеринг фона плашки
             ctx.fillStyle = "rgba(0,0,0,0.95)"; ctx.strokeStyle = "#00ff44"; ctx.lineWidth = 1.6;
             if (ctx.roundRect) { 
                 ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 12); ctx.fill(); ctx.stroke(); 
@@ -457,10 +536,8 @@ app.registerExtension({
             ctx.font = "bold 16px Arial"; ctx.textAlign = "left"; ctx.fillStyle = "#00ff44";
             ctx.fillText("Explanations / Описание", bx + margin, by + 22);
 
-            // Построчный вывод текста, привязанный к физическому положению виджетов
             HELP_DESCRIPTIONS.forEach((item) => {
                 const w = this.widgets.find(wd => wd.name === item.name || wd.label === item.name);
-                // Если виджет или кнопка найдены, берем их Y, если нет (на всякий случай) — смещаем вниз
                 const y = (w && w.last_y !== undefined) ? w.last_y + (widgetH / 2) : by + 60;
                 
                 ctx.font = "14px Arial"; ctx.fillStyle = "#fff"; ctx.fillText(item.icon, bx + margin, y);
@@ -495,9 +572,8 @@ app.registerExtension({
             
             ctx.strokeStyle = "#0f0"; ctx.lineWidth = 2; ctx.strokeRect(rx, ry, rw, rh);
 
-            const curW = Math.round(x2 - x1), curH = Math.round(y2 - y1);
-            const outW = node.widgets.find(w => w.name === "width")?.value || curW;
-            const outH = node.widgets.find(w => w.name === "height")?.value || curH;
+            const outW = node.widgets.find(w => w.name === "width")?.value || Math.round(x2 - x1);
+            const outH = node.widgets.find(w => w.name === "height")?.value || Math.round(y2 - y1);
 
             ctx.strokeStyle = "rgba(170, 255, 0, 0.5)"; ctx.lineWidth = 1;
             ctx.beginPath();
@@ -540,23 +616,80 @@ app.registerExtension({
                 }
                 this.syncWidgetsFromProperties(true);
             } else if (["width", "height"].includes(name)) {
-                const res = parseFloat(find("resolution (MP)")?.value) || 0;
-                if (res > 0) {
-                    const arWidget = find("aspect_ratio");
-                    if (arWidget && find("width") && find("height")) arWidget.value = `${Math.round(find("width").value)}:${Math.round(find("height").value)}`;
-                    this.applyAspectRatio();
-                } else {
-                    const [x1, y1] = this.properties.dragStart, [x2, y2] = this.properties.dragEnd, cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-                    let nw = (name === "width") ? val : Math.abs(x2 - x1), nh = (name === "height") ? val : Math.abs(y2 - y1);
-                    if (find("ratio_lock")?.value) nw = (name === "width") ? nw : nh * parseRatio(find("aspect_ratio")?.value);
-                    const mult = Math.max(1, parseInt(find("multiplicity")?.value) || 16);
-                    nw = Math.max(mult, Math.round(nw / mult) * mult); nh = Math.max(mult, Math.round(nh / mult) * mult);
-                    this.properties.dragStart = [Math.max(0, cx - nw / 2), Math.max(0, cy - nh / 2)];
-                    this.properties.dragEnd = [this.properties.dragStart[0] + nw, this.properties.dragStart[1] + nh];
-                    this.syncWidgetsFromProperties(true);
-                    this.setDirtyCanvas(true);
+                const imgW = this.properties.actualImageWidth || 512;
+                const imgH = this.properties.actualImageHeight || 512;
+                
+                let valW = parseFloat(find("width")?.value) || 512;
+                let valH = parseFloat(find("height")?.value) || 512;
+                const lock = find("ratio_lock")?.value;
+                const mult = Math.max(1, parseInt(find("multiplicity")?.value) || 16);
+
+                if (lock) {
+                    const rat = parseRatio(find("aspect_ratio")?.value || "1:1");
+                    if (name === "width") valH = valW / rat;
+                    else valW = valH * rat;
                 }
-            } else if (["multiplicity", "resolution (MP)"].includes(name)) {
+
+                // Применяем multiplicity
+                valW = Math.max(mult, Math.round(valW / mult) * mult);
+                valH = Math.max(mult, Math.round(valH / mult) * mult);
+
+                const targetRatio = valW / valH;
+                let boxW = valW;
+                let boxH = valH;
+                
+                let exceeds = (boxW > imgW || boxH > imgH);
+                let resWidget = find("resolution (MP)");
+                let currentRes = parseFloat(resWidget?.value) || 0;
+
+                // Если рамка не влезает ИЛИ мы уже используем масштабирование (resolution > 0)
+                if (exceeds || currentRes > 0) {
+                    if (boxW > imgW || boxH > imgH) {
+                        // Ограничиваем размеры рамки границами картинки, сохраняя нужную пропорцию
+                        if (imgW / imgH < targetRatio) {
+                            boxW = imgW;
+                            boxH = boxW / targetRatio;
+                        } else {
+                            boxH = imgH;
+                            boxW = boxH * targetRatio;
+                        }
+                    }
+                    
+                    // Обновляем мегапиксели, чтобы итоговый вывод соответствовал введенным width/height
+                    if (resWidget) {
+                        const exactMP = (valW * valH) / 1000000;
+                        resWidget.value = Math.round(exactMP * 100) / 100;
+                    }
+                }
+
+                boxW = Math.max(16, boxW);
+                boxH = Math.max(16, boxH);
+
+                const [x1, y1] = this.properties.dragStart, [x2, y2] = this.properties.dragEnd;
+                const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+                
+                let nx1 = cx - boxW / 2;
+                let ny1 = cy - boxH / 2;
+                
+                // Корректируем, чтобы рамка не выходила за края при центрировании
+                if (nx1 < 0) { nx1 = 0; }
+                if (ny1 < 0) { ny1 = 0; }
+                if (nx1 + boxW > imgW) { nx1 = imgW - boxW; if (nx1 < 0) nx1 = 0; }
+                if (ny1 + boxH > imgH) { ny1 = imgH - boxH; if (ny1 < 0) ny1 = 0; }
+                
+                this.properties.dragStart = [Math.round(nx1), Math.round(ny1)];
+                this.properties.dragEnd = [Math.round(nx1 + boxW), Math.round(ny1 + boxH)];
+                
+                if (find("aspect_ratio")) find("aspect_ratio").value = `${Math.round(valW)}:${Math.round(valH)}`;
+                
+                this.syncWidgetsFromProperties(true);
+                this.setDirtyCanvas(true);
+            } else if (name === "resolution (MP)") {
+                // Изменение мегапикселей теперь НЕ трогает физическую рамку кропа
+                // Оно просто вызывает перерасчет итоговых полей width/height
+                this.syncWidgetsFromProperties(true);
+                this.setDirtyCanvas(true);
+            } else if (name === "multiplicity") {
                 this.syncWidgetsFromProperties(true);
                 this.setDirtyCanvas(true);
             } else if (name === "ratio_lock" && val) {
