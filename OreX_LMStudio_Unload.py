@@ -5,40 +5,17 @@ import urllib.request
 import urllib.error
 import sys
 
-# Trying to import SDK for the most reliable unloading
+# Попытка импортировать официальный SDK для наиболее надежной выгрузки моделей
 try:
     import lmstudio as lms
 except ImportError:
     lms = None
 
 
-class LMStudioSuppressor:
-    """
-    Тимчасовий перехоплювач виводу.
-    Пропускає лише системні принти ноди та повністю блокує внутрішній спам SDK.
-    """
-    def __init__(self, original_stdout):
-        self.original_stdout = original_stdout
-
-    def write(self, message):
-        # Якщо це наше повідомлення або звичайне перенесення рядка — пускаємо в консоль
-        if "[LMStudio Unload Node]" in message or message == "\n":
-            self.original_stdout.write(message)
-        # Зелений спам SDK відкидаємо, ComfyUI при цьому не чіпаємо, бо перехоплення працює локально
-        elif "[INFO]" in message or "websocket" in message.lower() or "HTTP Request" in message:
-            pass
-        else:
-            # Про всяк випадок пропускаємо інші корисні повідомлення
-            self.original_stdout.write(message)
-
-    def flush(self):
-        self.original_stdout.flush()
-
-
 def fetch_currently_loaded_models():
     """
-    Requests the internal LM Studio API to get a list of models
-    that are ACTUALLY loaded into RAM / VRAM at the moment.
+    Запрашивает внутренний API LM Studio для получения списка моделей,
+    которые в данный момент ДЕЙСТВИТЕЛЬНО загружены в RAM / VRAM.
     """
     host = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
     if not host.startswith("http"):
@@ -52,19 +29,19 @@ def fetch_currently_loaded_models():
         with urllib.request.urlopen(req, timeout=2.5) as response:
             data = json.loads(response.read().decode('utf-8'))
             
-            # LM Studio v1 API specification: response returns a dict {"models": [...]}
+            # Спецификация API LM Studio v1: ответ возвращает словарь {"models": [...]}
             if isinstance(data, dict) and "models" in data:
                 for model_info in data["models"]:
-                    # Each model contains a list of running instances 'loaded_instances'
+                    # Каждая модель содержит список запущенных инстрансов 'loaded_instances'
                     loaded_instances = model_info.get("loaded_instances", [])
                     if isinstance(loaded_instances, list):
                         for instance in loaded_instances:
                             if isinstance(instance, dict):
-                                # Save parent model name for informative ComfyUI logging
+                                # Сохраняем имя родительской модели для информативного логгирования в ComfyUI
                                 instance["parent_model_id"] = model_info.get("id", "unknown")
                                 loaded_models.append(instance)
                                 
-            # Fallback parsing in case of backward compatibility with v0 or pure OpenAI format
+            # Резервный парсинг на случай обратной совместимости с v0 или чистого OpenAI формата
             elif isinstance(data, dict) and "data" in data:
                 for item in data["data"]:
                     if isinstance(item, dict):
@@ -83,8 +60,8 @@ def fetch_currently_loaded_models():
 
 def get_last_active_model(loaded_items):
     """
-    Analyzes the list of loaded models and determines the one
-    that processed the request last (the most active one).
+    Анализирует список загруженных моделей и определяет ту,
+    которая обрабатывала запрос последней (самую активную).
     """
     if not loaded_items:
         return None
@@ -115,35 +92,26 @@ def get_last_active_model(loaded_items):
     return last_item.get("id") or last_item.get("instance_id") or last_item.get("modelKey") or last_item.get("model_key")
 
 def trigger_unload_model(model_key):
-    """Unloads a specific model from VRAM via SDK or REST API."""
+    """Выгружает конкретную модель из VRAM через SDK или REST API."""
     if not model_key:
         print("[LMStudio Unload Node] ⚠️ Empty model key provided. Skipping call.")
         return False
         
     print(f"[LMStudio Unload Node] ⏳ Sending unload command for: {model_key}...")
     
-    # 1. Attempting via official SDK
+    # 1. Попытка выгрузки через официальный SDK
     if lms is not None:
-        # Зберігаємо оригінальний вивід консолі
-        old_stdout = sys.stdout
         try:
-            # Вмикаємо глушник виключно для блоку SDK
-            sys.stdout = LMStudioSuppressor(old_stdout)
-            
             with lms.Client() as client:
                 model = client.llm.model(model_key)
                 model.unload()
                 
-            # Повертаємо консоль до норми
-            sys.stdout = old_stdout
             print(f"[LMStudio Unload Node] 🟢 Model {model_key} successfully unloaded via SDK.")
             return True
         except Exception as e:
-            # На випадок помилки обов'язково повертаємо оригінальний stdout
-            sys.stdout = old_stdout
             print(f"[LMStudio Unload Node] ⚠️ SDK error for {model_key}: {e}. Trying REST API...")
             
-    # 2. Fallback via REST API v1
+    # 2. Резервный метод через REST API v1
     host = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
     if not host.startswith("http"):
         host = f"http://{host}"
