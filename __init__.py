@@ -6,7 +6,8 @@ from .OreXKontextPresets import KontextPresetsOrex
 from .OreX_LMStudio import OreXLMStudio
 from .OreX_Ollama import OreXOllama
 from .OreX_Crop import OreXCrop
-from .OreX_Ratio import OreXRatio # Добавлен импорт нового узла
+from .OreX_Ratio import OreXRatio 
+from .OreX_LMStudio_Unload import OreXLMStudioUnloadTrigger # Добавлен импорт новой ноды выгрузки
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -17,7 +18,8 @@ NODE_CLASS_MAPPINGS = {
     "orex LMStudio": OreXLMStudio,
     "orex Ollama": OreXOllama,
     "orex Crop": OreXCrop,
-    "orex Ratio": OreXRatio # Добавлен узел в маппинг
+    "orex Ratio": OreXRatio,
+    "orex LMStudio Unload": OreXLMStudioUnloadTrigger # Добавлен узел в общий маппинг классов
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -29,12 +31,13 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex LMStudio": "🤖 LMStudio (OreX)",
     "orex Ollama": "🦙 Ollama (OreX)",
     "orex Crop": "🔳Crop (OreX)",
-    "orex Ratio": "📐 Ratio (OreX)" # Добавлено отображаемое имя
+    "orex Ratio": "📐 Ratio (OreX)",
+    "orex LMStudio Unload": "♻️ LMStudio Unload (OreX)" # Добавлено отображаемое имя для меню
 }
 
-# Изменено: стандартное имя переменной версии для ComfyUI
+# Стандартное имя переменной версии для ComfyUI
 __version__ = "1.1.1"
 WEB_DIRECTORY = "./js"
 
-# Изменено: добавлена переменная __version__ для корректного чтения менеджером
+# Экспорт переменных для корректного чтения менеджером плагинов
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY', '__version__']
