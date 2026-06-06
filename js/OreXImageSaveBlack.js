@@ -1,6 +1,7 @@
 import { app } from "../../../scripts/app.js";
 
 const SAVE_HELP_DESCRIPTIONS = [
+    { name: "active", label: "Active / Активность узла", desc: "Toggle node activity. If OFF, image is passed through without saving", ru_desc: "Вкл/выкл работу узла. Если OFF, картинка передается дальше без сохранения на диск" },
     { name: "output_path", label: "Output Path / Путь сохранения", desc: "Custom folder path (Absolute like E:\\Folder or relative to output)", ru_desc: "Свой путь к папке (абсолютный вида E:\\Folder или относительно папки output)" },
     { name: "create_current_date_folder", label: "Current Date Folder / Папка с датой", desc: "Create a subfolder named with current date (YYYY-MM-DD)", ru_desc: "Создать подпапку с текущей датой (ГГГГ-ММ-ДД)" },
     { name: "create_processed_folder", label: "Processed Folder / Папка 'Processed'", desc: "Create an additional 'Processed' subfolder", ru_desc: "Создать дополнительную подпапку с именем 'Processed'" },

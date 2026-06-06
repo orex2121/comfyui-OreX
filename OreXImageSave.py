@@ -25,6 +25,9 @@ class OreXImageSave:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                # --- Переключатель активности узла ---
+                "active": ("BOOLEAN", {"default": True, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
+                
                 "output_path": ("STRING", {"default": ""}),
                 "create_current_date_folder": ("BOOLEAN", {"default": True, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
                 "create_processed_folder": ("BOOLEAN", {"default": False, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
@@ -194,11 +197,15 @@ class OreXImageSave:
                 except: pass
         except Exception as e: print(f"\n[OreX] Unexpected error during optimization: {str(e)}")
 
-    def save_image(self, output_path, create_current_date_folder, create_processed_folder, images, 
+    def save_image(self, active, output_path, create_current_date_folder, create_processed_folder, images, 
                    filename_prefix_1, filename_prefix_2, filename_prefix_3, filename_separator, 
                    use_counter, embed_workflow, image_format, quality_jpg_webp, optimize_png,
                    prompt=None, extra_pnginfo=None, unique_id=None):
         
+        # Блок байпаса: если переключатель OFF, просто передаем картинку дальше без сохранения
+        if not active:
+            return (images, "")
+            
         self.filename_separator = filename_separator
         full_paths = []
         

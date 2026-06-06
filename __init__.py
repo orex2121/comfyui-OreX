@@ -6,7 +6,8 @@ from .OreXKontextPresets import KontextPresetsOrex
 from .OreX_LMStudio import OreXLMStudio
 from .OreX_Ollama import OreXOllama
 from .OreX_Crop import OreXCrop
-from .OreX_Ratio import OreXRatio # Добавлен импорт нового узла
+from .OreX_Ratio import OreXRatio
+from .OreX_stressed_vowels import OreXStressedVowels # <--- ИМПОРТ НОВОГО УЗЛА
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -17,7 +18,8 @@ NODE_CLASS_MAPPINGS = {
     "orex LMStudio": OreXLMStudio,
     "orex Ollama": OreXOllama,
     "orex Crop": OreXCrop,
-    "orex Ratio": OreXRatio # Добавлен узел в маппинг
+    "orex Ratio": OreXRatio,
+    "orex Stressed Vowels": OreXStressedVowels # <--- РЕГИСТРАЦИЯ КЛАССА
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -29,11 +31,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex LMStudio": "🤖 LMStudio (OreX)",
     "orex Ollama": "🦙 Ollama (OreX)",
     "orex Crop": "🔳Crop (OreX)",
-    "orex Ratio": "📐 Ratio (OreX)" # Добавлено отображаемое имя
+    "orex Ratio": "📐 Ratio (OreX)",
+    "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ В ПОИСКЕ
 }
 
 # Изменено: стандартное имя переменной версии для ComfyUI
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 WEB_DIRECTORY = "./js"
 
 # Изменено: добавлена переменная __version__ для корректного чтения менеджером
