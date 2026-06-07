@@ -12,6 +12,12 @@ import urllib.error
 import urllib.parse
 import re
 
+# Импортируем менеджер моделей ComfyUI для очистки VRAM
+try:
+    import comfy.model_management as mm
+except ImportError:
+    mm = None
+
 # Импортируем SDK, так как он корректно работает с внутренними каналами LM Studio при выгрузке
 try:
     import lmstudio as lms
@@ -24,7 +30,7 @@ DEFAULT_LLM = "SELECT A MODEL"
 # --- SYSTEM PRESETS LOADER ---
 def load_presets():
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    json_path = os.path.join(current_dir, "OreX_LMStudio.json")
+    json_path = os.path.join(current_dir, "OreX_Preset_LMStudio_Ollama.json")
     presets = {"None": ""}
     
     if not os.path.exists(json_path):
@@ -206,6 +212,7 @@ class OreXLMStudio:
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
                 "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ENABLED", "label_off": "🔴 Thinking DISABLED"}),
                 "auto_unload": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
+                "clean_vram_before": ("BOOLEAN", {"default": False, "label_on": "🟢 Clean VRAM ON", "label_off": "🔴 Clean VRAM OFF"}),
                 "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
@@ -234,7 +241,14 @@ class OreXLMStudio:
             m.update(str(kwargs["image"].shape).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        
+        # Очистка VRAM перед генерацией, если переключатель активирован
+        if clean_vram_before and mm is not None:
+            print("[LMStudio Nodes] 🧹 Unloading ComfyUI models to free VRAM before LM Studio inference...")
+            mm.unload_all_models()
+            mm.soft_empty_cache()
+            
         timeout_seconds = 300
         use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
         

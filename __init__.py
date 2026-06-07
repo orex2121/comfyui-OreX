@@ -7,7 +7,8 @@ from .OreX_LMStudio import OreXLMStudio
 from .OreX_Ollama import OreXOllama
 from .OreX_Crop import OreXCrop
 from .OreX_Ratio import OreXRatio
-from .OreX_stressed_vowels import OreXStressedVowels # <--- ИМПОРТ НОВОГО УЗЛА
+from .OreX_stressed_vowels import OreXStressedVowels
+from .OreX_StringFunction import OreX_StringFunction # <--- ИМПОРТ НОВОГО УЗЛА
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -19,7 +20,8 @@ NODE_CLASS_MAPPINGS = {
     "orex Ollama": OreXOllama,
     "orex Crop": OreXCrop,
     "orex Ratio": OreXRatio,
-    "orex Stressed Vowels": OreXStressedVowels # <--- РЕГИСТРАЦИЯ КЛАССА
+    "orex Stressed Vowels": OreXStressedVowels,
+    "orex String Function": OreX_StringFunction # <--- РЕГИСТРАЦИЯ КЛАССА
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -32,11 +34,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Ollama": "🦙 Ollama (OreX)",
     "orex Crop": "🔳Crop (OreX)",
     "orex Ratio": "📐 Ratio (OreX)",
-    "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ В ПОИСКЕ
+    "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)",
+    "orex String Function": "✍️ String Function (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ В ПОИСКЕ
 }
 
 # Изменено: стандартное имя переменной версии для ComfyUI
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 WEB_DIRECTORY = "./js"
 
 # Изменено: добавлена переменная __version__ для корректного чтения менеджером

@@ -107,6 +107,29 @@ app.registerExtension({
                         const origMpCallback = mpWidget.callback;
                         mpWidget.callback = function(value, appCanvas, node_arg, pos, event) {
                             if (origMpCallback) origMpCallback.apply(this, arguments);
+                            
+                            // Пересчет кастомной рамки при ручном изменении Megapixel
+                            const ratioW = node.widgets?.find(w => w.name === "ratio");
+                            if (ratioW && ratioW.value === "Custom" && !node._is_dragging_sync) {
+                                const cwW = node.widgets?.find(w => w.name === "custom_width");
+                                const chW = node.widgets?.find(w => w.name === "custom_height");
+                                
+                                if (cwW && chW && chW.value > 0) {
+                                    // Захватываем текущую пропорцию рамки
+                                    const currentRatio = cwW.value / chW.value;
+                                    const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
+                                    const use1024 = baseWidget ? !!baseWidget.value : true;
+                                    const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
+                                    const targetPixels = value * basePixels;
+
+                                    // Вычисляем новые габариты, сохраняя пропорцию
+                                    const newH = Math.sqrt(targetPixels / currentRatio);
+                                    const newW = newH * currentRatio;
+
+                                    cwW.value = newW;
+                                    chW.value = newH;
+                                }
+                            }
                             node.setDirtyCanvas(true); // Форсируем перерисовку, которая сама синхронизирует скрытые поля
                         };
                         mpWidget._setupDone = true;

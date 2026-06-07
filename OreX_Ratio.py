@@ -36,16 +36,20 @@ class OreXRatio:
 
         clean_ratio = ratio.split(' ')[0]
         
-        # Если кастомное - берем значения, которые JS передал через скрытые поля
+        # Захватываем пропорцию в зависимости от режима
         if clean_ratio == "Custom":
-            w_base = custom_width
-            h_base = custom_height
+            # Используем текущие физические размеры из JS как соотношение сторон
+            w_ratio = float(custom_width)
+            h_ratio = float(custom_height)
         else:
             w_ratio, h_ratio = map(float, clean_ratio.split(':'))
-            target_pixels = Megapixel * base_pixels
-            ratio_fraction = w_ratio / h_ratio
-            h_base = math.sqrt(target_pixels / ratio_fraction)
-            w_base = h_base * ratio_fraction
+            
+        # Универсальная математика (работает как для пресетов, так и для кастомной пропорции)
+        target_pixels = Megapixel * base_pixels
+        ratio_fraction = w_ratio / h_ratio
+        
+        h_base = math.sqrt(target_pixels / ratio_fraction)
+        w_base = h_base * ratio_fraction
         
         # Округляем до ближайшего числа, кратного Multiplicity
         width = int(round(w_base / Multiplicity) * Multiplicity)

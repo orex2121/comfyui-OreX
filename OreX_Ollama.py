@@ -11,6 +11,12 @@ import urllib.request
 import urllib.error
 import re
 
+# Импортируем менеджер моделей ComfyUI для очистки VRAM
+try:
+    import comfy.model_management as mm
+except ImportError:
+    mm = None
+
 # Default models to use
 DEFAULT_LLM = "SELECT A MODEL"
 DEFAULT_VISION = "SELECT A MODEL"
@@ -18,7 +24,7 @@ DEFAULT_VISION = "SELECT A MODEL"
 # --- SYSTEM PRESETS LOADER ---
 def load_presets():
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    json_path = os.path.join(current_dir, "OreX_Ollama.json")
+    json_path = os.path.join(current_dir, "OreX_Preset_LMStudio_Ollama.json")
     presets = {"None": ""}
     
     if not os.path.exists(json_path):
@@ -150,6 +156,7 @@ class OreXOllama:
                 "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ENABLED", "label_off": "🔴 Thinking DISABLED"}),
                 "auto_unload": (["True", "False"], {"default": "True"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
+                "clean_vram_before": ("BOOLEAN", {"default": False, "label_on": "🟢 Clean VRAM ON", "label_off": "🔴 Clean VRAM OFF"}),
                 "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
@@ -178,7 +185,14 @@ class OreXOllama:
             m.update(str(kwargs["image"].shape).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, unload_delay, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        
+        # Очистка VRAM перед генерацией, если переключатель активирован
+        if clean_vram_before and mm is not None:
+            print("[Ollama Nodes] 🧹 Unloading ComfyUI models to free VRAM before Ollama inference...")
+            mm.unload_all_models()
+            mm.soft_empty_cache()
+
         timeout_seconds = 300
         use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
         
