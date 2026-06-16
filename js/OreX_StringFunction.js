@@ -17,8 +17,8 @@ app.registerExtension({
                 
                 const insertText = (textToInsert) => {
                     if (!textWidget) return;
-                    let inserted = false;
                     
+                    // Безопасная вставка с вызовом событий (чтобы ComfyUI обновил историю и состояние)
                     if (textWidget.inputEl) {
                         const el = textWidget.inputEl;
                         const start = el.selectionStart;
@@ -27,18 +27,25 @@ app.registerExtension({
                         if (start !== undefined && end !== undefined) {
                             const val = el.value;
                             el.value = val.substring(0, start) + textToInsert + val.substring(end);
+                            
+                            // Возвращаем фокус и курсор на нужное место
+                            el.focus();
                             el.selectionStart = el.selectionEnd = start + textToInsert.length;
                             
                             textWidget.value = el.value;
+                            
+                            // Диспатчим событие, чтобы сработали внутренние хуки ComfyUI
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
                             if (textWidget.callback) textWidget.callback(textWidget.value);
-                            inserted = true;
+                            
+                            app.graph.setDirtyCanvas(true, false);
+                            return;
                         }
                     }
                     
-                    if (!inserted) {
-                        textWidget.value = (textWidget.value || "") + textToInsert;
-                        if (textWidget.callback) textWidget.callback(textWidget.value);
-                    }
+                    // Фолбэк, если элемента ввода нет (например, узел свернут)
+                    textWidget.value = (textWidget.value || "") + textToInsert;
+                    if (textWidget.callback) textWidget.callback(textWidget.value);
                     app.graph.setDirtyCanvas(true, false);
                 };
 
@@ -48,24 +55,37 @@ app.registerExtension({
                     return [width, 30];
                 };
                 
-                // Отрисовка четырех кнопок в один ряд
+                // Отрисовка кнопок в один ряд (теперь их 5)
                 btnWidget.draw = function(ctx, node, widget_width, y, widget_height) {
                     const margin = 5;
                     const spacing = 5;
-                    const btnWidth = (widget_width - margin * 2 - spacing * 3) / 4;
-                    const labels = ["{A}", "{B}", "{C}", "{D}"];
+                    const labels = ["{A}", "{B}", "{C}", "{D}", "->"];
+                    // Высчитываем ширину одной кнопки с учетом 5 кнопок
+                    const btnWidth = (widget_width - margin * 2 - spacing * (labels.length - 1)) / labels.length;
                     
                     ctx.save();
                     ctx.font = "14px Arial";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     
-                    for(let i = 0; i < 4; i++) {
+                    for(let i = 0; i < labels.length; i++) {
                         const x = margin + i * (btnWidth + spacing);
-                        ctx.fillStyle = "#333";
-                        ctx.fillRect(x, y + 2, btnWidth, widget_height - 4);
-                        ctx.strokeStyle = "#555";
-                        ctx.strokeRect(x, y + 2, btnWidth, widget_height - 4);
+                        
+                        // Меняем цвет для кнопки "->", чтобы она немного выделялась
+                        ctx.fillStyle = labels[i] === "->" ? "#2a4d69" : "#333";
+                        
+                        if (ctx.roundRect) {
+                            ctx.beginPath();
+                            ctx.roundRect(x, y + 2, btnWidth, widget_height - 4, 4);
+                            ctx.fill();
+                            ctx.strokeStyle = "#555";
+                            ctx.stroke();
+                        } else {
+                            ctx.fillRect(x, y + 2, btnWidth, widget_height - 4);
+                            ctx.strokeStyle = "#555";
+                            ctx.strokeRect(x, y + 2, btnWidth, widget_height - 4);
+                        }
+                        
                         ctx.fillStyle = "#fff";
                         ctx.fillText(labels[i], x + btnWidth/2, y + widget_height/2);
                     }
@@ -78,15 +98,17 @@ app.registerExtension({
                         const margin = 5;
                         const spacing = 5;
                         const widget_width = node.size[0];
-                        const btnWidth = (widget_width - margin * 2 - spacing * 3) / 4;
+                        const labels = ["{A}", "{B}", "{C}", "{D}", "->"];
+                        const btnWidth = (widget_width - margin * 2 - spacing * (labels.length - 1)) / labels.length;
                         const x = pos[0];
                         
+                        // Удалена ошибочная проверка высоты клика (y), которая блокировала нажатие
+                        
                         if (x >= margin && x <= widget_width - margin) {
-                            for(let i=0; i<4; i++) {
+                            for(let i = 0; i < labels.length; i++) {
                                 const btnX1 = margin + i * (btnWidth + spacing);
                                 const btnX2 = btnX1 + btnWidth;
                                 if (x >= btnX1 && x <= btnX2) {
-                                    const labels = ["{A}", "{B}", "{C}", "{D}"];
                                     insertText(labels[i]);
                                     return true;
                                 }
@@ -96,9 +118,14 @@ app.registerExtension({
                     return false;
                 };
 
-                // Глобальный слушатель кликов для закрытия подсказки при клике мимо неё
+                // Глобальный слушатель кликов вынесен отдельно, чтобы избежать утечек памяти
                 this._globalClickListener = (event) => {
-                    if (!this.showHelpSidebar || !app.graph._nodes.includes(this)) return;
+                    if (!this.showHelpSidebar) return;
+                    
+                    if (!app.graph._nodes.includes(this)) {
+                        this.cleanupListener();
+                        return;
+                    }
 
                     const graphPos = app.canvas.convertEventToCanvasOffset(event);
                     if (!graphPos) {
@@ -111,28 +138,30 @@ app.registerExtension({
                     const my = graphPos[1] - this.pos[1];
                     const iconArea = [this.size[0] - 25, -LiteGraph.NODE_TITLE_HEIGHT, 25, LiteGraph.NODE_TITLE_HEIGHT];
                     
-                    // Если клик был по самой кнопке вопроса, игнорируем (обработается в onMouseDown)
                     if (mx >= iconArea[0] && mx <= iconArea[0] + iconArea[2] && my >= iconArea[1] && my <= iconArea[1] + iconArea[3]) return;
 
                     this.showHelpSidebar = false;
                     app.graph.setDirtyCanvas(true, false);
                 };
 
-                document.addEventListener("pointerdown", this._globalClickListener, true);
+                this.setupListener = () => {
+                    document.addEventListener("pointerdown", this._globalClickListener, true);
+                };
 
+                this.cleanupListener = () => {
+                    document.removeEventListener("pointerdown", this._globalClickListener, true);
+                };
+
+                this.setupListener();
                 return r;
             };
 
-            // Очистка при удалении узла
             const onDestroy = nodeType.prototype.onDestroy;
             nodeType.prototype.onDestroy = function () {
-                if (this._globalClickListener) {
-                    document.removeEventListener("pointerdown", this._globalClickListener, true);
-                }
+                if (this.cleanupListener) this.cleanupListener();
                 if (onDestroy) onDestroy.apply(this, arguments);
             };
 
-            // Обработка клика по кнопке с вопросом
             const onMouseDown = nodeType.prototype.onMouseDown;
             nodeType.prototype.onMouseDown = function(e, local_pos, canvas) {
                 let r = false;
@@ -141,7 +170,6 @@ app.registerExtension({
                 const [mx, my] = local_pos;
                 const iconArea = [this.size[0] - 25, -LiteGraph.NODE_TITLE_HEIGHT, 25, LiteGraph.NODE_TITLE_HEIGHT];
                 
-                // Проверяем клик в зоне кнопки вопроса
                 if (mx >= iconArea[0] && mx <= iconArea[0] + iconArea[2] && my >= iconArea[1] && my <= iconArea[1] + iconArea[3]) {
                     this.showHelpSidebar = !this.showHelpSidebar;
                     app.graph.setDirtyCanvas(true, false);
@@ -151,7 +179,6 @@ app.registerExtension({
                 return r;
             };
 
-            // Обработка наведения (hover) на кнопку с вопросом
             const onMouseMove = nodeType.prototype.onMouseMove;
             nodeType.prototype.onMouseMove = function(e, local_pos, canvas) {
                 let r = false;
@@ -172,15 +199,12 @@ app.registerExtension({
                 return r;
             };
 
-            // Отрисовка интерфейса поверх узла
             const onDrawForeground = nodeType.prototype.onDrawForeground;
             nodeType.prototype.onDrawForeground = function (ctx) {
                 if (onDrawForeground) onDrawForeground.apply(this, arguments);
                 
-                // Скрываем знак вопроса, если узел свернут (решает проблему улетания вправо)
                 if (this.flags && this.flags.collapsed) return;
                 
-                // Координаты иконки вопроса на основе высоты заголовка (LiteGraph.NODE_TITLE_HEIGHT)
                 const iconX = this.size[0] - 22;
                 const iconY = -LiteGraph.NODE_TITLE_HEIGHT + 5;
                 const iconR = 8;
@@ -192,17 +216,15 @@ app.registerExtension({
                 ctx.textBaseline = "middle";
                 ctx.fillText("?", iconX + iconR, iconY + iconR);
                 
-                // Отрисовка панели подсказки, если она активна
                 if (this.showHelpSidebar) {
                     this._drawHelpSidebar(ctx);
                 }
                 ctx.restore();
             };
 
-            // Метод для отрисовки боковой панели подсказки в стиле crop_orex
             nodeType.prototype._drawHelpSidebar = function (ctx) {
                 const margin = 15;
-                const bx = this.size[0] + 15; // Смещение вправо от узла
+                const bx = this.size[0] + 15; 
                 const labelFont = "bold 13px Arial"; 
                 const descFont = "normal 11px Arial";
 
@@ -216,7 +238,6 @@ app.registerExtension({
                 ctx.save();
                 ctx.textBaseline = "middle";
 
-                // Вычисляем максимальную ширину для колонок
                 let maxLabelW = 0, maxDescW = 0;
                 ctx.font = labelFont;
                 
@@ -231,12 +252,10 @@ app.registerExtension({
                 const descX = labelX + maxLabelW + 15;
                 const boxW = (descX - bx) + maxDescW + margin;
                 
-                // Привязываем высоту окна подсказки к высоте заголовка узла
                 const by = -LiteGraph.NODE_TITLE_HEIGHT; 
                 const rowHeight = 30;
                 const boxH = 50 + (helpDescriptions.length * rowHeight);
 
-                // Отрисовка фона (темно-серый/черный с неоново-зеленой рамкой)
                 ctx.fillStyle = "rgba(0,0,0,0.95)"; 
                 ctx.strokeStyle = "#00ff44"; 
                 ctx.lineWidth = 1.6;
@@ -250,13 +269,11 @@ app.registerExtension({
                     ctx.strokeRect(bx, by, boxW, boxH); 
                 }
 
-                // Отрисовка заголовка
                 ctx.font = "bold 16px Arial"; 
                 ctx.textAlign = "left"; 
                 ctx.fillStyle = "#00ff44";
                 ctx.fillText("Explanations / Описание", bx + margin, by + 22);
 
-                // Отрисовка строк с подсказками
                 helpDescriptions.forEach((item, index) => {
                     const y = by + 60 + (index * rowHeight);
                     

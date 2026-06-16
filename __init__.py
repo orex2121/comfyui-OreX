@@ -8,7 +8,10 @@ from .OreX_Ollama import OreXOllama
 from .OreX_Crop import OreXCrop
 from .OreX_Ratio import OreXRatio
 from .OreX_stressed_vowels import OreXStressedVowels
-from .OreX_StringFunction import OreX_StringFunction # <--- ИМПОРТ НОВОГО УЗЛА
+from .OreX_StringFunction import OreX_StringFunction
+from .OreX_AudioLoad import OreX_AudioLoad
+from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad # <--- ИМПОРТ НОВОГО УЗЛА ВИДЕО
+from .OreX_StringSelector import OreXStringSelector # <--- ИМПОРТ НОВОГО УЗЛА СЕЛЕКТОРА СТРОК
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -21,7 +24,10 @@ NODE_CLASS_MAPPINGS = {
     "orex Crop": OreXCrop,
     "orex Ratio": OreXRatio,
     "orex Stressed Vowels": OreXStressedVowels,
-    "orex String Function": OreX_StringFunction # <--- РЕГИСТРАЦИЯ КЛАССА
+    "orex String Function": OreX_StringFunction,
+    "orex Audio load": OreX_AudioLoad,
+    "orex Advanced Video Load": OreX_AdvancedVideoLoad, # <--- РЕГИСТРАЦИЯ КЛАССА ВИДЕО
+    "orex String Selector": OreXStringSelector # <--- РЕГИСТРАЦИЯ КЛАССА СЕЛЕКТОРА СТРОК
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -35,11 +41,14 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Crop": "🔳Crop (OreX)",
     "orex Ratio": "📐 Ratio (OreX)",
     "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)",
-    "orex String Function": "✍️ String Function (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ В ПОИСКЕ
+    "orex String Function": "✍️ String Function (OreX)",
+    "orex Audio load": "🔉 Audio Load (OreX)",
+    "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)", # <--- ОТОБРАЖАЕМОЕ ИМЯ
+    "orex String Selector": "📝 String Selector (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ СЕЛЕКТОРА СТРОК
 }
 
 # Изменено: стандартное имя переменной версии для ComfyUI
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 WEB_DIRECTORY = "./js"
 
 # Изменено: добавлена переменная __version__ для корректного чтения менеджером

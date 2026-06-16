@@ -4,46 +4,64 @@ import { api } from "../../../scripts/api.js";
 function getImageUrl(node, depth = 0) {
     if (!node || depth > 5) return null;
     try {
+        // 1. Узнаем, является ли текущий узел узлом загрузки
+        const isLoad = (node.type || "").toLowerCase().includes("load") || (node.comfyClass || "").toLowerCase().includes("load");
+
+        // 2. Для узлов загрузки (Load Image) - всегда приоритет у виджета выбора файла!
+        if (isLoad) {
+            const findWidget = (n) => (node.widgets || []).find(w => w && (w.name === n || w.label === n));
+            const imageWidget = findWidget("image") || findWidget("image_path") || findWidget("file_path");
+            if (imageWidget && imageWidget.value) {
+                let filename = "", subfolder = "", type = "input";
+                const val = imageWidget.value;
+                if (typeof val === "string") {
+                    filename = val.trim().replace(/^"|"$/g, "");
+                    if (filename.includes("/") || filename.includes("\\")) {
+                        const parts = filename.split(/[/\\]/);
+                        filename = parts.pop(); subfolder = parts.join("/");
+                    }
+                } else if (typeof val === "object" && val.filename) {
+                    filename = val.filename; subfolder = val.subfolder || "";
+                }
+                if (filename) return api.apiURL(`/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`);
+            }
+        }
+
+        // 3. Для узла Crop (и других) ПЕРВЫМ ДЕЛОМ проверяем входящий кабель (link)
+        // Это решает проблему переподключения: мы игнорируем свой старый кэш и идем по кабелю к источнику
+        const imageInput = (node.inputs || []).find(i => i && (i.name.toLowerCase().includes("image") || i.type === "IMAGE"));
+        if (imageInput && imageInput.link) {
+            const link = app.graph.links[imageInput.link];
+            if (link) {
+                const originNode = app.graph.getNodeById(link.origin_id);
+                if (originNode) {
+                    const linkedUrl = getImageUrl(originNode, depth + 1);
+                    if (linkedUrl) return linkedUrl;
+                }
+            }
+        }
+
+        // 4. Если кабеля нет или он пустой (ничего еще не сгенерировано на источнике), проверяем кэш выходов узла
         const output = app.node_outputs?.[node.id];
         if (output) {
             if (output.images && output.images.length > 0) {
                 const img = output.images[0];
-                return api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`);
+                return api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder || "")}`);
             }
             for (const key in output) {
                 const slot = output[key];
                 if (slot && slot.images && slot.images.length > 0) {
                     const img = slot.images[0];
-                    return api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`);
+                    return api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder || "")}`);
                 }
             }
         }
+
+        // 5. Фолбэк на внутренние картинки (стандартный кэш интерфейса ComfyUI)
         if (node.imgs && node.imgs.length > 0 && node.imgs[0].src) return node.imgs[0].src;
-        const findWidget = (n) => (node.widgets || []).find(w => w.name === n || w.label === n);
-        const imageWidget = findWidget("image") || findWidget("image_path") || findWidget("file_path");
-        if (imageWidget && imageWidget.value) {
-            const t = (node.type || "").toLowerCase(), c = (node.comfyClass || "").toLowerCase();
-            const isLoad = t.includes("load") || c.includes("load");
-            let filename = "", subfolder = "", type = isLoad ? "input" : "output";
-            const val = imageWidget.value;
-            if (typeof val === "string") {
-                filename = val.trim().replace(/^"|"$/g, "");
-                if (filename.includes("/") || filename.includes("\\")) {
-                    const parts = filename.split(/[/\\]/);
-                    filename = parts.pop(); subfolder = parts.join("/");
-                }
-            } else if (typeof val === "object" && val.filename) {
-                filename = val.filename; subfolder = val.subfolder || "";
-                type = val.type || type;
-            }
-            if (filename) return api.apiURL(`/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`);
-        }
-        const imageInput = (node.inputs || []).find(i => i.name.toLowerCase().includes("image") || i.type === "IMAGE");
-        if (imageInput && imageInput.link) {
-            const originNode = app.graph.getNodeById(app.graph.links[imageInput.link].origin_id);
-            if (originNode) return getImageUrl(originNode, depth + 1);
-        }
-    } catch (e) { } return null;
+
+    } catch (e) { console.error("Error fetching image URL: ", e); } 
+    return null;
 }
 
 const parseRatio = (r) => {
@@ -57,21 +75,21 @@ const parseRatio = (r) => {
 };
 
 const HELP_DESCRIPTIONS = [
-    { icon: "🔢", name: "Ratio Presets", label: "Presets / Шаблоны", desc: "Quick ratios", ru_desc: "Быстрый выбор пропорций" },
     { icon: "⬅️", name: "crop_left", label: "Left Crop / Обрезка слева", desc: "Remove pixels from the left side", ru_desc: "Удалить пиксели с левого края" },
     { icon: "➡️", name: "crop_right", label: "Right Crop / Обрезка справа", desc: "Remove pixels from the right side", ru_desc: "Удалить пиксели с правого края" },
     { icon: "⬆️", name: "crop_top", label: "Top Crop / Обрезка сверху", desc: "Remove pixels from the top", ru_desc: "Удалить пиксели сверху" },
     { icon: "⬇️", name: "crop_bottom", label: "Bottom Crop / Обрезка снизу", desc: "Remove pixels from the bottom", ru_desc: "Удалить пиксели снизу" },
     { icon: "↔️", name: "width", label: "Width / Ширина", desc: "Target output width in pixels", ru_desc: "Целевая ширина в пикселях" },
     { icon: "↕️", name: "height", label: "Height / Высота", desc: "Target output height in pixels", ru_desc: "Целевая высота в пикселях" },
-    { icon: "🔢", name: "multiplicity", label: "Multiplicity / Кратность", desc: "Snap dimensions to multiples of this value", ru_desc: "Округлять размеры до кратных этому значению" },
-    { icon: "🖥️", name: "resolution (MP)", label: "Resolution / Разрешение", desc: "Target resolution in megapixels (0 = disabled)", ru_desc: "Целевое разрешение в мегапикселях (0 = откл)" },
+    { icon: "🔢", name: "multiplicity", label: "Multiplicity / Кратность", desc: "Round the dimensions to integers multiples of this value (8, 16, 32, 64)", ru_desc: "Округлять размеры до чисел кратных этому значению (8, 16, 32, 64)" },
+    { icon: "🖥️", name: "resolution (MP)", label: "Resolution / Разрешение", desc: "Target resolution in megapixels (0 = disabled)", ru_desc: "Целевое разрешение в мегапикселях (0 = отключено)" },
     { icon: "⚙️", name: "upscale_method", label: "Upscale Method / Метод апскейла", desc: "Interpolation method for resizing image", ru_desc: "Метод интерполяции при изменении размера" },
-    { icon: "📐", name: "aspect_ratio", label: "Aspect Ratio / Пропорции", desc: "Set a specific width-to-height ratio", ru_desc: "Установить соотношение сторон" },
-    { icon: "🔒", name: "ratio_lock", label: "Ratio Lock / Блок. пропорций", desc: "Maintain the aspect ratio during resize", ru_desc: "Сохранять пропорции при изменении размера" },
+    { icon: "📐", name: "aspect_ratio", label: "Aspect Ratio / Пропорции", desc: "Set a custom aspect ratio (e.g. 5:7 or 300:1000 pixels)", ru_desc: "Установить произвольное соотношение сторон (например: 5:7 либо пиксели 300:1000)" },
+    { icon: "🔢", name: "Ratio Presets", label: "Presets / Шаблоны", desc: "Choose from preset ratios", ru_desc: "Выбор предустановленных пропорций" },
+    { icon: "🔒", name: "ratio_lock", label: "Ratio Lock / Блокировка пропорций", desc: "🟢ON - preserve proportions when resizing; 🔴OFF - free transformation", ru_desc: "🟢ON - сохранять пропорции при изменении размера; 🔴OFF - свободное трансформирование" },
     { icon: "🖼️", name: "Full Image", label: "Full Image / Всё изображение", desc: "Reset selection to cover the entire image", ru_desc: "Сбросить выделение на всё изображение" },
     { icon: "🎯", name: "Center", label: "Center / По центру", desc: "Move the current selection box to the center", ru_desc: "Переместить область выделения в центр" },
-    { icon: "✅", name: "Maximize", label: "Maximize / Максимизировать по центру", desc: "Enforce current ratio and center logic", ru_desc: "Принудительно применить пропорции и центрирование" }
+    { icon: "✅", name: "Maximize", label: "Maximize / Максимизировать", desc: "Stretch to the nearest frame boundaries while maintaining proportions.", ru_desc: "Растянуть до ближайших границ кадра с сохранением пропорций." }
 ];
 
 app.registerExtension({
@@ -98,48 +116,60 @@ app.registerExtension({
             this.imageLoaded = false;
             this.dragging = false;
             this.dragMode = null;
-            this.dragStartRatio = 1; // Сохраняем пропорции для диагонального изменения
+            this.dragStartRatio = 1;
             this._isSyncing = false;
+            this._lastLoadedUrl = null;
             this.previewScale = 1.0;
-            this.isHoveringHelp = false;
-            this.showHelpSidebar = false;
+            
+            this.activeTooltip = null;
+            this.activeTooltipY = null;
+            this.hoverTimer = null;
 
+            // Интеллектуальное масштабирование рамки без сброса выделения
             this.image.onload = () => {
                 this.imageLoaded = true;
-                this.syncWidgetsFromProperties(true);
+                
+                // Вычисляем реальный размер исходника, отменяя сжатие превью
+                const newW = Math.round(this.image.naturalWidth / this.previewScale);
+                const newH = Math.round(this.image.naturalHeight / this.previewScale);
+
+                const oldW = this.properties.actualImageWidth || 0;
+                const oldH = this.properties.actualImageHeight || 0;
+
+                this.properties.actualImageWidth = newW;
+                this.properties.actualImageHeight = newH;
+
+                if (oldW === 0 || oldH === 0) {
+                    // Самая первая загрузка картинки в ноду - охватываем всё изображение
+                    this.properties.dragStart = [0, 0];
+                    this.properties.dragEnd = [newW, newH];
+                    this.syncWidgetsFromProperties(true);
+                } else {
+                    // Загрузился новый кадр или батч. Мы не сбрасываем координаты, 
+                    // а заново применяем текущие проценты виджетов к новому размеру!
+                    this.syncPropertiesFromWidgets();
+                }
+
                 const minSize = this.computeSize();
                 if (this.size[1] < minSize[1]) this.size[1] = minSize[1];
                 this.setDirtyCanvas(true);
             };
 
             this._setupWidgets();
+        };
 
-            this._globalClickListener = (event) => {
-                if (!this.showHelpSidebar || !app.graph._nodes.includes(this)) return;
-
-                const graphPos = app.canvas.convertEventToCanvasOffset(event);
-                if (!graphPos) {
-                    this.showHelpSidebar = false;
-                    this.setDirtyCanvas(true);
-                    return;
-                }
-
-                const mx = graphPos[0] - this.pos[0];
-                const my = graphPos[1] - this.pos[1];
-                const iconArea = [this.size[0] - 25, -LiteGraph.NODE_TITLE_HEIGHT, 25, LiteGraph.NODE_TITLE_HEIGHT];
-                if (mx >= iconArea[0] && mx <= iconArea[0] + iconArea[2] && my >= iconArea[1] && my <= iconArea[1] + iconArea[3]) return;
-
-                this.showHelpSidebar = false;
-                this.setDirtyCanvas(true);
-            };
-
-            document.addEventListener("pointerdown", this._globalClickListener, true);
+        const onConnectionsChange = proto.onConnectionsChange;
+        proto.onConnectionsChange = function(type, index, connected, link_info) {
+            if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
+            // Если переподключили линк - форсируем перерисовку, чтобы новая картинка подтянулась сразу
+            this.setDirtyCanvas(true);
         };
 
         const onDestroy = proto.onDestroy;
         proto.onDestroy = function () {
-            if (this._globalClickListener) {
-                document.removeEventListener("pointerdown", this._globalClickListener, true);
+            if (this.hoverTimer) {
+                clearTimeout(this.hoverTimer);
+                this.hoverTimer = null;
             }
             if (onDestroy) onDestroy.apply(this, arguments);
         };
@@ -148,14 +178,14 @@ app.registerExtension({
             const node = this;
 
             node.addWidget("combo", "Ratio Presets", "Custom", (v) => {
-                const ar = node.widgets.find(w => w.name === "aspect_ratio");
+                const ar = node.widgets.find(w => w && w.name === "aspect_ratio");
                 if (ar && v !== "Custom") {
                     ar.value = v;
                     node.applyAspectRatio(v);
                 }
             }, { values: ["1:1", "4:3", "3:4", "16:9", "9:16", "9:20", "2:3", "3:2", "21:9", "Custom"] });
 
-            const arIdx = node.widgets.findIndex(w => w.name === "aspect_ratio");
+            const arIdx = node.widgets.findIndex(w => w && w.name === "aspect_ratio");
             if (arIdx !== -1) {
                 const presetWidget = node.widgets.pop();
                 node.widgets.splice(arIdx + 1, 0, presetWidget);
@@ -191,7 +221,7 @@ app.registerExtension({
             const wasSyncing = this._isSyncing;
             this._isSyncing = true;
             try {
-                const find = (n) => (this.widgets || []).find(w => w.name === n || w.label === n);
+                const find = (n) => (this.widgets || []).find(w => w && (w.name === n || w.label === n));
                 const imgW = this.properties.actualImageWidth || (this.image && this.image.width > 0 ? this.image.width : 1024);
                 const imgH = this.properties.actualImageHeight || (this.image && this.image.height > 0 ? this.image.height : 1024);
 
@@ -216,7 +246,6 @@ app.registerExtension({
                 let outW = curW;
                 let outH = curH;
 
-                // Если resolution (MP) задано, масштабируем итоговый выход под это разрешение
                 if (res > 0 && curH > 0) {
                     const targetArea = res * 1000000;
                     const ratio = curW / curH;
@@ -274,7 +303,7 @@ app.registerExtension({
             if (this._isSyncing) return;
             this._isSyncing = true;
             try {
-                const find = (n) => (this.widgets || []).find(w => w.name === n || w.label === n);
+                const find = (n) => (this.widgets || []).find(w => w && (w.name === n || w.label === n));
                 const imgW = this.properties.actualImageWidth, imgH = this.properties.actualImageHeight;
                 if (!imgW || !imgH) return;
 
@@ -288,7 +317,7 @@ app.registerExtension({
             if (this._isSyncing) return;
             this._isSyncing = true;
             try {
-                const find = (n) => (this.widgets || []).find(w => w.name === n || w.label === n);
+                const find = (n) => (this.widgets || []).find(w => w && (w.name === n || w.label === n));
                 const imgW = this.properties.actualImageWidth, imgH = this.properties.actualImageHeight;
                 if (!imgW || !imgH) return;
 
@@ -318,10 +347,10 @@ app.registerExtension({
         proto.centerSelection = function () {
             const imgW = this.properties.actualImageWidth, imgH = this.properties.actualImageHeight;
             if (!imgW) return;
-            const cw = this.properties.dragEnd[0] - this.properties.dragStart[0], ch = this.properties.dragEnd[1] - this.properties.dragStart[1];
-            const nx = Math.round((imgW - cw) / 2), ny = Math.round((imgH - ch) / 2);
+            const cb_w = this.properties.dragEnd[0] - this.properties.dragStart[0], cb_h = this.properties.dragEnd[1] - this.properties.dragStart[1];
+            const nx = Math.round((imgW - cb_w) / 2), ny = Math.round((imgH - cb_h) / 2);
             this.properties.dragStart = [nx, ny];
-            this.properties.dragEnd = [nx + cw, ny + ch];
+            this.properties.dragEnd = [nx + cb_w, ny + cb_h];
             this.syncWidgetsFromProperties(true);
             this.setDirtyCanvas(true);
         };
@@ -347,14 +376,6 @@ app.registerExtension({
         };
 
         proto.onMouseDown = function (e, pos) {
-            const [mx, my] = pos;
-            const iconArea = [this.size[0] - 25, -LiteGraph.NODE_TITLE_HEIGHT, 25, LiteGraph.NODE_TITLE_HEIGHT];
-            if (mx >= iconArea[0] && mx <= iconArea[0] + iconArea[2] && my >= iconArea[1] && my <= iconArea[1] + iconArea[3]) {
-                this.showHelpSidebar = !this.showHelpSidebar;
-                this.setDirtyCanvas(true);
-                return true; 
-            }
-
             if (!this.imageLoaded) return false;
             const imgPos = this.convertToImageSpace(pos);
             if (imgPos) {
@@ -363,7 +384,6 @@ app.registerExtension({
                     this.dragging = true; this.dragMode = hit; this.dragStartImg = imgPos;
                     this.origStart = [...this.properties.dragStart]; this.origEnd = [...this.properties.dragEnd];
                     
-                    // Запоминаем пропорции при клике для диагонального изменения
                     const curW = Math.abs(this.origEnd[0] - this.origStart[0]);
                     const curH = Math.abs(this.origEnd[1] - this.origStart[1]);
                     this.dragStartRatio = curH !== 0 ? curW / curH : 1;
@@ -376,11 +396,78 @@ app.registerExtension({
 
         proto.onMouseMove = function (e, pos) {
             const [mx, my] = pos;
-            const iconArea = [this.size[0] - 25, -LiteGraph.NODE_TITLE_HEIGHT, 25, LiteGraph.NODE_TITLE_HEIGHT];
-            const wasHoveringHelp = this.isHoveringHelp;
-            this.isHoveringHelp = (mx >= iconArea[0] && mx <= iconArea[0] + iconArea[2] && my >= iconArea[1] && my <= iconArea[1] + iconArea[3]);
-            if (wasHoveringHelp !== this.isHoveringHelp) this.setDirtyCanvas(true);
-            if (this.isHoveringHelp) return true;
+
+            if (mx < 0 || mx > this.size[0] || my < 0 || my > this.size[1]) {
+                if (this.hoverTimer) {
+                    clearTimeout(this.hoverTimer);
+                    this.hoverTimer = null;
+                }
+                if (this.activeTooltip) {
+                    this.activeTooltip = null;
+                    this.activeTooltipY = null;
+                    this.setDirtyCanvas(true);
+                }
+            }
+
+            if (!this.dragging && this.widgets) {
+                let hoveredWidget = null;
+                for (const w of this.widgets) {
+                    if (!w || w.last_y === undefined) continue;
+                    const wy = w.last_y;
+                    const wh = w.computeSize ? w.computeSize(this.size[0])[1] : 24;
+                    
+                    if (mx >= 10 && mx <= this.size[0] - 10 && my >= wy && my <= wy + wh) {
+                        hoveredWidget = w;
+                        break;
+                    }
+                }
+
+                let tooltipInfo = null;
+                if (hoveredWidget) {
+                    tooltipInfo = HELP_DESCRIPTIONS.find(item => {
+                        const wName = (hoveredWidget.name || "").toLowerCase().trim().replace(/_/g, " ");
+                        const wLabel = (hoveredWidget.label || "").toLowerCase().trim().replace(/_/g, " ");
+                        const itemName = (item.name || "").toLowerCase().trim().replace(/_/g, " ");
+                        return wName === itemName || wLabel === itemName;
+                    });
+                }
+
+                if (this.activeTooltip !== tooltipInfo) {
+                    if (this.hoverTimer) {
+                        clearTimeout(this.hoverTimer);
+                        this.hoverTimer = null;
+                    }
+
+                    if (!tooltipInfo) {
+                        if (this.activeTooltip) {
+                            this.activeTooltip = null;
+                            this.activeTooltipY = null;
+                            this.setDirtyCanvas(true);
+                        }
+                    } else {
+                        if (this.activeTooltip) {
+                            this.activeTooltip = null;
+                            this.activeTooltipY = null;
+                            this.setDirtyCanvas(true);
+                        }
+
+                        const widgetY = hoveredWidget.last_y;
+                        this.hoverTimer = setTimeout(() => {
+                            this.activeTooltip = tooltipInfo;
+                            this.activeTooltipY = widgetY;
+                            this.setDirtyCanvas(true);
+                            this.hoverTimer = null;
+                        }, 800);
+                    }
+                }
+            } else if (this.dragging) {
+                if (this.hoverTimer) {
+                    clearTimeout(this.hoverTimer);
+                    this.hoverTimer = null;
+                }
+                this.activeTooltip = null;
+                this.activeTooltipY = null;
+            }
 
             const imgPos = this.convertToImageSpace(pos);
             if (!this.dragging) {
@@ -404,15 +491,14 @@ app.registerExtension({
             const imgW = this.properties.actualImageWidth;
             const imgH = this.properties.actualImageHeight;
             
-            const isCorner = this.dragMode && this.dragMode.length === 2; // "tl", "tr", "bl", "br"
-            const lockWidget = this.widgets.find(wi => wi.name === "ratio_lock")?.value;
+            const isCorner = this.dragMode && this.dragMode.length === 2;
+            const lockWidget = this.widgets.find(wi => wi && wi.name === "ratio_lock")?.value;
             
-            // Пропорции сохраняются если включен лок ИЛИ мы тянем за диагональный угол
-            const shouldLock = lockWidget || isCorner;
+            const shouldLock = !!lockWidget;
 
             let rat = 1;
             if (lockWidget) {
-                rat = parseRatio(this.widgets.find(wi => wi.name === "aspect_ratio")?.value || "1:1");
+                rat = parseRatio(this.widgets.find(wi => wi && wi.name === "aspect_ratio")?.value || "1:1");
             } else if (isCorner) {
                 rat = this.dragStartRatio || 1;
             }
@@ -444,7 +530,6 @@ app.registerExtension({
                     } else if (this.dragMode === "t" || this.dragMode === "b") {
                         nw = nh * rat;
                     } else {
-                        // Для диагоналей используем наибольшее изменение
                         if (nw / rat > nh) nh = nw / rat; else nw = nh * rat;
                     }
 
@@ -489,61 +574,152 @@ app.registerExtension({
             return false;
         };
 
-        proto.onDrawForeground = function (ctx) {
-            const iconX = this.size[0] - 22, iconY = -LiteGraph.NODE_TITLE_HEIGHT + 5, iconR = 8;
-            ctx.save();
-            ctx.fillStyle = this.isHoveringHelp ? "#fff" : "#ff0";
-            ctx.font = "bold 15px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.fillText("?", iconX + iconR, iconY + iconR);
-            if (this.showHelpSidebar) this._drawHelpSidebar(ctx);
-            ctx.restore();
+        proto.onMouseLeave = function () {
+            if (this.hoverTimer) {
+                clearTimeout(this.hoverTimer);
+                this.hoverTimer = null;
+            }
+            if (this.activeTooltip) {
+                this.activeTooltip = null;
+                this.activeTooltipY = null;
+                this.setDirtyCanvas(true);
+            }
         };
 
-        proto._drawHelpSidebar = function (ctx) {
-            const margin = 15, bx = this.size[0] + 15, widgetH = 24;
-            const labelFont = "bold 13px Arial", descFont = "normal 11px Arial";
+        proto.onDrawForeground = function (ctx) {
+            if (this.flags?.collapsed) return;
 
-            ctx.save();
-            ctx.textBaseline = "middle";
+            if (this.widgets) {
+                for (const w of this.widgets) {
+                    if (w) {
+                        if (w.tooltip) w.tooltip = null;
+                        
+                        if (w.inputEl) {
+                            if (w.inputEl.title) {
+                                w.inputEl.title = "";
+                                w.inputEl.removeAttribute("title");
+                            }
+                            if (!w.inputEl._hasTooltipListeners) {
+                                w.inputEl._hasTooltipListeners = true;
+                                
+                                w.inputEl.addEventListener("pointerenter", () => {
+                                    const tooltipInfo = HELP_DESCRIPTIONS.find(item => {
+                                        const wName = (w.name || "").toLowerCase().trim().replace(/_/g, " ");
+                                        const wLabel = (w.label || "").toLowerCase().trim().replace(/_/g, " ");
+                                        const itemName = (item.name || "").toLowerCase().trim().replace(/_/g, " ");
+                                        return wName === itemName || wLabel === itemName;
+                                    });
 
-            let maxLabelW = 0, maxDescW = 0;
-            ctx.font = labelFont;
-            
-            HELP_DESCRIPTIONS.forEach((item) => {
-                maxLabelW = Math.max(maxLabelW, ctx.measureText(item.label).width);
-                ctx.font = descFont;
-                maxDescW = Math.max(maxDescW, ctx.measureText(`- ${item.desc} / ${item.ru_desc}`).width);
-                ctx.font = labelFont;
-            });
+                                    if (tooltipInfo) {
+                                        if (this.hoverTimer) {
+                                            clearTimeout(this.hoverTimer);
+                                        }
+                                        
+                                        this.hoverTimer = setTimeout(() => {
+                                            this.activeTooltip = tooltipInfo;
+                                            this.activeTooltipY = w.last_y !== undefined ? w.last_y : 50;
+                                            this.setDirtyCanvas(true);
+                                            this.hoverTimer = null;
+                                        }, 800);
+                                    }
+                                });
 
-            let firstWidget = this.widgets.find(w => w.last_y !== undefined);
-            let lastWidget = [...this.widgets].reverse().find(w => w.last_y !== undefined);
-            
-            let minWidgetY = firstWidget ? firstWidget.last_y : 50;
-            let lastWidgetY = lastWidget ? lastWidget.last_y : 400;
-
-            const labelX = bx + margin + 28, descX = labelX + maxLabelW + 15;
-            const boxW = (descX - bx) + maxDescW + margin;
-            const by = minWidgetY - 45, boxH = (lastWidgetY + widgetH + 10) - by;
-
-            ctx.fillStyle = "rgba(0,0,0,0.95)"; ctx.strokeStyle = "#00ff44"; ctx.lineWidth = 1.6;
-            if (ctx.roundRect) { 
-                ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 12); ctx.fill(); ctx.stroke(); 
-            } else { 
-                ctx.fillRect(bx, by, boxW, boxH); ctx.strokeRect(bx, by, boxW, boxH); 
+                                w.inputEl.addEventListener("pointerleave", () => {
+                                    if (this.hoverTimer) {
+                                        clearTimeout(this.hoverTimer);
+                                        this.hoverTimer = null;
+                                    }
+                                    if (this.activeTooltip) {
+                                        this.activeTooltip = null;
+                                        this.activeTooltipY = null;
+                                        this.setDirtyCanvas(true);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
             }
 
-            ctx.font = "bold 16px Arial"; ctx.textAlign = "left"; ctx.fillStyle = "#00ff44";
-            ctx.fillText("Explanations / Описание", bx + margin, by + 22);
+            if (this.activeTooltip) {
+                this._drawTooltip(ctx);
+            }
+        };
 
-            HELP_DESCRIPTIONS.forEach((item) => {
-                const w = this.widgets.find(wd => wd.name === item.name || wd.label === item.name);
-                const y = (w && w.last_y !== undefined) ? w.last_y + (widgetH / 2) : by + 60;
-                
-                ctx.font = "14px Arial"; ctx.fillStyle = "#fff"; ctx.fillText(item.icon, bx + margin, y);
-                ctx.font = labelFont; ctx.fillText(item.label, labelX, y);
-                ctx.font = descFont; ctx.fillStyle = "#aaa"; ctx.fillText(`- ${item.desc} / ${item.ru_desc}`, descX, y);
-            });
+        proto._drawTooltip = function (ctx) {
+            if (!this.activeTooltip) return;
+            const item = this.activeTooltip;
+            const wy = this.activeTooltipY !== null ? this.activeTooltipY : 100;
+            
+            const margin = 12;
+            
+            const bx = this.size[0] + 25; 
+            
+            ctx.save();
+            
+            ctx.font = "bold 13px Arial, sans-serif";
+            const titleText = `${item.icon || "💡"} ${item.label}`;
+            const titleW = ctx.measureText(titleText).width;
+            
+            ctx.font = "11px Arial, sans-serif";
+            const descText = `EN: ${item.desc}`;
+            const ruDescText = `RU: ${item.ru_desc}`;
+            const descW = ctx.measureText(descText).width;
+            const ruDescW = ctx.measureText(ruDescText).width;
+            
+            const boxW = Math.max(titleW, descW, ruDescW) + margin * 2;
+            const boxH = 74;
+            
+            const by = wy + 12 - boxH / 2;
+            
+            ctx.fillStyle = "rgba(18, 18, 18, 0.98)";
+            ctx.strokeStyle = "rgba(0, 255, 70, 0.5)";
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+            
+            const r = 6;             
+            const arrowW = 8;        
+            const arrowH = 6;        
+            const arrowTipY = boxH / 2; 
+            
+            ctx.beginPath();
+            ctx.moveTo(bx + r, by);
+            ctx.lineTo(bx + boxW - r, by);
+            ctx.arcTo(bx + boxW, by, bx + boxW, by + r, r);
+            ctx.lineTo(bx + boxW, by + boxH - r);
+            ctx.arcTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH, r);
+            ctx.lineTo(bx + r, by + boxH);
+            ctx.arcTo(bx, by + boxH, bx, by + boxH - r, r);
+            
+            ctx.lineTo(bx, by + arrowTipY + arrowH);
+            ctx.lineTo(bx - arrowW, by + arrowTipY);
+            ctx.lineTo(bx, by + arrowTipY - arrowH);
+            
+            ctx.lineTo(bx, by + r);
+            ctx.arcTo(bx, by, bx + r, by, r);
+            ctx.closePath();
+            
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+            ctx.stroke();
+
+            ctx.textBaseline = "top";
+            ctx.textAlign = "left";
+
+            ctx.font = "bold 13px Arial, sans-serif";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(titleText, bx + margin, by + margin);
+
+            ctx.font = "11px Arial, sans-serif";
+            ctx.fillStyle = "#cccccc";
+            ctx.fillText(descText, bx + margin, by + margin + 22);
+
+            ctx.font = "11px Arial, sans-serif";
+            ctx.fillStyle = "#999999";
+            ctx.fillText(ruDescText, bx + margin, by + margin + 38);
+
             ctx.restore();
         };
 
@@ -553,7 +729,22 @@ app.registerExtension({
             const startY = y + margin;
             ctx.fillStyle = "#161616"; ctx.fillRect(margin, startY, drawW, drawH);
 
-            if (!node.imageLoaded) { ctx.fillStyle = "#666"; ctx.textAlign = "center"; ctx.fillText("No Image", margin + drawW / 2, startY + drawH / 2); return; }
+            const currentUrl = getImageUrl(node);
+            if (currentUrl && node._lastLoadedUrl !== currentUrl) {
+                node._lastLoadedUrl = currentUrl;
+                
+                // ИСПРАВЛЕНИЕ: Если загрузилась совершенно новая картинка (не наше превью),
+                // сбрасываем масштаб превью на единицу
+                if (!currentUrl.includes("orex_crop_preview")) {
+                    node.previewScale = 1.0;
+                }
+
+                node.image.src = currentUrl;
+                node.imageLoaded = false;
+                node.setDirtyCanvas(true);
+            }
+
+            if (!node.imageLoaded) { ctx.fillStyle = "#666"; ctx.textAlign = "center"; ctx.fillText("No Image (Connect image input)", margin + drawW / 2, startY + drawH / 2); return; }
             
             const imgAR = node.image.width / node.image.height, areaAR = drawW / drawH;
             let pw, ph, px, py;
@@ -572,8 +763,8 @@ app.registerExtension({
             
             ctx.strokeStyle = "#0f0"; ctx.lineWidth = 2; ctx.strokeRect(rx, ry, rw, rh);
 
-            const outW = node.widgets.find(w => w.name === "width")?.value || Math.round(x2 - x1);
-            const outH = node.widgets.find(w => w.name === "height")?.value || Math.round(y2 - y1);
+            const outW = node.widgets.find(w => w && w.name === "width")?.value || Math.round(x2 - x1);
+            const outH = node.widgets.find(w => w && w.name === "height")?.value || Math.round(y2 - y1);
 
             ctx.strokeStyle = "rgba(170, 255, 0, 0.5)"; ctx.lineWidth = 1;
             ctx.beginPath();
@@ -601,7 +792,7 @@ app.registerExtension({
 
         proto.onWidgetChanged = function (name, val) {
             if (this._isSyncing) return;
-            const find = (n) => this.widgets.find(w => w.name === n);
+            const find = (n) => this.widgets.find(w => w && w.name === n);
 
             if (["crop_left", "crop_right", "crop_top", "crop_bottom"].includes(name)) {
                 this.syncPropertiesFromWidgets();
@@ -630,7 +821,6 @@ app.registerExtension({
                     else valW = valH * rat;
                 }
 
-                // Применяем multiplicity
                 valW = Math.max(mult, Math.round(valW / mult) * mult);
                 valH = Math.max(mult, Math.round(valH / mult) * mult);
 
@@ -642,10 +832,8 @@ app.registerExtension({
                 let resWidget = find("resolution (MP)");
                 let currentRes = parseFloat(resWidget?.value) || 0;
 
-                // Если рамка не влезает ИЛИ мы уже используем масштабирование (resolution > 0)
                 if (exceeds || currentRes > 0) {
                     if (boxW > imgW || boxH > imgH) {
-                        // Ограничиваем размеры рамки границами картинки, сохраняя нужную пропорцию
                         if (imgW / imgH < targetRatio) {
                             boxW = imgW;
                             boxH = boxW / targetRatio;
@@ -655,7 +843,6 @@ app.registerExtension({
                         }
                     }
                     
-                    // Обновляем мегапиксели, чтобы итоговый вывод соответствовал введенным width/height
                     if (resWidget) {
                         const exactMP = (valW * valH) / 1000000;
                         resWidget.value = Math.round(exactMP * 100) / 100;
@@ -671,7 +858,6 @@ app.registerExtension({
                 let nx1 = cx - boxW / 2;
                 let ny1 = cy - boxH / 2;
                 
-                // Корректируем, чтобы рамка не выходила за края при центрировании
                 if (nx1 < 0) { nx1 = 0; }
                 if (ny1 < 0) { ny1 = 0; }
                 if (nx1 + boxW > imgW) { nx1 = imgW - boxW; if (nx1 < 0) nx1 = 0; }
@@ -685,8 +871,6 @@ app.registerExtension({
                 this.syncWidgetsFromProperties(true);
                 this.setDirtyCanvas(true);
             } else if (name === "resolution (MP)") {
-                // Изменение мегапикселей теперь НЕ трогает физическую рамку кропа
-                // Оно просто вызывает перерасчет итоговых полей width/height
                 this.syncWidgetsFromProperties(true);
                 this.setDirtyCanvas(true);
             } else if (name === "multiplicity") {
@@ -703,22 +887,33 @@ app.registerExtension({
 
         proto.onExecuted = function (message) {
             if (message?.images && message.images.length > 0) {
-                const img = message.images[0], url = api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder || "")}`);
-                if (message.orig_size) {
-                    const [newW, newH] = message.orig_size, oldW = this.properties.actualImageWidth, oldH = this.properties.actualImageHeight;
-                    this.properties.actualImageWidth = newW; this.properties.actualImageHeight = newH;
-                    if (newW !== oldW || newH !== oldH) this.applyAspectRatio(this.widgets.find(w => w.name === "ratio_lock")?.value ? undefined : "Full");
+                const img = message.images[0];
+                const url = api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder || "")}`);
+                
+                if (message.preview_scale) {
+                    this.previewScale = Array.isArray(message.preview_scale) ? message.preview_scale[0] : message.preview_scale;
                 }
-                if (message.preview_scale) this.previewScale = Array.isArray(message.preview_scale) ? message.preview_scale[0] : message.preview_scale;
-                this.image.src = url; this.imageLoaded = false; this.setDirtyCanvas(true);
+
+                if (message.orig_size) {
+                    const [newW, newH] = message.orig_size;
+                    this.properties.actualImageWidth = newW; 
+                    this.properties.actualImageHeight = newH;
+                    
+                    // Мы не сбрасываем выделение, а применяем текущие проценты!
+                    this.syncPropertiesFromWidgets();
+                }
+                
+                this.image.src = url; 
+                this.imageLoaded = false; 
+                this.setDirtyCanvas(true);
             }
         };
     },
     nodeCreated(node) {
         if (node.comfyClass === "orex Crop") {
-            const lock = node.widgets.find(w => w.name === "ratio_lock");
+            const lock = node.widgets.find(w => w && w.name === "ratio_lock");
             if (lock) lock.value = false;
-            const preset = node.widgets.find(w => w.name === "Ratio Presets");
+            const preset = node.widgets.find(w => w && w.name === "Ratio Presets");
             if (preset) preset.value = "Custom";
         }
     }

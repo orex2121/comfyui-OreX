@@ -11,17 +11,24 @@ import urllib.request
 import urllib.error
 import re
 
-# Импортируем менеджер моделей ComfyUI для очистки VRAM
 try:
     import comfy.model_management as mm
 except ImportError:
     mm = None
 
-# Default models to use
 DEFAULT_LLM = "SELECT A MODEL"
-DEFAULT_VISION = "SELECT A MODEL"
 
-# --- SYSTEM PRESETS LOADER ---
+# --- ПРЕДКОМПИЛЯЦИЯ REGEX ДЛЯ СКОРОСТИ ---
+CLEAN_PATTERNS = [
+    re.compile(r'<\|?channel\|?>.*?<\|?channel\|?>', flags=re.DOTALL | re.IGNORECASE),
+    re.compile(r'<(thinking|think|reasoning)>.*?</\1>', flags=re.DOTALL | re.IGNORECASE),
+    re.compile(r'^.*?</(thinking|think|reasoning)>', flags=re.DOTALL | re.IGNORECASE),
+    re.compile(r'^.*?(?:<channel\|>|</channel>)', flags=re.DOTALL | re.IGNORECASE),
+    re.compile(r'<\|?channel\|?>.*$', flags=re.DOTALL | re.IGNORECASE),
+    re.compile(r'<(thinking|think|reasoning)>.*$', flags=re.IGNORECASE),
+    re.compile(r'\[Thinking.*?\]', flags=re.DOTALL | re.IGNORECASE)
+]
+
 def load_presets():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     json_path = os.path.join(current_dir, "OreX_Preset_LMStudio_Ollama.json")
@@ -47,7 +54,7 @@ def load_presets():
                     if "name" in item and "prompt" in item:
                         presets[item["name"]] = item["prompt"]
     except Exception as e:
-        print(f"[Ollama Nodes] Error loading presets from JSON: {e}")
+        print(f"[Ollama Nodes] Error loading presets: {e}")
         
     return presets
 
@@ -55,17 +62,15 @@ PRESETS_DICT = load_presets()
 PRESET_NAMES = list(PRESETS_DICT.keys())
 
 def fetch_available_models(default_model):
-    """Fetches available models from Ollama API."""
     models = []
     host = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
     if not host.startswith("http"):
         host = f"http://{host}"
     
-    endpoint = f"{host}/api/tags"
-    
     try:
-        req = urllib.request.Request(endpoint)
-        with urllib.request.urlopen(req, timeout=4.0) as response:
+        # Уменьшен таймаут, чтобы ComfyUI не вис при запуске если Ollama выключена
+        req = urllib.request.Request(f"{host}/api/tags")
+        with urllib.request.urlopen(req, timeout=1.5) as response:
             data = json.loads(response.read().decode('utf-8'))
             for m in data.get("models", []):
                 m_id = m.get("name")
@@ -78,17 +83,6 @@ def fetch_available_models(default_model):
         models.remove(default_model)
     models.insert(0, default_model)
     return models
-
-def check_ollama_connection():
-    host = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
-    if not host.startswith("http"):
-        host = f"http://{host}"
-    try:
-        req = urllib.request.Request(f"{host}/api/tags")
-        with urllib.request.urlopen(req, timeout=3.0) as response:
-            pass
-    except Exception as e:
-        raise Exception(f"Cannot connect to Ollama. Make sure the server is running on port 11434. (Error: {e})")
 
 def api_call_ollama(endpoint, payload, timeout_seconds):
     host = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -103,25 +97,11 @@ def api_call_ollama(endpoint, payload, timeout_seconds):
     except urllib.error.URLError as e:
         raise Exception(f"Ollama API request failed: {e}")
 
-def unload_model(model_key):
-    try:
-        payload = {"model": model_key, "keep_alive": 0}
-        api_call_ollama("generate", payload, 5.0)
-    except Exception as e:
-        print(f"Warning: Failed to unload Ollama model: {e}")
-
 def _clean_reasoning_content(content):
-    """Безопасная очистка скрытых размышлений моделей класса DeepSeek R1."""
-    if not content:
-        return ""
+    if not content: return ""
     text = content
-    text = re.sub(r'<\|?channel\|?>.*?<\|?channel\|?>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<(thinking|think|reasoning)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'^.*?</(thinking|think|reasoning)>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'^.*?(?:<channel\|>|</channel>)', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<\|?channel\|?>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<(thinking|think|reasoning)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'\[Thinking.*?\]', '', text, flags=re.DOTALL | re.IGNORECASE)
+    for pattern in CLEAN_PATTERNS:
+        text = pattern.sub('', text)
     return '\n'.join(line for line in text.splitlines() if line.strip()).strip()
 
 def get_full_b64(pil_img):
@@ -129,20 +109,15 @@ def get_full_b64(pil_img):
     pil_img.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-def get_b64_preview(pil_img):
-    img_str = get_full_b64(pil_img)
-    return f"{img_str[:10]}...{img_str[-10:]}" if len(img_str) > 23 else img_str
-
-def resize_to_target_megapixels(pil_image, target_megapixels=0.7, debug=False):
+def resize_to_target_megapixels(pil_image, target_megapixels=0.7):
     target_pixels = target_megapixels * 1000000
     current_pixels = pil_image.width * pil_image.height
     if current_pixels > target_pixels:
         scale_factor = (target_pixels / current_pixels) ** 0.5
-        resampling_filter = getattr(Image, 'Resampling', Image).LANCZOS
+        # Обновленный вызов Resampling для новых версий Pillow
+        resampling_filter = getattr(Image.Resampling, 'LANCZOS', Image.LANCZOS)
         return pil_image.resize((int(pil_image.width * scale_factor), int(pil_image.height * scale_factor)), resampling_filter)
     return pil_image
-
-# --- NODES IMPLEMENTATION ---
 
 class OreXOllama:
     @classmethod
@@ -153,16 +128,16 @@ class OreXOllama:
                 "system_prompt": ("STRING", {"default": ""}),
                 "system_preset": (PRESET_NAMES, ),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
-                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ENABLED", "label_off": "🔴 Thinking DISABLED"}),
-                "auto_unload": (["True", "False"], {"default": "True"}),
+                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ON", "label_off": "🔴 Thinking OFF"}),
+                "auto_unload_model": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
                 "clean_vram_before": ("BOOLEAN", {"default": False, "label_on": "🟢 Clean VRAM ON", "label_off": "🔴 Clean VRAM OFF"}),
                 "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
                 "image": ("IMAGE",),
-                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
-                "max_tokens": ("INT", {"default": 1024, "min": 1, "max": 4096}),
+                "context_length": ("INT", {"default": 4096, "min": 0, "max": 131072, "step": 256}), # min изменено на 0
+                "max_tokens": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "step": 256}), # default 0, max снят, шаг 256
                 "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
                 "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
@@ -180,90 +155,123 @@ class OreXOllama:
     def IS_CHANGED(cls, **kwargs):
         m = hashlib.sha256()
         for k, v in kwargs.items():
-            if k != "image": m.update(str(v).encode())
+            if k != "image": 
+                m.update(str(v).encode())
+        # Исправлено: хешируем среднее значение пикселей, а не просто shape (чтобы реагировало на разные картинки одного размера)
         if kwargs.get("image") is not None:
-            m.update(str(kwargs["image"].shape).encode())
+            img_mean = float(np.mean(kwargs["image"].numpy()))
+            m.update(str(img_mean).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload_model, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         
-        # Очистка VRAM перед генерацией, если переключатель активирован
-        if clean_vram_before and mm is not None:
+        # Приведение max_tokens к ближайшему кратному 256 (0 = безлимит)
+        user_max_tokens = max_tokens
+        if user_max_tokens == 0:
+            user_max_tokens = -1
+        elif user_max_tokens > 0:
+            user_max_tokens = int(max(256, round(user_max_tokens / 256.0) * 256))
+
+        is_include_reasoning = include_reasoning if isinstance(include_reasoning, bool) else str(include_reasoning).upper() in ["TRUE", "ON"]
+
+        # Если Thinking OFF (скрываем размышления), отключаем лимит (-1),
+        # чтобы модель гарантированно дописала ответ до конца.
+        if not is_include_reasoning:
+            api_max_tokens = -1
+        else:
+            api_max_tokens = user_max_tokens
+
+        # Исправление логики Boolean
+        is_auto_unload = auto_unload_model if isinstance(auto_unload_model, bool) else str(auto_unload_model).upper() in ["TRUE", "ON"]
+        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
+        is_clean_vram = clean_vram_before if isinstance(clean_vram_before, bool) else str(clean_vram_before).upper() in ["TRUE", "ON"]
+
+        if is_clean_vram and mm is not None:
             print("[Ollama Nodes] 🧹 Unloading ComfyUI models to free VRAM before Ollama inference...")
             mm.unload_all_models()
             mm.soft_empty_cache()
 
-        timeout_seconds = 300
-        use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
-        
         if model_key == "SELECT A MODEL" or not model_key:
             return ("Error: Please select a model from the list.", json.dumps({"error": "No model selected"}))
 
-        check_ollama_connection()
         has_image = image is not None
         has_text = text_input is not None and text_input.strip() != ""
 
         if not has_image and not has_text:
-            msg = "No inputs provided."
-            return (msg, json.dumps({"error": msg}))
+            return ("No inputs provided.", json.dumps({"error": "No inputs provided."}))
 
-        random.seed(seed)
         preset_value = PRESETS_DICT.get(system_preset, "")
-        final_system_prompt = system_prompt
-        if preset_value.strip():
-            final_system_prompt = f"{system_prompt.strip()}\n{preset_value.strip()}".strip()
+        final_system_prompt = f"{system_prompt.strip()}\n{preset_value.strip()}".strip()
 
         request_log = {
             "model": model_key, "system_prompt": final_system_prompt,
             "user_input": text_input if has_text else "[Empty/Image only]", "has_image": has_image,
-            "parameters": {"num_predict": max_tokens, "seed": seed}
+            "parameters": {"num_predict": api_max_tokens, "seed": seed} # В Ollama это num_predict
         }
+        
+        options = {"num_predict": api_max_tokens, "seed": seed}
+        
         if use_gen_params:
-            request_log["parameters"].update({"num_ctx": context_length, "temperature": temperature, "top_p": top_p, "top_k": top_k, "repeat_penalty": repeat_penalty})
+            options.update({
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "repeat_penalty": repeat_penalty
+            })
+            
+            # Если 0, то не отправляем num_ctx в Ollama (используется значение по умолчанию сервера)
+            if context_length > 0:
+                options["num_ctx"] = context_length
+
+            request_log["parameters"].update({
+                "num_ctx": context_length if context_length > 0 else "Auto (Ollama Default)", 
+                "temperature": temperature, 
+                "top_p": top_p, 
+                "top_k": top_k, 
+                "repeat_penalty": repeat_penalty
+            })
 
         try:
             payload = {
-                "model": model_key, "messages": [], "stream": False, "options": request_log["parameters"]
+                "model": model_key, "messages": [], "stream": False, "options": options
             }
 
-            if auto_unload == "True" and unload_delay == 0: payload["keep_alive"] = 0
-            elif unload_delay > 0: payload["keep_alive"] = unload_delay
+            # Используем исправленный is_auto_unload
+            if is_auto_unload and unload_delay == 0: 
+                payload["keep_alive"] = 0
+            elif unload_delay > 0: 
+                payload["keep_alive"] = unload_delay
 
             if final_system_prompt:
                 payload["messages"].append({"role": "system", "content": final_system_prompt})
 
-            effective_text = text_input if has_text else " "
-            user_msg = {"role": "user", "content": effective_text}
+            user_msg = {"role": "user", "content": text_input if has_text else " "}
 
             if has_image:
                 pil_image = resize_to_target_megapixels(Image.fromarray(np.uint8(image[0]*255)), 0.7)
                 user_msg["images"] = [get_full_b64(pil_image)]
-                request_log["image_data"] = f"data:image/jpeg;base64,{get_b64_preview(pil_image)}"
                 
             payload["messages"].append(user_msg)
 
-            result = api_call_ollama("chat", payload, timeout_seconds)
+            result = api_call_ollama("chat", payload, timeout_seconds=300)
             final_content = result.get("message", {}).get("content", "")
 
-            if not include_reasoning:
-                final_content = _clean_reasoning_content(final_content)
+            if not is_include_reasoning:
+                cleaned_content = _clean_reasoning_content(final_content)
+                # Если после удаления скрытых размышлений текст оказался пустым
+                if not cleaned_content.strip() and final_content.strip():
+                    final_content = final_content + "\n\n[Внимание: модель сгенерировала только размышления без основного ответа]"
+                else:
+                    final_content = cleaned_content
 
-            if auto_unload == "True" and unload_delay == 0 and "keep_alive" not in payload:
-                unload_model(model_key)
+            # Выгрузка модели если требуется, а keep_alive не был отправлен в самом запросе
+            if is_auto_unload and unload_delay == 0 and "keep_alive" not in payload:
+                 api_call_ollama("generate", {"model": model_key, "keep_alive": 0}, timeout_seconds=5)
 
             return (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
         except Exception as e:
             return (f"Ollama error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
 
-
-# ========= REGISTRATION (ОСТАВЛЯЕМ СТРОГО ОДИН БАЗОВЫЙ УЗЕЛ) =========
-
-NODE_CLASS_MAPPINGS = {
-    "OreXOllama": OreXOllama
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "OreXOllama": "🦙 Ollama (OreX)"
-}
-
+NODE_CLASS_MAPPINGS = {"OreXOllama": OreXOllama}
+NODE_DISPLAY_NAME_MAPPINGS = {"OreXOllama": "🦙 Ollama (OreX)"}
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

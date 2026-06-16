@@ -1,6 +1,12 @@
 import { app } from "../../scripts/app.js";
 
-// Вспомогательная функция для определения зоны, над которой находится курсор мыши
+const RATIO_HELP_DESCRIPTIONS = [
+    { icon: "📐", name: "ratio", label: "ratio / Пропорция", desc: "Select a predefined aspect ratio or 'Custom' for manual dragging", ru_desc: "Выбор готовой пропорции кадра или 'Custom' для произвольного растягивания" },
+    { icon: "🖥️", name: "Megapixel", label: "Megapixel / Разрешение (MP)", desc: "Target resolution in Megapixels. The node will scale width and height to match this area", ru_desc: "Целевое разрешение в мегапикселях. Размеры кадра будут подогнаны под эту площадь" },
+    { icon: "⚙️", name: "Megapixel = 1024^2", label: "Megapixel = 1024^2 / База площади", desc: "Toggle between 1024x1024 (1.05 MP) or 1000x1000 (1.00 MP) as 1 Megapixel", ru_desc: "🟢 ENABLED: База 1024x1024 (1.05 MP) | 🔴 DISABLED: База 1000x1000 (1.00 MP)" },
+    { icon: "🔢", name: "Multiplicity", label: "Multiplicity / Кратность сторон", desc: "Round the dimensions to integers multiples of this value (8, 16, 32, 64)", ru_desc: "Округлять размеры до чисел кратных этому значению (8, 16, 32, 64)" }
+];
+
 function getHitArea(node, pos, widget) {
     const [mx, my] = pos;
     const y = widget.last_y;
@@ -12,7 +18,7 @@ function getHitArea(node, pos, widget) {
     if (my < y || my > y + height) return null;
 
     const { w, h } = widget.getOutputDimensions(node);
-    const scale = node.dragging ? node.dragScale : node.previewScale;
+    const scale = node.dragging ? (node.dragScale || 1) : (node.previewScale || 1);
 
     const cx = width / 2;
     const cy = y + height / 2;
@@ -23,7 +29,7 @@ function getHitArea(node, pos, widget) {
     const right = cx + boxW / 2;
     const top = cy - boxH / 2;
     const bottom = cy + boxH / 2;
-    const hr = 12; // Зона захвата в пикселях
+    const hr = 12;
 
     const onL = Math.abs(mx - left) < hr;
     const onR = Math.abs(mx - right) < hr;
@@ -48,10 +54,73 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "orex Ratio") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
-
             const onMouseMove = nodeType.prototype.onMouseMove;
+            const onConfigure = nodeType.prototype.onConfigure;
+
+            nodeType.prototype.onConfigure = function(info) {
+                if (onConfigure) onConfigure.apply(this, arguments);
+                this.setupWidgetsAndCallbacks();
+            };
+
             nodeType.prototype.onMouseMove = function(e, pos, canvas) {
                 if (onMouseMove) onMouseMove.apply(this, arguments);
+
+                const [mx, my] = pos;
+                const isOutside = mx < 0 || mx > this.size[0] || my < 0 || my > this.size[1];
+
+                if (isOutside || this.dragging) {
+                    this._clearTooltip();
+                } else if (this.widgets) {
+                    let hoveredWidget = null;
+                    for (const w of this.widgets) {
+                        if (w.last_y === undefined) continue;
+                        const wy = w.last_y;
+                        const wh = w.computeSize ? w.computeSize(this.size[0])[1] : 24;
+                        
+                        if (mx >= 10 && mx <= this.size[0] - 10 && my >= wy && my <= wy + wh) {
+                            hoveredWidget = w;
+                            w.tooltip = ""; 
+                            break;
+                        }
+                    }
+
+                    if (hoveredWidget && app.canvas && app.canvas.canvas) {
+                        app.canvas.canvas.title = "";
+                    }
+
+                    if (this.lastHoveredWidget !== hoveredWidget) {
+                        this.lastHoveredWidget = hoveredWidget;
+                        this._clearTooltip();
+
+                        if (hoveredWidget) {
+                            const wNameStrict = (hoveredWidget.name || "").trim();
+                            const wLabelStrict = (hoveredWidget.label || "").trim();
+
+                            let tooltipInfo = RATIO_HELP_DESCRIPTIONS.find(item => 
+                                wNameStrict === item.name || wLabelStrict === item.name
+                            );
+
+                            if (!tooltipInfo) {
+                                const wName = wNameStrict.toLowerCase().replace(/_/g, " ");
+                                const wLabel = wLabelStrict.toLowerCase().replace(/_/g, " ");
+                                tooltipInfo = RATIO_HELP_DESCRIPTIONS.find(item => {
+                                    const itemName = (item.name || "").toLowerCase().trim().replace(/_/g, " ");
+                                    return wName === itemName || wLabel === itemName;
+                                });
+                            }
+
+                            if (tooltipInfo) {
+                                const widgetY = hoveredWidget.last_y;
+                                this.hoverTimer = setTimeout(() => {
+                                    this.activeTooltip = tooltipInfo;
+                                    this.activeTooltipY = widgetY;
+                                    this.setDirtyCanvas(true, true);
+                                    this.hoverTimer = null;
+                                }, 800);
+                            }
+                        }
+                    }
+                }
 
                 const widget = this.widgets?.find(w => w.name === "ratio_preview");
                 if (!widget) return false;
@@ -69,94 +138,104 @@ app.registerExtension({
                         app.canvas.canvas.style.cursor = cursors[hit];
                         return true;
                     } else {
-                        app.canvas.canvas.style.cursor = "";
+                        app.canvas.canvas.style.cursor = "default";
                         return false;
                     }
                 }
                 return false;
             };
 
-            nodeType.prototype.onNodeCreated = function() {
-                if (onNodeCreated) {
-                    onNodeCreated.apply(this, arguments);
+            nodeType.prototype._clearTooltip = function() {
+                if (this.hoverTimer) {
+                    clearTimeout(this.hoverTimer);
+                    this.hoverTimer = null;
                 }
+                if (this.activeTooltip) {
+                    this.activeTooltip = null;
+                    this.activeTooltipY = null;
+                    this.setDirtyCanvas(true, true);
+                }
+            };
+
+            nodeType.prototype.setupWidgetsAndCallbacks = function() {
+                if (this._widgetsSetupDone) return;
                 
-                this.color = "#855185";
-                this.bgcolor = "#5f3a5f"; 
+                const node = this; 
                 
-                const setupWidgetsAndCallbacks = () => {
-                    const node = this; 
+                const cw = node.widgets?.find(w => w.name === "custom_width");
+                if (cw) { cw.type = "hidden"; cw.computeSize = () => [0, -4]; }
+                const ch = node.widgets?.find(w => w.name === "custom_height");
+                if (ch) { ch.type = "hidden"; ch.computeSize = () => [0, -4]; }
+
+                const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
+                if (baseWidget) {
+                    baseWidget.options = baseWidget.options || {};
+                    baseWidget.options.on = "🟢 ENABLED";
+                    baseWidget.options.off = "🔴 DISABLED";
                     
-                    const cw = node.widgets?.find(w => w.name === "custom_width");
-                    if (cw) { cw.type = "hidden"; cw.computeSize = () => [0, -4]; }
-                    const ch = node.widgets?.find(w => w.name === "custom_height");
-                    if (ch) { ch.type = "hidden"; ch.computeSize = () => [0, -4]; }
-
-                    const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
-                    if (baseWidget && !baseWidget._setupDone) {
-                        baseWidget.options = baseWidget.options || {};
-                        baseWidget.options.on = "🟢 ENABLED";
-                        baseWidget.options.off = "🔴 DISABLED";
-                        baseWidget._setupDone = true;
-                    }
-                    
-                    const mpWidget = node.widgets?.find(w => w.name === "Megapixel");
-                    const ratioWidget = node.widgets?.find(w => w.name === "ratio");
-                    
-                    if (mpWidget && !mpWidget._setupDone) {
-                        const origMpCallback = mpWidget.callback;
-                        mpWidget.callback = function(value, appCanvas, node_arg, pos, event) {
-                            if (origMpCallback) origMpCallback.apply(this, arguments);
-                            
-                            // Пересчет кастомной рамки при ручном изменении Megapixel
-                            const ratioW = node.widgets?.find(w => w.name === "ratio");
-                            if (ratioW && ratioW.value === "Custom" && !node._is_dragging_sync) {
-                                const cwW = node.widgets?.find(w => w.name === "custom_width");
-                                const chW = node.widgets?.find(w => w.name === "custom_height");
-                                
-                                if (cwW && chW && chW.value > 0) {
-                                    // Захватываем текущую пропорцию рамки
-                                    const currentRatio = cwW.value / chW.value;
-                                    const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
-                                    const use1024 = baseWidget ? !!baseWidget.value : true;
-                                    const basePixels = use1024 ? (1024 * 1024) : (1000 * 1000);
-                                    const targetPixels = value * basePixels;
-
-                                    // Вычисляем новые габариты, сохраняя пропорцию
-                                    const newH = Math.sqrt(targetPixels / currentRatio);
-                                    const newW = newH * currentRatio;
-
-                                    cwW.value = newW;
-                                    chW.value = newH;
-                                }
-                            }
-                            node.setDirtyCanvas(true); // Форсируем перерисовку, которая сама синхронизирует скрытые поля
-                        };
-                        mpWidget._setupDone = true;
-                    }
-
-                    if (baseWidget && !baseWidget._hookDone) {
+                    if (!baseWidget._hookDone) {
                         const origBaseCallback = baseWidget.callback;
-                        baseWidget.callback = function(value, appCanvas, node_arg, pos, event) {
+                        baseWidget.callback = function() {
                             if (origBaseCallback) origBaseCallback.apply(this, arguments);
                             node.setDirtyCanvas(true);
                         };
                         baseWidget._hookDone = true;
                     }
+                }
+                
+                const mpWidget = node.widgets?.find(w => w.name === "Megapixel");
+                if (mpWidget && !mpWidget._hookDone) {
+                    const origMpCallback = mpWidget.callback;
+                    mpWidget.callback = function(value) {
+                        if (origMpCallback) origMpCallback.apply(this, arguments);
+                        
+                        const ratioW = node.widgets?.find(w => w.name === "ratio");
+                        if (ratioW && ratioW.value === "Custom" && !node._is_dragging_sync) {
+                            const cwW = node.widgets?.find(w => w.name === "custom_width");
+                            const chW = node.widgets?.find(w => w.name === "custom_height");
+                            
+                            if (cwW && chW && chW.value > 0) {
+                                const currentRatio = cwW.value / chW.value;
+                                const basePixels = (baseWidget && !!baseWidget.value) ? (1024 * 1024) : (1000 * 1000);
+                                const targetPixels = value * basePixels;
 
-                    // Добавляем коллбэк на изменение Ratio, чтобы обновлять холст сразу
-                    if (ratioWidget && !ratioWidget._hookDone) {
-                        const origRatioCallback = ratioWidget.callback;
-                        ratioWidget.callback = function(value, appCanvas, node_arg, pos, event) {
-                            if (origRatioCallback) origRatioCallback.apply(this, arguments);
-                            node.setDirtyCanvas(true);
-                        };
-                        ratioWidget._hookDone = true;
-                    }
-                };
+                                const newH = Math.sqrt(targetPixels / currentRatio);
+                                const newW = newH * currentRatio;
 
-                setupWidgetsAndCallbacks();
-                setTimeout(setupWidgetsAndCallbacks.bind(this), 100);
+                                cwW.value = newW;
+                                chW.value = newH;
+                            }
+                        }
+                        node.setDirtyCanvas(true);
+                    };
+                    mpWidget._hookDone = true;
+                }
+
+                const ratioWidget = node.widgets?.find(w => w.name === "ratio");
+                if (ratioWidget && !ratioWidget._hookDone) {
+                    const origRatioCallback = ratioWidget.callback;
+                    ratioWidget.callback = function() {
+                        if (origRatioCallback) origRatioCallback.apply(this, arguments);
+                        node.setDirtyCanvas(true);
+                    };
+                    ratioWidget._hookDone = true;
+                }
+                
+                this._widgetsSetupDone = true;
+            };
+
+            nodeType.prototype.onNodeCreated = function() {
+                if (onNodeCreated) onNodeCreated.apply(this, arguments);
+                
+                this.color = "#855185";
+                this.bgcolor = "#5f3a5f"; 
+
+                this.activeTooltip = null;
+                this.activeTooltipY = null;
+                this.hoverTimer = null;
+                this.lastHoveredWidget = null;
+                
+                this.setupWidgetsAndCallbacks();
 
                 const canvasWidget = {
                     type: "custom_canvas", 
@@ -194,9 +273,6 @@ app.registerExtension({
                             outH = Math.max(mult, Math.round(hBase / mult) * mult);
                         }
 
-                        // ЖЕСТКАЯ СИНХРОНИЗАЦИЯ: Что бы ни происходило, мы принудительно
-                        // записываем рассчитанные визуальные размеры в скрытые поля, 
-                        // чтобы бэкенд Python 100% получил именно то, что на экране.
                         const cwW = node.widgets?.find(w => w.name === "custom_width");
                         const chW = node.widgets?.find(w => w.name === "custom_height");
                         if (cwW && cwW.value !== outW) cwW.value = outW;
@@ -213,22 +289,15 @@ app.registerExtension({
                         this.last_y = y;
                         const height = 260;
                         
-                        const baseWidget = node.widgets?.find(w => w.name === "Megapixel = 1024^2");
-                        if (baseWidget && baseWidget.options) {
-                            baseWidget.options.on = "🟢 ENABLED";
-                            baseWidget.options.off = "🔴 DISABLED";
-                        }
-                        
                         ctx.fillStyle = "#1e1e1e";
                         ctx.fillRect(0, y, width, height);
                         
-                        // Вызов getOutputDimensions здесь также автоматически синхронизирует скрытые поля
                         const { w, h } = this.getOutputDimensions(node);
                         
                         if (!node.dragging) {
                             node.previewScale = Math.min((width - 40) / Math.max(256, w), (height - 40) / Math.max(256, h));
                         }
-                        const scale = node.dragging ? node.dragScale : node.previewScale;
+                        const scale = node.dragging ? (node.dragScale || 1) : (node.previewScale || 1);
                         
                         const cx = width / 2;
                         const cy = y + height / 2;
@@ -289,7 +358,7 @@ app.registerExtension({
                             if (hit) {
                                 node.dragging = true;
                                 node.dragMode = hit;
-                                node.dragScale = node.previewScale;
+                                node.dragScale = node.previewScale || 1;
                                 
                                 const { w, h } = this.getOutputDimensions(node);
                                 node.dragStartW = w;
@@ -307,15 +376,16 @@ app.registerExtension({
                             
                             if (event.buttons === 0) {
                                 node.dragging = false;
-                                app.canvas.canvas.style.cursor = "";
+                                app.canvas.canvas.style.cursor = "default";
                                 return false;
                             }
                             
                             const cx = width / 2;
                             const cy = y + height / 2;
+                            const dragScale = node.dragScale || 1;
                             
-                            let dx = Math.abs(mx - cx) * 2 / node.dragScale;
-                            let dy = Math.abs(my - cy) * 2 / node.dragScale;
+                            let dx = Math.abs(mx - cx) * 2 / dragScale;
+                            let dy = Math.abs(my - cy) * 2 / dragScale;
                             
                             let newW = node.dragStartW;
                             let newH = node.dragStartH;
@@ -361,7 +431,7 @@ app.registerExtension({
                         else if (event.type === "pointerup" || event.type === "mouseup") {
                             if (node.dragging) {
                                 node.dragging = false;
-                                app.canvas.canvas.style.cursor = "";
+                                app.canvas.canvas.style.cursor = "default";
                                 node.setDirtyCanvas(true);
                                 return true;
                             }
@@ -369,11 +439,110 @@ app.registerExtension({
                         return false;
                     }
                 };
-                
-                delete nodeType.prototype.onDrawForeground;
-                delete nodeType.prototype.computeSize;
 
                 this.addCustomWidget(canvasWidget);
+            };
+
+            nodeType.prototype.onMouseLeave = function () {
+                this._clearTooltip();
+                if (app.canvas && app.canvas.canvas) {
+                    app.canvas.canvas.title = "";
+                }
+            };
+
+            const onDestroy = nodeType.prototype.onDestroy;
+            nodeType.prototype.onDestroy = function () {
+                this._clearTooltip();
+                if (onDestroy) onDestroy.apply(this, arguments);
+            };
+
+            // Восстановил onDrawForeground вместо того, чтобы его удалять!
+            nodeType.prototype.onDrawForeground = function (ctx) {
+                if (this.flags?.collapsed) return;
+
+                if (this.widgets) {
+                    for (const w of this.widgets) {
+                        if (w.tooltip) w.tooltip = null; 
+                    }
+                }
+
+                if (this.activeTooltip) {
+                    this._drawTooltip(ctx);
+                }
+            };
+
+            nodeType.prototype._drawTooltip = function (ctx) {
+                if (!this.activeTooltip) return;
+                const item = this.activeTooltip;
+                const wy = this.activeTooltipY !== null ? this.activeTooltipY : 100;
+                
+                const margin = 12;
+                const bx = this.size[0] + 20; 
+                
+                ctx.save();
+                
+                ctx.font = "bold 13px sans-serif";
+                const titleText = `${item.icon || "💡"} ${item.label}`;
+                const titleW = ctx.measureText(titleText).width;
+                
+                ctx.font = "11px sans-serif";
+                const descText = `EN: ${item.desc}`;
+                const ruDescText = `RU: ${item.ru_desc}`;
+                const descW = ctx.measureText(descText).width;
+                const ruDescW = ctx.measureText(ruDescText).width;
+                
+                const boxW = Math.max(titleW, descW, ruDescW) + margin * 2;
+                const boxH = 74;
+                
+                const by = wy + 12 - boxH / 2;
+                
+                ctx.fillStyle = "rgba(18, 18, 18, 0.95)";
+                ctx.strokeStyle = "rgba(133, 81, 133, 0.7)"; 
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+                ctx.shadowBlur = 8;
+                
+                const radius = 8;        
+                const arrowWidth = 8;    
+                const arrowHeight = 14;  
+                const arrowTipY = wy + 12; 
+                
+                ctx.beginPath();
+                ctx.moveTo(bx + radius, by);
+                ctx.lineTo(bx + boxW - radius, by);
+                ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + radius);
+                ctx.lineTo(bx + boxW, by + boxH - radius);
+                ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - radius, by + boxH);
+                ctx.lineTo(bx + radius, by + boxH);
+                ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - radius);
+                ctx.lineTo(bx, arrowTipY + arrowHeight / 2);
+                ctx.lineTo(bx - arrowWidth, arrowTipY);
+                ctx.lineTo(bx, arrowTipY - arrowHeight / 2);
+                ctx.lineTo(bx, by + radius);
+                ctx.quadraticCurveTo(bx, by, bx + radius, by);
+                ctx.closePath();
+                
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.shadowColor = "transparent";
+
+                ctx.textBaseline = "top";
+                ctx.textAlign = "left";
+
+                ctx.font = "bold 13px sans-serif";
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(titleText, bx + margin, by + margin);
+
+                ctx.font = "11px sans-serif";
+                ctx.fillStyle = "#cccccc";
+                ctx.fillText(descText, bx + margin, by + margin + 20);
+
+                ctx.font = "11px sans-serif";
+                ctx.fillStyle = "#999999";
+                ctx.fillText(ruDescText, bx + margin, by + margin + 36);
+
+                ctx.restore();
             };
         }
     }

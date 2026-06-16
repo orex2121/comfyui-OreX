@@ -11,6 +11,8 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import re
+import torch
+import threading  # Добавлен для неблокирующей задержки выгрузки модели
 
 # Импортируем менеджер моделей ComfyUI для очистки VRAM
 try:
@@ -24,8 +26,22 @@ try:
 except ImportError:
     lms = None
 
+# Глобальный словарь для контроля таймеров выгрузки (предотвращает конфликты при batch-генерации)
+_UNLOAD_TIMERS = {}
+
 # Default models to use
 DEFAULT_LLM = "SELECT A MODEL"
+
+# Предкомпилированные регулярные выражения для скорости
+REASONING_PATTERNS = [
+    re.compile(r'<\|?channel\|?>.*?<\|?channel\|?>', re.DOTALL | re.IGNORECASE),
+    re.compile(r'<(thinking|think|reasoning)>.*?</\1>', re.DOTALL | re.IGNORECASE),
+    re.compile(r'^.*?</(thinking|think|reasoning)>', re.DOTALL | re.IGNORECASE),
+    re.compile(r'^.*?(?:<channel\|>|</channel>)', re.DOTALL | re.IGNORECASE),
+    re.compile(r'<\|?channel\|?>.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'<(thinking|think|reasoning)>.*$', re.IGNORECASE),
+    re.compile(r'\[Thinking.*?\]', re.DOTALL | re.IGNORECASE)
+]
 
 # --- SYSTEM PRESETS LOADER ---
 def load_presets():
@@ -113,7 +129,6 @@ def unload_lmstudio_model(model_key):
     """Выгружает модель из VRAM используя SDK или совместимые эндпоинты LM Studio."""
     print(f"[LMStudio Nodes] ⏳ Attempting to auto-unload model: {model_key}...")
     
-    # 1. Попытка выгрузки через официальный SDK (самый надежный способ)
     if lms is not None:
         try:
             with lms.Client() as client:
@@ -126,13 +141,11 @@ def unload_lmstudio_model(model_key):
     else:
         print("[LMStudio Nodes] ⚠️ 'lmstudio' SDK is not installed. Run 'pip install lmstudio' for best auto-unload support. Trying REST API fallback...")
 
-    # 2. Резервный вариант через REST API (очищен от косячных эндпоинтов, выдающих ошибки)
     host = os.environ.get("LMSTUDIO_URL", "http://127.0.0.1:1234")
     if not host.startswith("http"):
         host = f"http://{host}"
         
     endpoints_to_try = [
-        # Успешный метод из лога (только с instance_id)
         (f"{host}/api/v1/models/unload", "POST", json.dumps({"instance_id": model_key}).encode('utf-8'))
     ]
     
@@ -172,13 +185,8 @@ def _clean_reasoning_content(content):
     if not content:
         return ""
     text = content
-    text = re.sub(r'<\|?channel\|?>.*?<\|?channel\|?>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<(thinking|think|reasoning)>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'^.*?</(thinking|think|reasoning)>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'^.*?(?:<channel\|>|</channel>)', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<\|?channel\|?>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'<(thinking|think|reasoning)>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'\[Thinking.*?\]', '', text, flags=re.DOTALL | re.IGNORECASE)
+    for pattern in REASONING_PATTERNS:
+        text = pattern.sub('', text)
     return '\n'.join(line for line in text.splitlines() if line.strip()).strip()
 
 def get_full_b64(pil_img):
@@ -210,15 +218,16 @@ class OreXLMStudio:
                 "system_prompt": ("STRING", {"default": ""}),
                 "system_preset": (PRESET_NAMES, ),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
-                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ENABLED", "label_off": "🔴 Thinking DISABLED"}),
-                "auto_unload": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
+                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ON", "label_off": "🔴 Thinking OFF"}),
+                "auto_unload_model": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
+                "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
                 "clean_vram_before": ("BOOLEAN", {"default": False, "label_on": "🟢 Clean VRAM ON", "label_off": "🔴 Clean VRAM OFF"}),
                 "seed": ("INT", {"default": 777, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
                 "image": ("IMAGE",),
-                "context_length": ("INT", {"default": 4096, "min": 256, "max": 131072, "step": 256}),
-                "max_tokens": ("INT", {"default": 1024, "min": 1, "max": 4096}),
+                "context_length": ("INT", {"default": 4096, "min": 0, "max": 131072, "step": 256}), # min изменено на 0
+                "max_tokens": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "step": 256}),
                 "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
                 "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
@@ -236,15 +245,48 @@ class OreXLMStudio:
     def IS_CHANGED(cls, **kwargs):
         m = hashlib.sha256()
         for k, v in kwargs.items():
-            if k != "image": m.update(str(v).encode())
+            if k != "image": 
+                m.update(str(v).encode())
         if kwargs.get("image") is not None:
-            m.update(str(kwargs["image"].shape).encode())
+            img_mean = kwargs["image"].mean().item()
+            m.update(str(img_mean).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload_model, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+        global _UNLOAD_TIMERS
         
-        # Очистка VRAM перед генерацией, если переключатель активирован
-        if clean_vram_before and mm is not None:
+        # Если поступил новый запрос для этой модели, отменяем старый таймер выгрузки (предотвращает Channel Error при Batch-обработке)
+        if model_key in _UNLOAD_TIMERS:
+            try:
+                _UNLOAD_TIMERS[model_key].cancel()
+                del _UNLOAD_TIMERS[model_key]
+                print(f"[LMStudio Nodes] 🛑 Cancelled pending unload timer for {model_key} due to new incoming batch request.")
+            except Exception:
+                pass
+        
+        # Приведение max_tokens к ближайшему кратному 256 (0 = безлимит)
+        user_max_tokens = max_tokens
+        if user_max_tokens == 0:
+            user_max_tokens = -1
+        elif user_max_tokens > 0:
+            user_max_tokens = int(max(256, round(user_max_tokens / 256.0) * 256))
+
+        is_include_reasoning = include_reasoning if isinstance(include_reasoning, bool) else str(include_reasoning).upper() in ["TRUE", "ON"]
+
+        # Если Thinking OFF (скрываем размышления), отключаем лимит (-1), 
+        # чтобы модель гарантированно дописала ответ до конца.
+        # Если Thinking ON (показываем всё), применяем лимит пользователя.
+        if not is_include_reasoning:
+            api_max_tokens = -1
+        else:
+            api_max_tokens = user_max_tokens
+
+        # Исправление логики Boolean для новых параметров
+        is_auto_unload = auto_unload_model if isinstance(auto_unload_model, bool) else str(auto_unload_model).upper() in ["TRUE", "ON"]
+        is_clean_vram = clean_vram_before if isinstance(clean_vram_before, bool) else str(clean_vram_before).upper() in ["TRUE", "ON"]
+        
+        # Очистка VRAM перед генерацией
+        if is_clean_vram and mm is not None:
             print("[LMStudio Nodes] 🧹 Unloading ComfyUI models to free VRAM before LM Studio inference...")
             mm.unload_all_models()
             mm.soft_empty_cache()
@@ -272,19 +314,26 @@ class OreXLMStudio:
         request_log = {
             "model": model_key, "system_prompt": final_system_prompt,
             "user_input": text_input if has_text else "[Empty/Image only]", "has_image": has_image,
-            "parameters": {"max_tokens": max_tokens, "seed": seed}
+            "parameters": {"max_tokens": api_max_tokens, "seed": seed} # Логируем фактическое значение
         }
         
-        # Конфигурация параметров для OpenAI-совместимого API LM Studio
-        options = {"max_tokens": max_tokens, "seed": seed}
+        options = {"max_tokens": api_max_tokens, "seed": seed}
         if use_gen_params:
             options.update({
                 "temperature": temperature,
                 "top_p": top_p,
                 "frequency_penalty": repeat_penalty
             })
+            # Если 0, то мы не шлем context_length в LM Studio
+            if context_length > 0:
+                options["context_length"] = context_length
+
             request_log["parameters"].update({
-                "context_length": context_length, "temperature": temperature, "top_p": top_p, "top_k": top_k, "repeat_penalty": repeat_penalty
+                "context_length": context_length if context_length > 0 else "Auto (LM Studio Default)", 
+                "temperature": temperature, 
+                "top_p": top_p, 
+                "top_k": top_k, 
+                "repeat_penalty": repeat_penalty
             })
 
         try:
@@ -296,9 +345,11 @@ class OreXLMStudio:
             if final_system_prompt:
                 payload["messages"].append({"role": "system", "content": final_system_prompt})
 
-            # Формирование контента пользователя (поддержка текста и Vision структуры)
             if has_image:
-                pil_image = resize_to_target_megapixels(Image.fromarray(np.uint8(image[0]*255)), 0.7)
+                tensor_image = image[0].cpu().numpy() if hasattr(image[0], 'cpu') else np.array(image[0])
+                uint8_image = (tensor_image * 255).astype(np.uint8)
+                pil_image = resize_to_target_megapixels(Image.fromarray(uint8_image), 0.7)
+                
                 b64_data = get_full_b64(pil_image)
                 request_log["image_data"] = f"data:image/jpeg;base64,{get_b64_preview(pil_image)}"
                 
@@ -312,29 +363,48 @@ class OreXLMStudio:
                 
             payload["messages"].append(user_msg)
 
+            # Выполняем генерацию
             result = api_call_lmstudio("chat/completions", payload, timeout_seconds)
-            final_content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            message = result.get("choices", [{}])[0].get("message", {})
+            
+            final_content = message.get("content", "")
+            if final_content is None:
+                final_content = ""
+                
+            reasoning_content = message.get("reasoning_content", "")
+            if reasoning_content is None:
+                reasoning_content = ""
+                
+            # Возвращаем размышления обратно в текст, если LM Studio их отделил на уровне API
+            if is_include_reasoning and reasoning_content:
+                final_content = f"<think>\n{reasoning_content}\n</think>\n\n{final_content}"
 
-            if not include_reasoning:
-                final_content = _clean_reasoning_content(final_content)
+            if not is_include_reasoning:
+                cleaned_content = _clean_reasoning_content(final_content)
+                # Если после удаления скрытых размышлений текст оказался пустым (например, сбой генерации)
+                if not cleaned_content.strip() and final_content.strip():
+                    final_content = final_content + "\n\n[Внимание: модель сгенерировала только размышления без основного ответа]"
+                else:
+                    final_content = cleaned_content
 
-            # Сохраняем результат в переменную
             res_tuple = (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
             
         except Exception as e:
-            # В случае ошибки также сохраняем результат
             res_tuple = (f"LM Studio error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
             
-        # Гарантированно выполняем авто-выгрузку ДО возвращения (return)
-        if auto_unload:
-            unload_lmstudio_model(model_key)
+        # Запускаем отложенную или моментальную выгрузку, если нужно
+        if is_auto_unload:
+            if unload_delay > 0:
+                print(f"[LMStudio Nodes] 🕒 Scheduling model unload for {model_key} in {unload_delay} seconds...")
+                timer = threading.Timer(unload_delay, unload_lmstudio_model, args=[model_key])
+                _UNLOAD_TIMERS[model_key] = timer
+                timer.start()
+            else:
+                unload_lmstudio_model(model_key)
             
-        # Возвращаем закешированный результат
         return res_tuple
 
-
-# ========= REGISTRATION (ОСТАВЛЯЕМ СТРОГО ОДИН Базовый УЗЕЛ) =========
-
+# ========= REGISTRATION =========
 NODE_CLASS_MAPPINGS = {
     "OreXLMStudio": OreXLMStudio
 }
