@@ -68,9 +68,13 @@ def fetch_available_models(default_model):
         host = f"http://{host}"
     
     try:
+        # Принудительно игнорируем системные прокси для локальных запросов
+        proxy_handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(proxy_handler)
+
         # Уменьшен таймаут, чтобы ComfyUI не вис при запуске если Ollama выключена
         req = urllib.request.Request(f"{host}/api/tags")
-        with urllib.request.urlopen(req, timeout=1.5) as response:
+        with opener.open(req, timeout=1.5) as response:
             data = json.loads(response.read().decode('utf-8'))
             for m in data.get("models", []):
                 m_id = m.get("name")
@@ -90,9 +94,14 @@ def api_call_ollama(endpoint, payload, timeout_seconds):
         host = f"http://{host}"
     
     url = f"{host}/api/{endpoint}"
-    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+    
     try:
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
+        # Принудительно игнорируем системные прокси
+        proxy_handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(proxy_handler)
+
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        with opener.open(req, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode('utf-8'))
     except urllib.error.URLError as e:
         raise Exception(f"Ollama API request failed: {e}")

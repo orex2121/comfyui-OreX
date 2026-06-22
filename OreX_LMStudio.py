@@ -86,8 +86,12 @@ def fetch_available_models(default_model):
     endpoint = f"{host}/v1/models"
     
     try:
+        # Принудительно игнорируем системные прокси
+        proxy_handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(proxy_handler)
+        
         req = urllib.request.Request(endpoint)
-        with urllib.request.urlopen(req, timeout=4.0) as response:
+        with opener.open(req, timeout=4.0) as response:
             data = json.loads(response.read().decode('utf-8'))
             for m in data.get("data", []):
                 m_id = m.get("id")
@@ -106,8 +110,11 @@ def check_lmstudio_connection():
     if not host.startswith("http"):
         host = f"http://{host}"
     try:
+        proxy_handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(proxy_handler)
+        
         req = urllib.request.Request(f"{host}/v1/models")
-        with urllib.request.urlopen(req, timeout=3.0) as response:
+        with opener.open(req, timeout=3.0) as response:
             pass
     except Exception as e:
         raise Exception(f"Cannot connect to LM Studio. Make sure the server is running on port 1234. (Error: {e})")
@@ -118,9 +125,13 @@ def api_call_lmstudio(endpoint, payload, timeout_seconds):
         host = f"http://{host}"
     
     url = f"{host}/v1/{endpoint}"
-    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+    
     try:
-        with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
+        proxy_handler = urllib.request.ProxyHandler({})
+        opener = urllib.request.build_opener(proxy_handler)
+        
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        with opener.open(req, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode('utf-8'))
     except urllib.error.URLError as e:
         raise Exception(f"LM Studio API request failed: {e}")
@@ -150,11 +161,15 @@ def unload_lmstudio_model(model_key):
     ]
     
     success = False
+    proxy_handler = urllib.request.ProxyHandler({})
+    opener = urllib.request.build_opener(proxy_handler)
+
     for url, method, data in endpoints_to_try:
         try:
             headers = {'Content-Type': 'application/json'} if data else {}
             req = urllib.request.Request(url, data=data, headers=headers, method=method)
-            with urllib.request.urlopen(req, timeout=2.0) as response:
+            
+            with opener.open(req, timeout=2.0) as response:
                 status_code = response.getcode()
                 response_body = response.read().decode('utf-8')
                 
