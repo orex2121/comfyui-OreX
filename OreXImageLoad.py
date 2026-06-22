@@ -18,11 +18,12 @@ class OreXImageLoad:
 
     CATEGORY = "🤫OreX/Image"
 
-    RETURN_TYPES = ("IMAGE", "MASK", "STRING")
-    RETURN_NAMES = ("image", "mask", "filename")
+    RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
+    RETURN_NAMES = ("image", "mask", "filename", "width", "height")
     FUNCTION = "load_image"
 
     def load_image(self, image):
+        # image - это строка с именем файла из INPUT_TYPES
         image_path = folder_paths.get_annotated_filepath(image)
 
         # Извлечение имени файла без расширения
@@ -32,7 +33,7 @@ class OreXImageLoad:
 
         output_images = []
         output_masks = []
-        w, h = None, None
+        w, h = 0, 0
 
         excluded_formats = ['MPO']
 
@@ -40,18 +41,24 @@ class OreXImageLoad:
             i = node_helpers.pillow(ImageOps.exif_transpose, i)
 
             if i.mode == 'I':
-                i = i.point(lambda i: i * (1 / 255))
-            image = i.convert("RGB")
+                # Исправлено перекрытие переменной в lambda
+                i = i.point(lambda p: p * (1 / 255))
+            
+            # Используем новое имя переменной, чтобы не перезаписывать аргумент `image`
+            rgb_image = i.convert("RGB")
 
             if len(output_images) == 0:
-                w = image.size[0]
-                h = image.size[1]
+                w = rgb_image.size[0]
+                h = rgb_image.size[1]
 
-            if image.size[0] != w or image.size[1] != h:
+            if rgb_image.size[0] != w or rgb_image.size[1] != h:
                 continue
 
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image)[None,]
+            # Конвертация в тензор
+            image_tensor = np.array(rgb_image).astype(np.float32) / 255.0
+            image_tensor = torch.from_numpy(image_tensor)[None,]
+            
+            # Обработка маски
             if 'A' in i.getbands():
                 mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
                 mask = 1. - torch.from_numpy(mask)
@@ -59,8 +66,10 @@ class OreXImageLoad:
                 mask = np.array(i.convert('RGBA').getchannel('A')).astype(np.float32) / 255.0
                 mask = 1. - torch.from_numpy(mask)
             else:
-                mask = torch.zeros((64,64), dtype=torch.float32, device="cpu")
-            output_images.append(image)
+                # ОПТИМИЗАЦИЯ: Создаем пустую маску реального разрешения вместо 64x64
+                mask = torch.zeros((h, w), dtype=torch.float32, device="cpu")
+                
+            output_images.append(image_tensor)
             output_masks.append(mask.unsqueeze(0))
 
         if len(output_images) > 1 and img.format not in excluded_formats:
@@ -70,21 +79,24 @@ class OreXImageLoad:
             output_image = output_images[0]
             output_mask = output_masks[0]
 
-        return (output_image, output_mask, filename)
+        return (output_image, output_mask, filename, w, h)
 
     @classmethod
     def IS_CHANGED(s, image):
         image_path = folder_paths.get_annotated_filepath(image)
         m = hashlib.sha256()
+        
+        # ОПТИМИЗАЦИЯ: Чтение по чанкам предотвращает нехватку RAM при больших файлах
         with open(image_path, 'rb') as f:
-            m.update(f.read())
+            while chunk := f.read(8192):
+                m.update(chunk)
+                
         return m.digest().hex()
 
     @classmethod
     def VALIDATE_INPUTS(s, image):
         if not folder_paths.exists_annotated_filepath(image):
             return "Invalid image file: {}".format(image)
-
         return True
 
 
