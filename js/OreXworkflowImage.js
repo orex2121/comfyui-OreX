@@ -337,7 +337,22 @@ class PngWorkflowImage extends WorkflowImage {
 
 	async getBlob(workflow) {
 		return new Promise((r) => {
-			app.canvasEl.toBlob(async (blob) => {
+			// --- ИСПРАВЛЕНИЕ ПРОЗРАЧНОГО ФОНА ---
+			// Создаем временный холст для обеспечения сплошного фона (без клеточек/прозрачности)
+			const tempCanvas = document.createElement("canvas");
+			tempCanvas.width = app.canvasEl.width;
+			tempCanvas.height = app.canvasEl.height;
+			const tempCtx = tempCanvas.getContext("2d");
+
+			// Заливаем фон цветом (используем цвет фона холста ComfyUI или темно-серый по умолчанию)
+			tempCtx.fillStyle = app.canvas.clear_background_color || "#222222";
+			tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+			// Отрисовываем оригинальный холст (с возможной прозрачностью) поверх сплошного фона
+			tempCtx.drawImage(app.canvasEl, 0, 0);
+
+			// Генерируем Blob из нашего нового временного холста, а не напрямую из app.canvasEl
+			tempCanvas.toBlob(async (blob) => {
 				if (workflow) {
 					// Embed workflow into PNG as tEXt chunk / Внедряем рабочий процесс в PNG как tEXt чанк
 					const buffer = await blob.arrayBuffer();
@@ -354,14 +369,14 @@ class PngWorkflowImage extends WorkflowImage {
 				}
 
 				r(blob);
-			});
+			}, "image/png");
 		});
 	}
 }
 
 // Data reader helper / Вспомогательный класс для чтения данных
 class DataReader {
-	/**	@type {DataView} */
+	/** @type {DataView} */
 	view;
 	/** @type {boolean | undefined} */
 	littleEndian;
