@@ -10,8 +10,10 @@ from .OreX_Ratio import OreXRatio
 from .OreX_stressed_vowels import OreXStressedVowels
 from .OreX_StringFunction import OreX_StringFunction
 from .OreX_AudioLoad import OreX_AudioLoad
-from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad # <--- ИМПОРТ НОВОГО УЗЛА ВИДЕО
-from .OreX_StringSelector import OreXStringSelector # <--- ИМПОРТ НОВОГО УЗЛА СЕЛЕКТОРА СТРОК
+from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
+from .OreX_StringSelector import OreXStringSelector
+from .OreX_ImageChunkCut import OreXImageChunkCut
+from .OreX_ImageChunkStich import OreXImageChunkStich # <--- ИМПОРТ НОВОГО УЗЛА СШИВКИ
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -26,8 +28,10 @@ NODE_CLASS_MAPPINGS = {
     "orex Stressed Vowels": OreXStressedVowels,
     "orex String Function": OreX_StringFunction,
     "orex Audio load": OreX_AudioLoad,
-    "orex Advanced Video Load": OreX_AdvancedVideoLoad, # <--- РЕГИСТРАЦИЯ КЛАССА ВИДЕО
-    "orex String Selector": OreXStringSelector # <--- РЕГИСТРАЦИЯ КЛАССА СЕЛЕКТОРА СТРОК
+    "orex Advanced Video Load": OreX_AdvancedVideoLoad,
+    "orex String Selector": OreXStringSelector,
+    "orex Image Chunk Cut": OreXImageChunkCut,
+    "orex Image Chunk Stich": OreXImageChunkStich # <--- РЕГИСТРАЦИЯ КЛАССА СШИВКИ
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -43,13 +47,13 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)",
     "orex String Function": "✍️ String Function (OreX)",
     "orex Audio load": "🔉 Audio Load (OreX)",
-    "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)", # <--- ОТОБРАЖАЕМОЕ ИМЯ
-    "orex String Selector": "📝 String Selector (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ СЕЛЕКТОРА СТРОК
+    "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
+    "orex String Selector": "📝 String Selector (OreX)",
+    "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
+    "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ СШИВКИ
 }
 
-# Изменено: стандартное имя переменной версии для ComfyUI
 __version__ = "1.1.4"
 WEB_DIRECTORY = "./js"
 
-# Изменено: добавлена переменная __version__ для корректного чтения менеджером
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY', '__version__']

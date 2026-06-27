@@ -68,11 +68,9 @@ def fetch_available_models(default_model):
         host = f"http://{host}"
     
     try:
-        # Принудительно игнорируем системные прокси для локальных запросов
         proxy_handler = urllib.request.ProxyHandler({})
         opener = urllib.request.build_opener(proxy_handler)
 
-        # Уменьшен таймаут, чтобы ComfyUI не вис при запуске если Ollama выключена
         req = urllib.request.Request(f"{host}/api/tags")
         with opener.open(req, timeout=1.5) as response:
             data = json.loads(response.read().decode('utf-8'))
@@ -96,15 +94,22 @@ def api_call_ollama(endpoint, payload, timeout_seconds):
     url = f"{host}/api/{endpoint}"
     
     try:
-        # Принудительно игнорируем системные прокси
         proxy_handler = urllib.request.ProxyHandler({})
         opener = urllib.request.build_opener(proxy_handler)
 
         req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
         with opener.open(req, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode('utf-8'))
+            
+    except urllib.error.HTTPError as e:
+        try:
+            error_data = json.loads(e.read().decode('utf-8'))
+            error_msg = error_data.get("error", str(error_data))
+        except Exception:
+            error_msg = e.read().decode('utf-8')
+        raise Exception(f"HTTP Error {e.code}: {error_msg}")
     except urllib.error.URLError as e:
-        raise Exception(f"Ollama API request failed: {e}")
+        raise Exception(f"Connection failed: {e}")
 
 def _clean_reasoning_content(content):
     if not content: return ""
@@ -123,7 +128,6 @@ def resize_to_target_megapixels(pil_image, target_megapixels=0.7):
     current_pixels = pil_image.width * pil_image.height
     if current_pixels > target_pixels:
         scale_factor = (target_pixels / current_pixels) ** 0.5
-        # Обновленный вызов Resampling для новых версий Pillow
         resampling_filter = getattr(Image.Resampling, 'LANCZOS', Image.LANCZOS)
         return pil_image.resize((int(pil_image.width * scale_factor), int(pil_image.height * scale_factor)), resampling_filter)
     return pil_image
@@ -145,8 +149,8 @@ class OreXOllama:
             },
             "optional": {
                 "image": ("IMAGE",),
-                "context_length": ("INT", {"default": 4096, "min": 0, "max": 131072, "step": 256}), # min изменено на 0
-                "max_tokens": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "step": 256}), # default 0, max снят, шаг 256
+                "context_length": ("INT", {"default": 4096, "min": 0, "max": 131072, "step": 256}),
+                "max_tokens": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "step": 256}),
                 "generation_parameters": ("BOOLEAN", {"default": False, "label_on": "🟢 ON", "label_off": "🔴 OFF"}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0}),
                 "top_k": ("INT", {"default": 40, "min": 0, "max": 100}),
@@ -166,7 +170,6 @@ class OreXOllama:
         for k, v in kwargs.items():
             if k != "image": 
                 m.update(str(v).encode())
-        # Исправлено: хешируем среднее значение пикселей, а не просто shape (чтобы реагировало на разные картинки одного размера)
         if kwargs.get("image") is not None:
             img_mean = float(np.mean(kwargs["image"].numpy()))
             m.update(str(img_mean).encode())
@@ -174,23 +177,17 @@ class OreXOllama:
 
     def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload_model, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         
-        # Приведение max_tokens к ближайшему кратному 256 (0 = безлимит)
         user_max_tokens = max_tokens
-        if user_max_tokens == 0:
-            user_max_tokens = -1
-        elif user_max_tokens > 0:
+        if user_max_tokens > 0:
             user_max_tokens = int(max(256, round(user_max_tokens / 256.0) * 256))
 
         is_include_reasoning = include_reasoning if isinstance(include_reasoning, bool) else str(include_reasoning).upper() in ["TRUE", "ON"]
 
-        # Если Thinking OFF (скрываем размышления), отключаем лимит (-1),
-        # чтобы модель гарантированно дописала ответ до конца.
-        if not is_include_reasoning:
+        if not is_include_reasoning or user_max_tokens == 0:
             api_max_tokens = -1
         else:
             api_max_tokens = user_max_tokens
 
-        # Исправление логики Boolean
         is_auto_unload = auto_unload_model if isinstance(auto_unload_model, bool) else str(auto_unload_model).upper() in ["TRUE", "ON"]
         use_gen_params = generation_parameters if isinstance(generation_parameters, bool) else str(generation_parameters).upper() in ["TRUE", "ON"]
         is_clean_vram = clean_vram_before if isinstance(clean_vram_before, bool) else str(clean_vram_before).upper() in ["TRUE", "ON"]
@@ -211,14 +208,23 @@ class OreXOllama:
 
         preset_value = PRESETS_DICT.get(system_preset, "")
         final_system_prompt = f"{system_prompt.strip()}\n{preset_value.strip()}".strip()
+        
+        safe_seed = int(seed) & 0xFFFFFFFF
 
         request_log = {
             "model": model_key, "system_prompt": final_system_prompt,
             "user_input": text_input if has_text else "[Empty/Image only]", "has_image": has_image,
-            "parameters": {"num_predict": api_max_tokens, "seed": seed} # В Ollama это num_predict
+            "parameters": {"seed": safe_seed}
         }
         
-        options = {"num_predict": api_max_tokens, "seed": seed}
+        options = {"seed": safe_seed}
+        
+        # ИСПРАВЛЕНИЕ: Если api_max_tokens <= 0 (например -1), мы вообще не передаем num_predict
+        if api_max_tokens > 0:
+            options["num_predict"] = api_max_tokens
+            request_log["parameters"]["num_predict"] = api_max_tokens
+        else:
+            request_log["parameters"]["num_predict"] = "Auto (Unlimited)"
         
         if use_gen_params:
             options.update({
@@ -227,8 +233,6 @@ class OreXOllama:
                 "top_k": top_k,
                 "repeat_penalty": repeat_penalty
             })
-            
-            # Если 0, то не отправляем num_ctx в Ollama (используется значение по умолчанию сервера)
             if context_length > 0:
                 options["num_ctx"] = context_length
 
@@ -245,7 +249,6 @@ class OreXOllama:
                 "model": model_key, "messages": [], "stream": False, "options": options
             }
 
-            # Используем исправленный is_auto_unload
             if is_auto_unload and unload_delay == 0: 
                 payload["keep_alive"] = 0
             elif unload_delay > 0: 
@@ -254,10 +257,14 @@ class OreXOllama:
             if final_system_prompt:
                 payload["messages"].append({"role": "system", "content": final_system_prompt})
 
-            user_msg = {"role": "user", "content": text_input if has_text else " "}
+            fallback_text = "Describe this image in detail." if has_image else " "
+            user_msg = {"role": "user", "content": text_input.strip() if has_text else fallback_text}
 
             if has_image:
-                pil_image = resize_to_target_megapixels(Image.fromarray(np.uint8(image[0]*255)), 0.7)
+                img_tensor = image[0].cpu().numpy() if hasattr(image[0], 'cpu') else np.array(image[0])
+                img_np = np.clip(255. * img_tensor, 0, 255).astype(np.uint8)
+                
+                pil_image = resize_to_target_megapixels(Image.fromarray(img_np), 0.7)
                 user_msg["images"] = [get_full_b64(pil_image)]
                 
             payload["messages"].append(user_msg)
@@ -267,17 +274,16 @@ class OreXOllama:
 
             if not is_include_reasoning:
                 cleaned_content = _clean_reasoning_content(final_content)
-                # Если после удаления скрытых размышлений текст оказался пустым
                 if not cleaned_content.strip() and final_content.strip():
                     final_content = final_content + "\n\n[Внимание: модель сгенерировала только размышления без основного ответа]"
                 else:
                     final_content = cleaned_content
 
-            # Выгрузка модели если требуется, а keep_alive не был отправлен в самом запросе
             if is_auto_unload and unload_delay == 0 and "keep_alive" not in payload:
                  api_call_ollama("generate", {"model": model_key, "keep_alive": 0}, timeout_seconds=5)
 
             return (final_content, json.dumps(request_log, indent=2, ensure_ascii=False))
+            
         except Exception as e:
             return (f"Ollama error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
 

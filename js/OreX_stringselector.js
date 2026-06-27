@@ -17,6 +17,11 @@ app.registerExtension({
 
                 // Важно: заставляем фон скроллиться вместе с текстом!
                 textarea.style.backgroundAttachment = "local";
+                
+                // Важно: Отключаем перенос строк. Если строки будут переноситься (одна строка займет 2 визуальные),
+                // то математика высоты строк сломается и подсветка "поедет".
+                textarea.style.whiteSpace = "pre";
+                textarea.style.overflowX = "auto";
 
                 // Главная функция подсветки
                 const updateHighlight = () => {
@@ -77,6 +82,47 @@ app.registerExtension({
                     if (origOnConfigure) origOnConfigure.apply(this, arguments);
                     setTimeout(updateHighlight, 50);
                 };
+
+                // Обработка клика по текстовому полю
+                textarea.addEventListener('click', (e) => {
+                    const text = stringsWidget.value || "";
+                    const lines = text.split('\n');
+                    if (lines.length === 0 || text.trim() === "") return;
+
+                    const computed = window.getComputedStyle(textarea);
+                    let lineHeight = parseFloat(computed.lineHeight);
+                    if (isNaN(lineHeight)) {
+                        lineHeight = parseFloat(computed.fontSize) * 1.2;
+                    }
+                    const paddingTop = parseFloat(computed.paddingTop) || 0;
+
+                    // Получаем координаты поля ввода на экране (они зависят от зума!)
+                    const rect = textarea.getBoundingClientRect();
+                    
+                    // Вычисляем масштаб (зум) ноды в ComfyUI
+                    // rect.height - высота с учетом зума, offsetHeight - "оригинальная" высота элемента
+                    const scaleY = rect.height / textarea.offsetHeight;
+                    
+                    // Вычисляем Y-координату клика, убирая влияние зума (делим на scaleY), плюс учитываем скролл
+                    const clickY = (e.clientY - rect.top) / scaleY + textarea.scrollTop;
+
+                    // Вычисляем индекс строки, по которой кликнули (начиная с 0)
+                    const clickedLineIndex = Math.floor((clickY - paddingTop) / lineHeight);
+
+                    // Если клик был по существующей строке текста
+                    if (clickedLineIndex >= 0 && clickedLineIndex < lines.length) {
+                        // Обновляем значение виджета (добавляем 1, т.к. счет у нас с 1)
+                        selectWidget.value = clickedLineIndex + 1;
+                        
+                        // Вызываем коллбек виджета, чтобы ComfyUI увидел изменения
+                        if (selectWidget.callback) {
+                            selectWidget.callback(selectWidget.value);
+                        }
+                        
+                        // Принудительно обновляем зеленую подсветку
+                        updateHighlight();
+                    }
+                });
 
                 // Вызываем первый раз при создании
                 updateHighlight();
