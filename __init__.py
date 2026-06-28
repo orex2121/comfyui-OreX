@@ -13,7 +13,8 @@ from .OreX_AudioLoad import OreX_AudioLoad
 from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
 from .OreX_StringSelector import OreXStringSelector
 from .OreX_ImageChunkCut import OreXImageChunkCut
-from .OreX_ImageChunkStich import OreXImageChunkStich # <--- ИМПОРТ НОВОГО УЗЛА СШИВКИ
+from .OreX_ImageChunkStich import OreXImageChunkStich 
+from .OreX_Scail import OreX_Scail # <--- ИМПОРТ НОВОГО УЗЛА SCAIL2
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -31,7 +32,8 @@ NODE_CLASS_MAPPINGS = {
     "orex Advanced Video Load": OreX_AdvancedVideoLoad,
     "orex String Selector": OreXStringSelector,
     "orex Image Chunk Cut": OreXImageChunkCut,
-    "orex Image Chunk Stich": OreXImageChunkStich # <--- РЕГИСТРАЦИЯ КЛАССА СШИВКИ
+    "orex Image Chunk Stich": OreXImageChunkStich, 
+    "orex Scail2": OreX_Scail # <--- РЕГИСТРАЦИЯ КЛАССА SCAIL2
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -50,7 +52,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
     "orex String Selector": "📝 String Selector (OreX)",
     "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
-    "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ СШИВКИ
+    "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)",
+    "orex Scail2": "📼 Scail2 (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ SCAIL2
 }
 
 __version__ = "1.1.4"
