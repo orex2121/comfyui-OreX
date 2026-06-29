@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui-orex" # Уникальное имя пакета (рекомендуется формат comfyui-*)
-version = "1.1.4"
+version = "1.1.6"
 description = "A collection of custom nodes for ComfyUI by OreX"
 readme = "README.md"
 requires-python = ">=3.9" # ComfyUI работает на 3.9-3.12

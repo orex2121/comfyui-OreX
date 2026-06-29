@@ -7,7 +7,6 @@ from .OreX_LMStudio import OreXLMStudio
 from .OreX_Ollama import OreXOllama
 from .OreX_Crop import OreXCrop
 from .OreX_Ratio import OreXRatio
-from .OreX_stressed_vowels import OreXStressedVowels
 from .OreX_StringFunction import OreX_StringFunction
 from .OreX_AudioLoad import OreX_AudioLoad
 from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
@@ -26,7 +25,6 @@ NODE_CLASS_MAPPINGS = {
     "orex Ollama": OreXOllama,
     "orex Crop": OreXCrop,
     "orex Ratio": OreXRatio,
-    "orex Stressed Vowels": OreXStressedVowels,
     "orex String Function": OreX_StringFunction,
     "orex Audio load": OreX_AudioLoad,
     "orex Advanced Video Load": OreX_AdvancedVideoLoad,
@@ -46,7 +44,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Ollama": "🦙 Ollama (OreX)",
     "orex Crop": "🔳Crop (OreX)",
     "orex Ratio": "📐 Ratio (OreX)",
-    "orex Stressed Vowels": "🥊 Stressed Vowels (OreX)",
     "orex String Function": "✍️ String Function (OreX)",
     "orex Audio load": "🔉 Audio Load (OreX)",
     "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
@@ -56,7 +53,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Scail2": "📼 Scail2 (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ SCAIL2
 }
 
-__version__ = "1.1.4"
+__version__ = "1.1.6"
 WEB_DIRECTORY = "./js"
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY', '__version__']
