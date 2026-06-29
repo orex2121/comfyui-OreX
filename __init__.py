@@ -53,7 +53,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Scail2": "📼 Scail2 (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ SCAIL2
 }
 
-__version__ = "1.1.6.1"
 WEB_DIRECTORY = "./js"
 
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY', '__version__']
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
