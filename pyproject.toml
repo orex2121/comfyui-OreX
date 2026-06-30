@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui-orex" # Уникальное имя пакета (рекомендуется формат comfyui-*)
-version = "1.1.7"
+version = "1.1.8"
 description = "A collection of custom nodes for ComfyUI by OreX"
 readme = "README.md"
 requires-python = ">=3.9" # ComfyUI работает на 3.9-3.12
@@ -15,11 +15,14 @@ authors = [
 dependencies = [
     # Здесь перечисляются все pip-пакеты, нужные твоим узлам.
     # ComfyUI Manager установит их автоматически.
-    "torch",
     "Pillow",
+    "soundfile", # Добавлено для узла OreX_AdvancedVideoLoad
+    
+    # ВНИМАНИЕ: torch, torchvision, torchaudio НЕ ДОБАВЛЯЕМ! 
+    # ComfyUI сам управляет ими, их добавление сюда может снести пользователям CUDA.
+    
     # Раскомментируй и добавь то, что нужно для твоих конкретных нод:
     # "llama-cpp-python",  # если здесь будут лежать логики GGUF LLM
-    # "torchaudio",        # если будешь добавлять узлы для работы с WhisperX или CosyVoice
 ]
 
 [project.urls]
