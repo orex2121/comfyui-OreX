@@ -13,7 +13,8 @@ from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
 from .OreX_StringSelector import OreXStringSelector
 from .OreX_ImageChunkCut import OreXImageChunkCut
 from .OreX_ImageChunkStich import OreXImageChunkStich 
-from .OreX_Scail import OreX_Scail # <--- ИМПОРТ НОВОГО УЗЛА SCAIL2
+from .OreX_Scail import OreX_Scail 
+from .OreX_TextSave import OreX_TextSave # <--- ИМПОРТ НОВОГО УЗЛА SAVE TEXT
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -31,7 +32,8 @@ NODE_CLASS_MAPPINGS = {
     "orex String Selector": OreXStringSelector,
     "orex Image Chunk Cut": OreXImageChunkCut,
     "orex Image Chunk Stich": OreXImageChunkStich, 
-    "orex Scail2": OreX_Scail # <--- РЕГИСТРАЦИЯ КЛАССА SCAIL2
+    "orex Scail2": OreX_Scail, 
+    "orex Save Text": OreX_TextSave # <--- РЕГИСТРАЦИЯ КЛАССА SAVE TEXT
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -50,7 +52,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex String Selector": "📝 String Selector (OreX)",
     "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
     "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)",
-    "orex Scail2": "📼 Scail2 (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ SCAIL2
+    "orex Scail2": "📼 Scail2 (OreX)", 
+    "orex Save Text": "📝 Save Text (OreX)" # <--- ОТОБРАЖАЕМОЕ ИМЯ SAVE TEXT
 }
 
 WEB_DIRECTORY = "./js"
