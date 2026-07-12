@@ -144,9 +144,18 @@ app.registerExtension({
                     this.properties.dragStart = [0, 0];
                     this.properties.dragEnd = [newW, newH];
                     this.syncWidgetsFromProperties(true);
+                } else if (oldW !== newW || oldH !== newH) {
+                    // Разрешение изменилось — на вход подано другое изображение
+                    const lockWidget = this.widgets.find(w => w && w.name === "ratio_lock");
+                    if (lockWidget && lockWidget.value) {
+                        this.applyAspectRatio(); // Условное срабатывание Maximize
+                        this.centerSelection();  // Выравниваем новую рамку по центру
+                    } else {
+                        this.applyAspectRatio("Full"); // Полный сброс (аналог Full Image)
+                    }
                 } else {
-                    // Загрузился новый кадр или батч. Мы не сбрасываем координаты, 
-                    // а заново применяем текущие проценты виджетов к новому размеру!
+                    // Загрузился новый кадр того же размера или батч.
+                    // Сохраняем текущие проценты виджетов.
                     this.syncPropertiesFromWidgets();
                 }
 
@@ -896,11 +905,23 @@ app.registerExtension({
 
                 if (message.orig_size) {
                     const [newW, newH] = message.orig_size;
+                    const oldW = this.properties.actualImageWidth || 0;
+                    const oldH = this.properties.actualImageHeight || 0;
+                    
                     this.properties.actualImageWidth = newW; 
                     this.properties.actualImageHeight = newH;
                     
-                    // Мы не сбрасываем выделение, а применяем текущие проценты!
-                    this.syncPropertiesFromWidgets();
+                    if (oldW !== 0 && oldH !== 0 && (oldW !== newW || oldH !== newH)) {
+                        const lockWidget = this.widgets.find(w => w && w.name === "ratio_lock");
+                        if (lockWidget && lockWidget.value) {
+                            this.applyAspectRatio();
+                            this.centerSelection();
+                        } else {
+                            this.applyAspectRatio("Full");
+                        }
+                    } else {
+                        this.syncPropertiesFromWidgets();
+                    }
                 }
                 
                 this.image.src = url; 

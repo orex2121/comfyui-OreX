@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 import folder_paths
 import os
-import json
 import random
 import string
 import torch.nn.functional as F
@@ -64,25 +63,49 @@ class OreXCrop:
         
         # 2. Slice image tensor
         cropped_image = image[:, top:bottom, left:right, :]
-        
-        # 3. Handle Mask
-        target_h = int(height)
-        target_w = int(width)
-        if mask is not None:
-            cropped_mask = mask[:, top:bottom, left:right]
-            if cropped_mask.shape[1] != target_h or cropped_mask.shape[2] != target_w:
-                mask_nchw = cropped_mask.unsqueeze(1)
-                resized_mask_nchw = F.interpolate(mask_nchw, size=(target_h, target_w), mode='bilinear', align_corners=False)
-                cropped_mask = resized_mask_nchw.squeeze(1)
-        else:
-            cropped_mask = torch.ones((batch_size, target_h, target_w), dtype=torch.float32, device=image.device)
-
-        final_width = int(width)
-        final_height = int(height)
-        
-        # 4. Resize Image to Target Dimensions
         current_h, current_w = cropped_image.shape[1], cropped_image.shape[2]
         
+        # --- ИНТЕЛЛЕКТУАЛЬНЫЙ РАСЧЕТ ИТОГОВОГО РАЗРЕШЕНИЯ ---
+        mult = max(1, int(multiplicity))
+        res = kwargs.get("resolution (MP)", 0.0)
+
+        if res > 0 and current_h > 0:
+            # Если заданы мегапиксели, пересчитываем строго по ним с сохранением пропорций
+            target_area = res * 1000000.0
+            ratio = current_w / current_h
+            target_w = (target_area * ratio) ** 0.5
+            target_h = (target_area / ratio) ** 0.5
+        else:
+            # Используем виджеты из UI
+            target_w = float(width)
+            target_h = float(height)
+            
+            # ЗАЩИТА ОТ ДЕФОРМАЦИИ ПРИ ПЕРВОМ ЗАПУСКЕ
+            # Сравниваем реальные пропорции вырезанного куска с тем, что пришло от устаревших виджетов
+            if current_h > 0 and target_h > 0:
+                actual_ratio = current_w / current_h
+                widget_ratio = target_w / target_h
+                
+                # Если разница пропорций больше 2%, значит UI прислал старые данные от прошлого изображения
+                if abs(actual_ratio - widget_ratio) > 0.02:
+                    target_w = float(current_w)
+                    target_h = float(current_h)
+
+        # Применяем кратность (multiplicity)
+        final_width = max(mult, round(target_w / mult) * mult)
+        final_height = max(mult, round(target_h / mult) * mult)
+        
+        # 3. Handle Mask
+        if mask is not None:
+            cropped_mask = mask[:, top:bottom, left:right]
+            if cropped_mask.shape[1] != final_height or cropped_mask.shape[2] != final_width:
+                mask_nchw = cropped_mask.unsqueeze(1)
+                resized_mask_nchw = F.interpolate(mask_nchw, size=(final_height, final_width), mode='bilinear', align_corners=False)
+                cropped_mask = resized_mask_nchw.squeeze(1)
+        else:
+            cropped_mask = torch.ones((batch_size, final_height, final_width), dtype=torch.float32, device=image.device)
+        
+        # 4. Resize Image to Target Dimensions
         if current_h != final_height or current_w != final_width:
             target_size = (final_height, final_width)
             
