@@ -83,6 +83,7 @@ app.registerExtension({
                             const w = this.addLoraWidget({ 
                                 on: true, lora: loraName, strength: 1.00, tw_on: true, trigger_words: "" 
                             });
+                            this.checkMissingLoras(); // Обновляем статусы ошибок
                             this.fetchTriggerWords(loraName, w);
                         }
                     });
@@ -322,7 +323,7 @@ app.registerExtension({
                 if (addBtnIndex > -1) this.widgets.splice(addBtnIndex, 1);
 
                 const w = this.addWidget("custom", "lora", initialValue || { 
-                    on: true, lora: "None", strength: 1.00, tw_on: true, trigger_words: "" 
+                    on: true, lora: "None", strength: 1.00, tw_on: true, trigger_words: "", is_missing: false
                 }, () => {});
                 
                 w.computeSize = function(width) { return [width, 22]; };
@@ -422,10 +423,18 @@ app.registerExtension({
 
                     ctx.textAlign = "left";
                     
+                    // --- ОТРИСОВКА ИМЕНИ ЛОРЫ (С ПРОВЕРКОЙ ОШИБКИ) ---
                     drawRoundRect(ctx, currentX, Y + padding, loraW, innerH, 4, "rgba(0,0,0,0.4)");
                     ctx.save(); ctx.beginPath(); ctx.rect(currentX + 4, Y, loraW - 8, height); ctx.clip();
-                    ctx.fillStyle = LiteGraph.WIDGET_TEXT_COLOR;
-                    ctx.fillText(this.value.lora || "None", currentX + 6, midY);
+                    
+                    if (this.value.is_missing) {
+                        ctx.fillStyle = "#ff6b6b"; // Красно-розовый цвет для потерянной лоры
+                        ctx.fillText("⚠️ " + (this.value.lora || "None"), currentX + 6, midY);
+                    } else {
+                        ctx.fillStyle = LiteGraph.WIDGET_TEXT_COLOR;
+                        ctx.fillText(this.value.lora || "None", currentX + 6, midY);
+                    }
+                    
                     ctx.restore();
                     const loraNameX = currentX;
                     currentX += loraW + 4;
@@ -497,6 +506,7 @@ app.registerExtension({
                         const i = node.widgets.indexOf(w);
                         if (i > -1) node.widgets.splice(i, 1);
                         node.reindexLoras();
+                        node.checkMissingLoras(); // Обновляем ошибки при удалении
                         node.size[1] = node.computeSize()[1];
                     }
                     else if (hz.moveUp && x >= hz.moveUp[0] && x <= hz.moveUp[0] + hz.moveUp[1]) {
@@ -539,6 +549,7 @@ app.registerExtension({
                         new LiteGraph.ContextMenu(node.getLoraList(), { event: e, callback: (s) => {
                             w.value.lora = s.content || s;
                             w.value.trigger_words = ""; 
+                            node.checkMissingLoras(); // Обновляем ошибки при смене лоры
                             node.setDirtyCanvas(true, true);
                             node.fetchTriggerWords(w.value.lora, w);
                         }});
@@ -582,8 +593,38 @@ app.registerExtension({
                     }
                 }
                 this.reindexLoras();
+                this.checkMissingLoras(); // Обязательная проверка при загрузке воркфлоу!
             };
 
+            // --- НОВЫЙ МЕТОД: Проверка на отсутствующие лоры ---
+            nodeType.prototype.checkMissingLoras = function() {
+                const loraList = this.getLoraList();
+                let hasMissing = false;
+                
+                for (let w of this.widgets) {
+                    if (w.name && w.name.startsWith("lora") && w.value && w.value.lora !== "None") {
+                        // Если имя лоры не найдено в списке доступных в системе
+                        if (!loraList.includes(w.value.lora)) {
+                            hasMissing = true;
+                            w.value.is_missing = true;
+                        } else {
+                            w.value.is_missing = false;
+                        }
+                    }
+                }
+                
+                // Красим узел в темно-красный, если есть ошибки (имитация стандартного поведения ComfyUI)
+                if (hasMissing) {
+                    this.color = "#5a1e1e";
+                    this.bgcolor = "#3a1212";
+                } else {
+                    delete this.color;
+                    delete this.bgcolor;
+                }
+                this.setDirtyCanvas(true, true);
+            };
+
+            // Вспомогательные методы
             nodeType.prototype.reindexLoras = function() {
                 let counter = 1;
                 for (let w of this.widgets) {

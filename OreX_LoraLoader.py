@@ -246,6 +246,27 @@ class OreX_LoraLoader:
     RETURN_NAMES = ("MODEL", "CLIP", "Trigger Words", "Lora Names")
     FUNCTION = "load_loras"
 
+    # --- ВАЛИДАЦИЯ --- (Останавливает генерацию и выдает стандартную ошибку ComfyUI (красная рамка), если файла нет)
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        missing = []
+        for key, value in kwargs.items():
+            if key.startswith('lora_') and isinstance(value, dict):
+                # Пропускаем отключенные лоры
+                if not value.get('on', True): 
+                    continue
+                
+                lora_name = value.get('lora')
+                if lora_name and lora_name != "None":
+                    lora_path = folder_paths.get_full_path("loras", lora_name)
+                    if not lora_path or not os.path.exists(lora_path):
+                        missing.append(lora_name)
+        
+        if missing:
+            return f"Отсутствуют следующие Лоры: {', '.join(missing)}"
+            
+        return True
+
     def load_loras(self, model, clip, **kwargs):
         final_trigger_words = []
         final_lora_names = []
