@@ -10,11 +10,19 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
                 
+                // Переменная для отслеживания текущего количества пинов, 
+                // чтобы избежать лагов при плавном перетаскивании ползунка
+                this._lastImageCount = -1; 
+                
                 this.updateImageInputs = function() {
                     const widget = this.widgets?.find(w => w.name === "image_number");
                     if (!widget) return;
                     
                     const count = Math.floor(widget.value);
+                    
+                    // Прерываем функцию, если целое число не изменилось
+                    if (count === this._lastImageCount) return;
+                    this._lastImageCount = count;
                     
                     // 1. Добавляем недостающие пины (входы)
                     for (let i = 1; i <= count; i++) {
@@ -46,16 +54,17 @@ app.registerExtension({
                     this.setDirtyCanvas(true, true);
                 };
 
-                // Задержка нужна, чтобы виджеты успели инициализироваться
+                // Задержка нужна, чтобы виджеты успели проинициализироваться
                 setTimeout(() => {
                     const widget = this.widgets?.find(w => w.name === "image_number");
                     if (widget) {
-                        // Жесткий перехватчик изменения значения (надежнее, чем обычный callback)
+                        // Жесткий перехватчик изменения значения для гарантии срабатывания
                         let val = widget.value;
                         Object.defineProperty(widget, 'value', {
                             get: function() { return val; },
                             set: (newVal) => {
                                 val = newVal;
+                                // this сохраняется благодаря стрелочной функции
                                 this.updateImageInputs();
                             }
                         });
