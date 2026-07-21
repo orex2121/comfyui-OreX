@@ -20,6 +20,9 @@ from .OreX_CipTextEncode import OreX_CipTextEncode
 from .OreX_ImageMerging import OrexImageMerging
 from .OreX_StyleSelector import OrexStyleSelector
 
+# Добавлен импорт нового узла V2
+from .OreX_ImageMergingV2 import OrexImageMergingV2 
+
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
     "orex Save Image": OreXImageSave,
@@ -41,7 +44,9 @@ NODE_CLASS_MAPPINGS = {
     "orex Lora Loader": OreX_LoraLoader,
     "orex Cip Text Encode": OreX_CipTextEncode,
     "orex Image Merging": OrexImageMerging,
-    "OrexStyleSelector": OrexStyleSelector
+    "OrexStyleSelector": OrexStyleSelector,
+    # Добавлен класс нового узла V2
+    "OrexImageMergingV2": OrexImageMergingV2
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -65,7 +70,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Lora Loader": "🧩 Lora Loader (OreX)",
     "orex Cip Text Encode": "CLIP Text Encode (OreX)",
     "orex Image Merging": "🧱 Image Merging (OreX)",
-    "OrexStyleSelector": "🪄 Style Selector (OreX)"
+    "OrexStyleSelector": "🪄 Style Selector (OreX)",
+    # Добавлено отображаемое имя нового узла V2
+    "OrexImageMergingV2": "OreX Image Merging V2"
 }
 
 WEB_DIRECTORY = "./js"

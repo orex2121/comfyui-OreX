@@ -2,7 +2,7 @@
     {
         "name": "White background",
         "name_cn": "White background",
-        "prompt": "Change the background to white",
+        "prompt": "{prompt} Change the background to white",
         "negative_prompt": " ",
         "thumbnail": ["_White_background_1.jpg", "_White_background_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -10,7 +10,7 @@
 	{
         "name": "Delete Character",
         "name_cn": "Delete Character",
-        "prompt": "Delete the character. Save only the background.",
+        "prompt": "{prompt} Delete the character. Save only the background.",
         "negative_prompt": " ",
         "thumbnail": ["_Delete_Character_1.jpg", "_Delete_Character_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -18,7 +18,7 @@
 	{
         "name": "Make Photo",
         "name_cn": "Make Photo",
-        "prompt": "Convert your DSLR photo into a real one. With natural light and natural, discreet shades. Canon 50mm",
+        "prompt": "{prompt} Convert your DSLR photo into a real one. With natural light and natural, discreet shades. Canon 50mm",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Photo_1.jpg", "_Make_Photo_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -26,7 +26,7 @@
 	{
         "name": "Make Anime",
         "name_cn": "Make Anime",
-        "prompt": "Change the style to cinematic anime. Save your face, eyes and lips. Keep your facial expressions.",
+        "prompt": "{prompt} Change the style to cinematic anime. Save your face, eyes and lips. Keep your facial expressions.",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Anime_1.jpg", "_Make_Anime_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -34,7 +34,7 @@
 	{
         "name": "Make Comics",
         "name_cn": "Make Comics",
-        "prompt": "Change the style to comics_style. Save your face, eyes and lips. Keep your facial expressions.",
+        "prompt": "{prompt} Change the style to comics_style. Save your face, eyes and lips. Keep your facial expressions.",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Comics_1.jpg", "_Make_Comics_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -42,7 +42,7 @@
 	{
         "name": "Make Illustration",
         "name_cn": "Make Illustration",
-        "prompt": "Change the style to expressive_character_illustration. Save your face, eyes and lips. Keep your facial expressions.",
+        "prompt": "{prompt} Change the style to expressive_character_illustration. Save your face, eyes and lips. Keep your facial expressions.",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Illustration_1.jpg", "_Make_Illustration_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -50,7 +50,7 @@
 	{
         "name": "Make KodacHrome",
         "name_cn": "Make KodacHrome",
-        "prompt": "Change to kodachrome. Save your face, eyes and lips. Keep your facial expressions.",
+        "prompt": "{prompt} Change to kodachrome. Save your face, eyes and lips. Keep your facial expressions.",
         "negative_prompt": " ",
         "thumbnail": ["_Make_KodacHrome_1.jpg", "_Make_KodacHrome_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -58,7 +58,7 @@
 	{
         "name": "Make Caricature",
         "name_cn": "Make Caricature",
-        "prompt": "Change to caricature. Save your face, eyes and lips. Keep your facial expressions.",
+        "prompt": "{prompt} Change to caricature. Save your face, eyes and lips. Keep your facial expressions.",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Caricature_1.jpg", "_Make_Caricature_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -66,7 +66,7 @@
 	{
         "name": "Turn Above",
         "name_cn": "Turn Above",
-        "prompt": "Turn the camera and show the scene from above",
+        "prompt": "{prompt} Turn the camera and show the scene from above",
         "negative_prompt": " ",
         "thumbnail": ["_Turn_Above_1.jpg", "_Turn_Above_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -74,7 +74,7 @@
 	{
         "name": "Turn Side",
         "name_cn": "Turn_Side",
-        "prompt": "Show the character from the side",
+        "prompt": "{prompt} Show the character from the side",
         "negative_prompt": " ",
         "thumbnail": ["_Turn_Side_1.jpg", "_Turn_Side_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -82,7 +82,7 @@
 	{
         "name": "Remove People",
         "name_cn": "Remove People",
-        "prompt": "Remove people",
+        "prompt": "{prompt} Remove people",
         "negative_prompt": " ",
         "thumbnail": ["_Remove_People_1.jpg", "_Remove_People_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -90,7 +90,7 @@
 	{
         "name": "Make Night",
         "name_cn": "Make Night",
-        "prompt": "Do it at night",
+        "prompt": "{prompt} Do it at night",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Night_1.jpg", "_Make_Night_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -98,7 +98,7 @@
 	{
         "name": "Make Winter",
         "name_cn": "Make Winter",
-        "prompt": "Do it in winter",
+        "prompt": "{prompt} Do it in winter",
         "negative_prompt": " ",
         "thumbnail": ["_Make_Winter_1.jpg", "_Make_Winter_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -106,7 +106,7 @@
 	{
         "name": "On Motocycle",
         "name_cn": "On Motocycle",
-        "prompt": "Put a woman on a motorcycle",
+        "prompt": "{prompt} Put a woman on a motorcycle",
         "negative_prompt": " ",
         "thumbnail": ["_On_Motocycle_1.jpg", "_On_Motocycle_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -114,7 +114,7 @@
 	{
         "name": "T-shirt Print",
         "name_cn": "T-shirt Print",
-        "prompt": "Make a pleated black t-shirt on a white background with this t-shirt print. The print follows the wave of folds.",
+        "prompt": "{prompt} Make a pleated black t-shirt on a white background with this t-shirt print. The print follows the wave of folds.",
         "negative_prompt": " ",
         "thumbnail": ["_T-shirt_Print_1.jpg", "_T-shirt_Print_2.jpg"],
         "thumbnail_variant": "compareSlider"
@@ -122,7 +122,7 @@
 	{
         "name": "Remove Furniture",
         "name_cn": "Remove Furniture",
-        "prompt": "Remove all furniture. Left, front, right. Wardrobes and sofas, flowers and carpets, vegetation.",
+        "prompt": "{prompt} Remove all furniture. Left, front, right. Wardrobes and sofas, flowers and carpets, vegetation.",
         "negative_prompt": " ",
         "thumbnail": ["_Remove_furniture_1.jpg", "_Remove_furniture_2.jpg"],
         "thumbnail_variant": "compareSlider"
