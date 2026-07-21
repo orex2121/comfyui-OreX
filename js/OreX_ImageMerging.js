@@ -3,15 +3,12 @@ import { app } from "../../scripts/app.js";
 app.registerExtension({
     name: "OreX.ImageMerging",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        // Имя узла должно точно совпадать с ключом из __init__.py (NODE_CLASS_MAPPINGS)
         if (nodeData.name === "orex Image Merging") {
             
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
                 
-                // Переменная для отслеживания текущего количества пинов, 
-                // чтобы избежать лагов при плавном перетаскивании ползунка
                 this._lastImageCount = -1; 
                 
                 this.updateImageInputs = function() {
@@ -19,12 +16,10 @@ app.registerExtension({
                     if (!widget) return;
                     
                     const count = Math.floor(widget.value);
-                    
-                    // Прерываем функцию, если целое число не изменилось
                     if (count === this._lastImageCount) return;
                     this._lastImageCount = count;
                     
-                    // 1. Добавляем недостающие пины (входы)
+                    // 1. Добавляем недостающие пины
                     for (let i = 1; i <= count; i++) {
                         const inputName = "image" + i;
                         const exists = this.inputs && this.inputs.find(inp => inp.name === inputName);
@@ -33,7 +28,7 @@ app.registerExtension({
                         }
                     }
                     
-                    // 2. Удаляем лишние пины, если ползунок уменьшили
+                    // 2. Удаляем лишние пины (чтобы они исчезали при уменьшении значения)
                     if (this.inputs) {
                         for (let i = this.inputs.length - 1; i >= 0; i--) {
                             const inp = this.inputs[i];
@@ -46,30 +41,26 @@ app.registerExtension({
                         }
                     }
 
-                    // 3. Динамически перерисовываем размер узла
+                    // 3. Жесткое схлопывание высоты! (Исправление бага "небоскреба")
                     const sz = this.computeSize();
-                    if (sz[0] < this.size[0]) sz[0] = this.size[0];
-                    if (sz[1] < this.size[1]) sz[1] = this.size[1];
-                    this.size = sz;
+                    this.size[0] = Math.max(this.size[0], sz[0]); // Сохраняем или расширяем ширину
+                    this.size[1] = sz[1]; // ЖЕСТКО приравниваем высоту к минимально необходимой
                     this.setDirtyCanvas(true, true);
                 };
 
-                // Задержка нужна, чтобы виджеты успели проинициализироваться
                 setTimeout(() => {
                     const widget = this.widgets?.find(w => w.name === "image_number");
                     if (widget) {
-                        // Жесткий перехватчик изменения значения для гарантии срабатывания
                         let val = widget.value;
                         Object.defineProperty(widget, 'value', {
                             get: function() { return val; },
                             set: (newVal) => {
                                 val = newVal;
-                                // this сохраняется благодаря стрелочной функции
                                 this.updateImageInputs();
                             }
                         });
                         
-                        // Инициализируем пины при первом появлении узла
+                        // Запускаем очистку сразу при появлении узла
                         this.updateImageInputs();
                     }
                 }, 50);
@@ -77,7 +68,6 @@ app.registerExtension({
                 return r;
             };
             
-            // Восстанавливаем пины при загрузке сохраненного рабочего процесса
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function (info) {
                 if (onConfigure) {

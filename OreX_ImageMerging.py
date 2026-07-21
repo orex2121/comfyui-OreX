@@ -35,24 +35,38 @@ class OrexImageMerging:
         merging_modes = ["horizontal", "vertical", "grid 2", "grid 3", "grid 4", "grid 2 + 1", "grid 3 + 1"]
         upscale_methods = ["nearest-exact", "bilinear", "area", "bicubic", "lanczos"]
 
+        required_inputs = {
+            "text": ("STRING", {"multiline": True, "default": "Caption 1\nCaption 2"}),
+            
+            # ### ---> НАСТРОЙКА ЛИМИТА (1 из 3) <--- ###
+            # Чтобы увеличить максимальное количество картинок, поменяйте "max": 20 на ваше число (например, "max": 50)
+            "image_number": ("INT", {"default": 2, "min": 2, "max": 20}),
+            
+            "merging_mode": (merging_modes, {"default": "horizontal"}),
+            
+            # ### ---> НАСТРОЙКА ЛИМИТА (2 из 3) <--- ###
+            # Здесь "max" тоже нужно поменять на то же самое ваше число (например, "max": 50)
+            "main_resolution_image": ("INT", {"default": 1, "min": 1, "max": 20}),
+            
+            "footer_height": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+            "font_name": (file_list,),
+            "font_size": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+            "mode": (colors,),
+            "border_thickness": ("FLOAT", {"default": 2.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+            "upscale_method": (upscale_methods, {"default": "lanczos"}),
+            "megapixels": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+        }
+
+        optional_inputs = {}
+        # ### ---> НАСТРОЙКА ЛИМИТА (3 из 3) <--- ###
+        # Поменяйте цифру 21 на ваше (Максимальное число + 1). 
+        # Например, если вы выбрали макс. количество 50, напишите здесь range(1, 51)
+        for i in range(1, 21):
+            optional_inputs[f"image{i}"] = ("IMAGE",)
+
         return {
-            "required": {
-                "text": ("STRING", {"multiline": True, "default": "Caption 1\nCaption 2"}),
-                "image_number": ("INT", {"default": 2, "min": 2, "max": 999}),
-                "merging_mode": (merging_modes, {"default": "horizontal"}),
-                "main_resolution_image": ("INT", {"default": 1, "min": 1, "max": 999}),
-                "footer_height": ("FLOAT", {"default": 5.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "font_name": (file_list,),
-                "font_size": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-                "mode": (colors,),
-                "border_thickness": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 100.0, "step": 0.1}), # Теперь в процентах (FLOAT)
-                "upscale_method": (upscale_methods, {"default": "lanczos"}),
-                "megapixels": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 0.1}),
-            },
-            "optional": {
-                "image1": ("IMAGE",),
-                "image2": ("IMAGE",),
-            }
+            "required": required_inputs,
+            "optional": optional_inputs
         }
 
     RETURN_TYPES = ("IMAGE", "INT", "INT",)
@@ -94,7 +108,6 @@ class OrexImageMerging:
         base_w, base_h = valid_images[main_idx].width, valid_images[main_idx].height
         texts_list = text.split('\n')
 
-        # Функция сухого прогона (математика макета без работы с пикселями)
         def get_layout(b_w, b_h):
             a_footer = int(b_h * (footer_height / 100.0))
             a_font = int(b_h * (font_size / 100.0))
@@ -130,7 +143,6 @@ class OrexImageMerging:
                         new_h = int(round(img.height * scale))
                 dims.append((new_w, new_h))
 
-            # Корректировка "+1"
             if merging_mode == "grid 2 + 1" and len(dims) >= 3:
                 left_h = dims[0][1] + get_f_h(0) + b_thick_total + dims[1][1] + get_f_h(1) + b_thick_total
                 img2_h = max(1, left_h - get_f_h(2) - b_thick_total)
@@ -142,7 +154,6 @@ class OrexImageMerging:
                 orig_w, orig_h = valid_images[3].width, valid_images[3].height
                 dims[3] = (max(1, int(round(orig_w * (img3_h / orig_h)))), img3_h)
 
-            # Вычисление финальных размеров холста
             processed_dims = []
             for i, (w, h) in enumerate(dims):
                 processed_dims.append((w + b_thick_total, h + get_f_h(i) + b_thick_total))
@@ -178,17 +189,14 @@ class OrexImageMerging:
 
             return dims, fw, fh, a_footer, a_font, b_size
 
-        # Первый расчет макета
         new_dims, final_w, final_h, actual_footer_height, actual_font_size, border_size = get_layout(base_w, base_h)
 
-        # Оптимизация Megapixels (Пересчет макета ДО ресайза изображений)
         if megapixels > 0.0 and final_w > 0 and final_h > 0:
             current_pixels = final_w * final_h
             target_pixels = megapixels * 1_000_000
             scale_factor = math.sqrt(target_pixels / current_pixels)
             base_w = max(1, int(round(base_w * scale_factor)))
             base_h = max(1, int(round(base_h * scale_factor)))
-            # Получаем итоговые размеры
             new_dims, final_w, final_h, actual_footer_height, actual_font_size, border_size = get_layout(base_w, base_h)
 
         resample_map = {
@@ -198,7 +206,6 @@ class OrexImageMerging:
         }
         resampler = resample_map.get(upscale_method, Image.Resampling.LANCZOS)
 
-        # Ресайз изображений под вычисленные размеры
         resized_images = []
         for i, img in enumerate(valid_images):
             new_w, new_h = new_dims[i]
@@ -207,7 +214,6 @@ class OrexImageMerging:
             else:
                 resized_images.append(img)
 
-        # Подготовка текста (с умным фоллбеком на системные шрифты)
         font = None
         if actual_font_size > 0:
             if font_name != "default":
@@ -217,23 +223,20 @@ class OrexImageMerging:
                 except:
                     pass
             
-            # Если пользователь выбрал "default" или шрифт из папки не загрузился, ищем в системе
             if font is None:
                 try:
                     sys_os = platform.system()
                     if sys_os == "Windows":
                         font = ImageFont.truetype("arial.ttf", actual_font_size)
-                    elif sys_os == "Darwin": # Mac
+                    elif sys_os == "Darwin":
                         font = ImageFont.truetype("Arial.ttf", actual_font_size)
-                    else: # Linux/Ubuntu (обычно стоит в докерах)
+                    else:
                         font = ImageFont.truetype("DejaVuSans.ttf", actual_font_size)
                 except:
-                    # Если ничего не помогло (совсем голая система), берем базовый (он не масштабируется)
                     font = ImageFont.load_default()
         else:
             font = ImageFont.load_default()
 
-        # Добавление текста и рамок
         processed_images = []
         for i, img in enumerate(resized_images):
             caption = texts_list[i].strip() if i < len(texts_list) else ""
@@ -256,7 +259,6 @@ class OrexImageMerging:
                 
             processed_images.append(img)
 
-        # Склейка (на заранее просчитанный по мегапикселям final_img)
         final_img = Image.new("RGB", (final_w, final_h), bg_color)
 
         if merging_mode == "horizontal":
@@ -310,3 +312,11 @@ class OrexImageMerging:
                 final_img = processed_images[0]
 
         return (pil2tensor(final_img), final_img.width, final_img.height,)
+
+NODE_CLASS_MAPPINGS = {
+    "OrexImageMerging": OrexImageMerging
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OrexImageMerging": "Orex Image Merging"
+}

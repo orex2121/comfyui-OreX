@@ -1,0 +1,37 @@
+[
+    {
+        "name": "Milo Manara Style",
+        "name_cn": "Milo Manara Style",
+        "prompt": "Milo Manara Style {prompt}, An elegant, sensuous comic-illustration style built on fluid, confident linework that traces the female form with graceful anatomical precision, delicate fine crosshatching used sparingly to suggest shadow and volume rather than heavy rendering, warm sun-bleached Mediterranean color palettes applied in soft watercolor-like washes, playful, flirtatious poses charged with lighthearted erotic tension, and a refined, painterly European comic-book sensuality that feels classic yet unmistakably illustrated. Influenced by: Milo Manara, Italian fumetti comic art, Mediterranean watercolor illustration, erotic graphic-novel linework.[cite: 2]",
+        "negative_prompt": " ",
+        "thumbnail": "milo_manara_style.jpg"
+    },
+    {
+        "name": "Graphic Flat-Vector Travel Poster Illustration",
+        "name_cn": "Graphic Flat-Vector Travel Poster Illustration",
+        "prompt": "Graphic Flat-Vector Travel Poster Illustration {prompt}, A bold, hand-cut illustration style built on faceted, angular shape construction that reduces form into confident planar segments rather than smooth gradation, sharp textural crosshatching and scratchy directional mark-making overlaid across otherwise flat color-block regions, a poster-ready graphic clarity balanced against loose, painterly energy at the edges, dramatic sunlit contrast carving crisp separation between illuminated and shadowed planes, and a stylish, contemporary travel-illustration polish that feels equally editorial and hand-crafted. Influenced by: contemporary vector-travel-poster illustration, faceted geometric-painting technique, mid-century advertising illustration tradition, editorial flat-color rendering practice.[cite: 2]",
+        "negative_prompt": " ",
+        "thumbnail": "graphic_flat_vector_travel_poster_illustration.jpg"
+    },
+    {
+        "name": "Comics Style",
+        "name_cn": "Comics Style",
+        "prompt": "Comics Style {prompt}, A bold, graphic illustration style built on confident inked linework holding clearly defined, dynamic proportions, flat-to-lightly-shaded color fill applied with straightforward panel-ready clarity, dynamic, energetic posing designed for instant visual impact, a punchy, readable simplicity that favors narrative clarity over painterly nuance, and a versatile, accessible graphic-storytelling charm rooted in broad mainstream comic-illustration convention. Influenced by: mainstream American comic-illustration tradition, inked-and-colored panel technique, dynamic action-comic practice, classic comic-book character-design method.[cite: 2]",
+        "negative_prompt": " ",
+        "thumbnail": "comics_style.jpg"
+    },
+    {
+        "name": "sai-origami",
+        "prompt": "origami style {prompt} . paper art, pleated paper, folded, origami art, pleats, cut and fold, centered composition",
+        "negative_prompt": "noisy, sloppy, messy, grainy, highly detailed, ultra textured, photo",
+        "name_cn": "SAI-折纸",
+        "thumbnail": "https://raw.githubusercontent.com/lllyasviel/Fooocus/main/sdxl_styles/samples/sai_origami.jpg"
+    },
+    {
+        "name": "Cyberpunk Photography",
+        "name_cn": "Cyberpunk Photography",
+        "prompt": "Cyberpunk Photography {prompt}, A high-contrast, neon-drenched photographic style built on intense directional gel lighting that crosses the frame in sharp, saturated bands, wet-look reflective skin and atmosphere achieved through deliberate humid haze and moisture-catching highlight, dramatic low-angle framing that dwarfs the subject within looming urban density, deep engulfing shadow broken only by isolated glowing accents, and a cold, futuristic tension charged with dystopian nocturnal energy. Influenced by: Blade Runner cinematography tradition, neon-noir photography technique, cyberpunk urban-photography practice, gel-lighting cinematic method.[cite: 2]",
+        "negative_prompt": " ",
+        "thumbnail": "cyberpunk_photography.jpg"
+    }
+]

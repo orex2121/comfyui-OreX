@@ -18,6 +18,7 @@ from .OreX_TextSave import OreX_TextSave
 from .OreX_LoraLoader import OreX_LoraLoader
 from .OreX_CipTextEncode import OreX_CipTextEncode
 from .OreX_ImageMerging import OrexImageMerging
+from .OreX_StyleSelector import OrexStyleSelector
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -39,7 +40,8 @@ NODE_CLASS_MAPPINGS = {
     "orex Save Text": OreX_TextSave,
     "orex Lora Loader": OreX_LoraLoader,
     "orex Cip Text Encode": OreX_CipTextEncode,
-    "orex Image Merging": OrexImageMerging
+    "orex Image Merging": OrexImageMerging,
+    "OrexStyleSelector": OrexStyleSelector
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -62,7 +64,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Save Text": "📝 Save Text (OreX)",
     "orex Lora Loader": "🧩 Lora Loader (OreX)",
     "orex Cip Text Encode": "CLIP Text Encode (OreX)",
-    "orex Image Merging": "🧱 Image Merging (OreX)"
+    "orex Image Merging": "🧱 Image Merging (OreX)",
+    "OrexStyleSelector": "🪄 Style Selector (OreX)"
 }
 
 WEB_DIRECTORY = "./js"
