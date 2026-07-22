@@ -1,0 +1,51 @@
+[
+    {
+        "name": "Happiness",
+        "name_cn": "Happiness",
+        "prompt": "{prompt} Happiness: Muscles involved: Zygomaticus major (pulls mouth corners up and out), orbicularis oculi (raises cheeks and creates \"crow's feet\" around the eyes). Description: A genuine (Duchenne) smile lifts both the lips and the outer corners of the eyes.",
+        "negative_prompt": " ",
+        "thumbnail": "__Happiness.jpg"
+    },
+    {
+        "name": "Sadness",
+        "name_cn": "Sadness",
+        "prompt": "{prompt} Sadness: Muscles involved: Corrugator supercilii (pulls brows inward and downward), depressor anguli oris (pulls lip corners down), mentalis (wrinkles the chin and protrudes the lower lip). Description: Characterized by the inner eyebrows lifting and drawing together, drooping eyelids, and the edges of the mouth turning downward.",
+        "negative_prompt": " ",
+        "thumbnail": "__Sadness.jpg"
+    },
+    {
+        "name": "Anger",
+        "name_cn": "Anger",
+        "prompt": "{prompt} Anger: Muscles involved: Corrugator supercilii & procerus (lower brows and pull them together), orbicularis oculi (tightens eyelids), orbicularis oris (tightens and thins the lips). Description: Eyebrows are pulled downward and together, the upper eyelids are raised, the eyes narrow, and lips are often pressed tightly together.",
+        "negative_prompt": " ",
+        "thumbnail": "__Anger.jpg"
+    },
+    {
+        "name": "Fear",
+        "name_cn": "Fear",
+        "prompt": "{prompt} Fear: Muscles involved: Frontalis & corrugator (raise and pull brows together), levator palpebrae superioris (wide opening of upper eyelids), risorius (stretches the lips horizontally). Description: Eyebrows pull upwards and together, upper eyelids raise to expose the white of the eyes, and the lips stretch outward horizontally.",
+        "negative_prompt": " ",
+        "thumbnail": "__Fear.jpg"
+    },
+    {
+        "name": "Disgust",
+        "name_cn": "Disgust",
+        "prompt": "{prompt} Disgust: Muscles involved: Levator labii superioris (raises the upper lip), nasalis (wrinkles the nose), depressor anguli oris (pulls lip corners down). Description: The nose wrinkles, the upper lip elevates, and the cheeks are raised.",
+        "negative_prompt": " ",
+        "thumbnail": "__Disgust.jpg"
+    },
+    {
+        "name": "Surprise",
+        "name_cn": "Surprise",
+        "prompt": "{prompt} Wide-open-mouthed surprise: Muscles involved: Frontalis (raises the eyebrows), levator palpebrae superioris (widens upper lids), jaw drops (mandible depressor muscles). Description: Eyebrows curve upwards, eyes widen significantly, and the jaw drops open naturally.",
+        "negative_prompt": " ",
+        "thumbnail": "__Surprise.jpg"
+    },
+    {
+        "name": "Contempt",
+        "name_cn": "Contempt",
+        "prompt": "{prompt} Contempt. Hatred and malice.: Muscles involved: Zygomaticus major & risorius (tightens the corner of the lip). Description: The only asymmetrical emotion; usually presents as a unilateral tightening and pulling back of a single corner of the mouth (an arrogant smirk).",
+        "negative_prompt": " ",
+        "thumbnail": "__Contempt.jpg"
+    }
+]
