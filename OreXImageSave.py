@@ -60,6 +60,7 @@ class OreXImageSave:
         
         if self.is_windows:
             if len(norm) > self.MAX_PATH_LEN: return False
+            # Проверка запрещенных символов в имени файла/папок (кроме слешей и двоеточия диска)
             drive, tail = os.path.splitdrive(norm)
             if any(ch in self.WINDOWS_FORBIDDEN for ch in tail): return False
         return True
@@ -136,10 +137,11 @@ class OreXImageSave:
         else:
             counter_key = os.path.basename(base_name)
             if counter_key not in self.counters:
+                # Оптимизированный поиск последнего номера с помощью регулярных выражений
                 pattern = re.compile(rf"^{re.escape(base_name)}{re.escape(self.filename_separator)}(\d+)\.{extension}$")
                 highest = 0
                 try:
-                    for f in os.scandir(base_path):
+                    for f in os.scandir(base_path): # scandir быстрее чем listdir
                         if f.is_file():
                             match = pattern.match(f.name)
                             if match:
@@ -196,13 +198,16 @@ class OreXImageSave:
         pngquant_exe = os.path.join(self.node_dir, "bin", "pngquant", pq_name)
         oxipng_exe = os.path.join(self.node_dir, "bin", "oxipng", ox_name)
         
+        # Fallback to system PATH if local binaries not found
         if not os.path.exists(pngquant_exe): pngquant_exe = pq_name
         if not os.path.exists(oxipng_exe): oxipng_exe = ox_name
 
         try:
+            # 1. Pngquant
             cmd_quant = [pngquant_exe, '--force', '--ext', '.png', '--quality', "80-98", filepath]
             subprocess.run(cmd_quant, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
             
+            # 2. Oxipng
             cmd_oxi = [oxipng_exe, '-o', '4', '--strip', 'safe', filepath]
             subprocess.run(cmd_oxi, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
         except subprocess.TimeoutExpired:
@@ -210,6 +215,7 @@ class OreXImageSave:
         except FileNotFoundError:
             print(f"\n[OreX] ERROR: Optimization tools (pngquant/oxipng) not found!")
         except subprocess.CalledProcessError as e:
+            # Pngquant returns code 98/99 if it can't compress further. We still run oxipng.
             if e.returncode in [98, 99]:
                 try:
                     subprocess.run(cmd_oxi, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
@@ -245,6 +251,7 @@ class OreXImageSave:
             print(f"[OreX] Directory creation failed: {e}")
             return {"ui": {"images": []}, "result": (images, "", "")}
 
+        # Оптимизация: конвертируем весь батч тензоров один раз
         img_arrays = np.clip(255. * images.cpu().numpy(), 0, 255).astype(np.uint8)
 
         # Парсим переменные даты ОДИН раз для всего батча изображений, 
@@ -265,6 +272,8 @@ class OreXImageSave:
                     filepath, _ = self.get_available_filename(processed_path, base_filename, image_format, use_counter)
 
                 img = Image.fromarray(img_array)
+                
+                # Обработка метаданных workflow
                 should_save_json = embed_workflow and (prompt or extra_pnginfo)
                 
                 if image_format == "png":
@@ -294,10 +303,13 @@ class OreXImageSave:
 
                 full_paths.append(filepath)
                 
+                # Формируем путь для UI
+                # ComfyUI UI может отображать только файлы внутри своих директорий (output, input, temp). 
+                # Абсолютные кастомные пути не будут превьюиться в UI по соображениям безопасности сервера ComfyUI.
                 try:
                     rel_path = os.path.relpath(filepath, self.output_dir)
                     if rel_path.startswith(".."):
-                        subfolder_path = "" 
+                        subfolder_path = "" # Файл вне output_dir
                     else:
                         subfolder_path = os.path.dirname(rel_path).replace("\\", "/")
                 except ValueError:

@@ -52,11 +52,14 @@ app.registerExtension({
                 if (onDestroy) onDestroy.apply(this, arguments);
             };
 
+            // Отключаем старую логику кликов по заголовку
             proto.onMouseDown = function (e, pos) { return false; };
 
+            // Оптимизированная проверка наведения мыши
             proto.onMouseMove = function (e, pos) {
                 const [mx, my] = pos;
 
+                // Сброс при выходе за пределы (с небольшим запасом, чтобы мышь не соскакивала)
                 if (mx < -10 || mx > this.size[0] + 10 || my < -10 || my > this.size[1] + 10) {
                     this._clearTooltip();
                     return false;
@@ -69,6 +72,7 @@ app.registerExtension({
                         const wy = w.last_y;
                         const wh = w.computeSize ? w.computeSize(this.size[0])[1] : LiteGraph.NODE_WIDGET_HEIGHT;
                         
+                        // Если мышь над виджетом
                         if (my >= wy && my <= wy + wh) {
                             hoveredWidget = w;
                             break;
@@ -77,6 +81,7 @@ app.registerExtension({
 
                     if (hoveredWidget) {
                         const wName = (hoveredWidget.name || "").toLowerCase().trim();
+                        // Если навели на другой виджет
                         if (this.lastHoveredWidgetName !== wName) {
                             this._clearTooltip();
                             this.lastHoveredWidgetName = wName;
@@ -90,8 +95,8 @@ app.registerExtension({
                                 this.hoverTimer = setTimeout(() => {
                                     this.activeTooltip = tooltipInfo;
                                     this.activeTooltipY = hoveredWidget.last_y;
-                                    this.setDirtyCanvas(true, true);
-                                }, 800);
+                                    this.setDirtyCanvas(true, true); // true, true - отрисовка UI поверх графа
+                                }, 800); // 800мс ощущается приятнее, чем 1000мс
                             }
                         }
                     } else {
@@ -105,6 +110,7 @@ app.registerExtension({
                 this._clearTooltip();
             };
 
+            // Вспомогательная функция очистки тултипа, предотвращающая лишние рендеры
             proto._clearTooltip = function() {
                 if (this.hoverTimer) {
                     clearTimeout(this.hoverTimer);
@@ -118,6 +124,7 @@ app.registerExtension({
                 }
             };
 
+            // Очищаем DOM-элементы от title ТОЛЬКО при их создании, а не 60 раз в секунду
             const onConfigure = proto.onConfigure;
             proto.onConfigure = function() {
                 if (onConfigure) onConfigure.apply(this, arguments);
@@ -141,6 +148,7 @@ app.registerExtension({
             proto.onDrawForeground = function (ctx) {
                 if (this.flags?.collapsed) return;
                 
+                // Периодически чистим HTML title, так как ComfyUI иногда пересоздает их
                 if (Math.random() < 0.05) this._stripNativeTooltips();
 
                 if (this.activeTooltip) {
@@ -148,6 +156,7 @@ app.registerExtension({
                 }
             };
 
+            // Рисование красивого тултипа со стрелочкой (единый путь)
             proto._drawTooltip = function (ctx) {
                 if (!this.activeTooltip) return;
                 const item = this.activeTooltip;
@@ -170,22 +179,25 @@ app.registerExtension({
                 const boxW = Math.max(titleW, descW, ruDescW) + margin * 2;
                 const boxH = 74;
                 
+                // Выносим тултип вправо ЗА ПРЕДЕЛЫ ноды, чтобы стрелочка не перекрывала элементы
                 const bx = this.size[0] + 25; 
                 
+                // Выравниваем по центру относительно наведенного виджета
                 const widgetH = LiteGraph.NODE_WIDGET_HEIGHT || 24;
                 let by = wy + (widgetH / 2) - (boxH / 2);
                 
                 ctx.fillStyle = "rgba(18, 18, 18, 0.98)";
-                ctx.strokeStyle = "rgba(0, 255, 70, 0.5)";
+                ctx.strokeStyle = "rgba(0, 255, 70, 0.5)"; // Фирменный зеленый цвет
                 ctx.lineWidth = 1.5;
                 ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
                 ctx.shadowBlur = 10;
                 ctx.shadowOffsetY = 4;
                 
-                const r = 6;
-                const arrowW = 8;
-                const arrowH = 6;
-                const arrowTipY = boxH / 2;
+                // --- Отрисовка контура со стрелочкой ---
+                const r = 6;             // Радиус скругления углов
+                const arrowW = 8;        // Вылет стрелочки влево
+                const arrowH = 6;        // Ширина основания стрелочки
+                const arrowTipY = boxH / 2; // Стрелка по центру окна тултипа
                 
                 ctx.beginPath();
                 ctx.moveTo(bx + r, by);
@@ -196,6 +208,7 @@ app.registerExtension({
                 ctx.lineTo(bx + r, by + boxH);
                 ctx.arcTo(bx, by + boxH, bx, by + boxH - r, r);
                 
+                // Стрелка (указывает налево)
                 ctx.lineTo(bx, by + arrowTipY + arrowH);
                 ctx.lineTo(bx - arrowW, by + arrowTipY);
                 ctx.lineTo(bx, by + arrowTipY - arrowH);
@@ -205,7 +218,7 @@ app.registerExtension({
                 ctx.closePath();
                 
                 ctx.fill();
-                ctx.shadowColor = "transparent";
+                ctx.shadowColor = "transparent"; // Отключаем тень для обводки
                 ctx.stroke();
 
                 ctx.textBaseline = "top";
