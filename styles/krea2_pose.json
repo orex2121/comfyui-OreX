@@ -1,0 +1,842 @@
+[
+    {
+        "name": "profile-prone-stomach",
+        "name_cn": "profile-prone-stomach",
+        "prompt": "{prompt} profile view, prone, on stomach",
+        "negative_prompt": " ",
+        "thumbnail": "__profilepronestomach.jpg"
+    },
+    {
+        "name": "profile-prone",
+        "name_cn": "profile-prone",
+        "prompt": "{prompt} profile view, prone, on stomach, head back",
+        "negative_prompt": " ",
+        "thumbnail": "__profileprone.jpg"
+    },
+    {
+        "name": "rear-prone",
+        "name_cn": "rear-prone",
+        "prompt": "{prompt} rear view, prone",
+        "negative_prompt": " ",
+        "thumbnail": "__rearprone.jpg"
+    },
+    {
+        "name": "rear-prone-knee",
+        "name_cn": "rear-prone-knee",
+        "prompt": "{prompt} rear view, prone, one knee up",
+        "negative_prompt": " ",
+        "thumbnail": "__rearproneknee.jpg"
+    },
+    {
+        "name": "front-prone-knee",
+        "name_cn": "front-prone-knee",
+        "prompt": "{prompt} front view, prone, one knee up, one knee down",
+        "negative_prompt": " ",
+        "thumbnail": "__frontproneknee.jpg"
+    },
+    {
+        "name": "profile-prone-knee",
+        "name_cn": "profile-prone-knee",
+        "prompt": "{prompt} profile view, prone, one knee up, one knee down",
+        "negative_prompt": " ",
+        "thumbnail": "__profileproneknee.jpg"
+    },
+    {
+        "name": "front-lying-back",
+        "name_cn": "front-lying-back",
+        "prompt": "{prompt} front view, lying on back",
+        "negative_prompt": " ",
+        "thumbnail": "__frontlyingback.jpg"
+    },
+    {
+        "name": "front-lying",
+        "name_cn": "front-lying",
+        "prompt": "{prompt} front view, lying on back, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontlying.jpg"
+    },
+    {
+        "name": "front",
+        "name_cn": "front",
+        "prompt": "{prompt} front view, lying on back, knees bent",
+        "negative_prompt": " ",
+        "thumbnail": "__front.jpg"
+    },
+    {
+        "name": "front9",
+        "name_cn": "front9",
+        "prompt": "{prompt} front view, lying on back, legs crossed",
+        "negative_prompt": " ",
+        "thumbnail": "__front9.jpg"
+    },
+    {
+        "name": "front10",
+        "name_cn": "front10",
+        "prompt": "{prompt} front view, lying on back, one knee up, one knee down",
+        "negative_prompt": " ",
+        "thumbnail": "__front10.jpg"
+    },
+    {
+        "name": "front11",
+        "name_cn": "front11",
+        "prompt": "{prompt} front view, lying on back, legs akimbo, feet together",
+        "negative_prompt": " ",
+        "thumbnail": "__front11.jpg"
+    },
+    {
+        "name": "front12",
+        "name_cn": "front12",
+        "prompt": "{prompt} front view, lying on back, feet up",
+        "negative_prompt": " ",
+        "thumbnail": "__front12.jpg"
+    },
+    {
+        "name": "elevated-lying-back",
+        "name_cn": "elevated-lying-back",
+        "prompt": "{prompt} elevated view, lying on back",
+        "negative_prompt": " ",
+        "thumbnail": "__elevatedlyingback.jpg"
+    },
+    {
+        "name": "elevated-lying",
+        "name_cn": "elevated-lying",
+        "prompt": "{prompt} elevated view, lying on back, high kick",
+        "negative_prompt": " ",
+        "thumbnail": "__elevatedlying.jpg"
+    },
+    {
+        "name": "elevated",
+        "name_cn": "elevated",
+        "prompt": "{prompt} elevated view, lying on back, knees bent",
+        "negative_prompt": " ",
+        "thumbnail": "__elevated.jpg"
+    },
+    {
+        "name": "overhead-lying-back",
+        "name_cn": "overhead-lying-back",
+        "prompt": "{prompt} overhead view, lying on back",
+        "negative_prompt": " ",
+        "thumbnail": "__overheadlyingback.jpg"
+    },
+    {
+        "name": "overhead-lying",
+        "name_cn": "overhead-lying",
+        "prompt": "{prompt} overhead view, lying on back, knees bent",
+        "negative_prompt": " ",
+        "thumbnail": "__overheadlying.jpg"
+    },
+    {
+        "name": "overhead",
+        "name_cn": "overhead",
+        "prompt": "{prompt} overhead view, lying on back, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__overhead.jpg"
+    },
+    {
+        "name": "overhead19",
+        "name_cn": "overhead19",
+        "prompt": "{prompt} overhead view, lying on back, legs akimbo, feet together",
+        "negative_prompt": " ",
+        "thumbnail": "__overhead19.jpg"
+    },
+    {
+        "name": "overhead20",
+        "name_cn": "overhead20",
+        "prompt": "{prompt} overhead view, lying on back, legs akimbo, feet apart",
+        "negative_prompt": " ",
+        "thumbnail": "__overhead20.jpg"
+    },
+    {
+        "name": "profile-lying-back",
+        "name_cn": "profile-lying-back",
+        "prompt": "{prompt} profile view, lying on back",
+        "negative_prompt": " ",
+        "thumbnail": "__profilelyingback.jpg"
+    },
+    {
+        "name": "profile-lying",
+        "name_cn": "profile-lying",
+        "prompt": "{prompt} profile view, lying on back, kicking feet",
+        "negative_prompt": " ",
+        "thumbnail": "__profilelying.jpg"
+    },
+    {
+        "name": "rear-lying-back",
+        "name_cn": "rear-lying-back",
+        "prompt": "{prompt} rear view, lying on back",
+        "negative_prompt": " ",
+        "thumbnail": "__rearlyingback.jpg"
+    },
+    {
+        "name": "rear-lying",
+        "name_cn": "rear-lying",
+        "prompt": "{prompt} rear view, lying on back, one knee up",
+        "negative_prompt": " ",
+        "thumbnail": "__rearlying.jpg"
+    },
+    {
+        "name": "front-squatting",
+        "name_cn": "front-squatting",
+        "prompt": "{prompt} front view, squatting",
+        "negative_prompt": " ",
+        "thumbnail": "__frontsquatting.jpg"
+    },
+    {
+        "name": "front-squatting-knees",
+        "name_cn": "front-squatting-knees",
+        "prompt": "{prompt} front view, squatting, knees together",
+        "negative_prompt": " ",
+        "thumbnail": "__frontsquattingknees.jpg"
+    },
+    {
+        "name": "front-squatting-leg",
+        "name_cn": "front-squatting-leg",
+        "prompt": "{prompt} front view, squatting, one leg extended",
+        "negative_prompt": " ",
+        "thumbnail": "__frontsquattingleg.jpg"
+    },
+    {
+        "name": "profile-squatting",
+        "name_cn": "profile-squatting",
+        "prompt": "{prompt} profile view, squatting",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquatting.jpg"
+    },
+    {
+        "name": "profile-squatting-leg",
+        "name_cn": "profile-squatting-leg",
+        "prompt": "{prompt} profile view, squatting, one leg extended",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquattingleg.jpg"
+    },
+    {
+        "name": "profile-squatting-knee",
+        "name_cn": "profile-squatting-knee",
+        "prompt": "{prompt} profile view, squatting, one knee bent",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquattingknee.jpg"
+    },
+    {
+        "name": "profile-squatting-leaning",
+        "name_cn": "profile-squatting-leaning",
+        "prompt": "{prompt} profile view, squatting, leaning back",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquattingleaning.jpg"
+    },
+    {
+        "name": "front-standing",
+        "name_cn": "front-standing",
+        "prompt": "{prompt} front view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstanding.jpg"
+    },
+    {
+        "name": "front-standing-feet",
+        "name_cn": "front-standing-feet",
+        "prompt": "{prompt} front view, standing, feet apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandingfeet.jpg"
+    },
+    {
+        "name": "front-standing-weight",
+        "name_cn": "front-standing-weight",
+        "prompt": "{prompt} front view, standing, weight on one leg",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandingweight.jpg"
+    },
+    {
+        "name": "front-standing-legs",
+        "name_cn": "front-standing-legs",
+        "prompt": "{prompt} front view, standing, legs crossed",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandinglegs.jpg"
+    },
+    {
+        "name": "front-standing-toes",
+        "name_cn": "front-standing-toes",
+        "prompt": "{prompt} front view, standing, on toes",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandingtoes.jpg"
+    },
+    {
+        "name": "front-standing-forward",
+        "name_cn": "front-standing-forward",
+        "prompt": "{prompt} front view, standing, forward step",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandingforward.jpg"
+    },
+    {
+        "name": "front-standing-high",
+        "name_cn": "front-standing-high",
+        "prompt": "{prompt} front view, standing, high kick",
+        "negative_prompt": " ",
+        "thumbnail": "__frontstandinghigh.jpg"
+    },
+    {
+        "name": "profile-standing",
+        "name_cn": "profile-standing",
+        "prompt": "{prompt} profile view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestanding.jpg"
+    },
+    {
+        "name": "profile",
+        "name_cn": "profile",
+        "prompt": "{prompt} profile view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__profile.jpg"
+    },
+    {
+        "name": "profile41",
+        "name_cn": "profile41",
+        "prompt": "{prompt} profile view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__profile41.jpg"
+    },
+    {
+        "name": "profile42",
+        "name_cn": "profile42",
+        "prompt": "{prompt} profile view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__profile42.jpg"
+    },
+    {
+        "name": "profile-standing-kicking",
+        "name_cn": "profile-standing-kicking",
+        "prompt": "{prompt} profile view, standing, kicking",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingkicking.jpg"
+    },
+    {
+        "name": "profile-standing-knee",
+        "name_cn": "profile-standing-knee",
+        "prompt": "{prompt} profile view, standing, knee raised high",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingknee.jpg"
+    },
+    {
+        "name": "profile-standing-walking",
+        "name_cn": "profile-standing-walking",
+        "prompt": "{prompt} profile view, standing, walking",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingwalking.jpg"
+    },
+    {
+        "name": "profile-standing-toe",
+        "name_cn": "profile-standing-toe",
+        "prompt": "{prompt} profile view, standing, toe stretch",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingtoe.jpg"
+    },
+    {
+        "name": "profile-standing-bent",
+        "name_cn": "profile-standing-bent",
+        "prompt": "{prompt} profile view, standing, bent over toe touch",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingbent.jpg"
+    },
+    {
+        "name": "profile-kneeling",
+        "name_cn": "profile-kneeling",
+        "prompt": "{prompt} profile view, kneeling",
+        "negative_prompt": " ",
+        "thumbnail": "__profilekneeling.jpg"
+    },
+    {
+        "name": "profile-kneeling-knee",
+        "name_cn": "profile-kneeling-knee",
+        "prompt": "{prompt} profile view, kneeling, one knee raised",
+        "negative_prompt": " ",
+        "thumbnail": "__profilekneelingknee.jpg"
+    },
+    {
+        "name": "profile-kneeling-toes",
+        "name_cn": "profile-kneeling-toes",
+        "prompt": "{prompt} profile view, kneeling, on toes",
+        "negative_prompt": " ",
+        "thumbnail": "__profilekneelingtoes.jpg"
+    },
+    {
+        "name": "profile51",
+        "name_cn": "profile51",
+        "prompt": "{prompt} profile view, kneeling, one knee up, legs straight",
+        "negative_prompt": " ",
+        "thumbnail": "__profile51.jpg"
+    },
+    {
+        "name": "rear-kneeling",
+        "name_cn": "rear-kneeling",
+        "prompt": "{prompt} rear view, kneeling",
+        "negative_prompt": " ",
+        "thumbnail": "__rearkneeling.jpg"
+    },
+    {
+        "name": "rear-kneeling-forward",
+        "name_cn": "rear-kneeling-forward",
+        "prompt": "{prompt} rear view, kneeling, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__rearkneelingforward.jpg"
+    },
+    {
+        "name": "profile-kneeling-forward",
+        "name_cn": "profile-kneeling-forward",
+        "prompt": "{prompt} profile view, kneeling, forward on hands, standup",
+        "negative_prompt": " ",
+        "thumbnail": "__profilekneelingforward.jpg"
+    },
+    {
+        "name": "profile-kneeling-high",
+        "name_cn": "profile-kneeling-high",
+        "prompt": "{prompt} profile view, kneeling, high kick",
+        "negative_prompt": " ",
+        "thumbnail": "__profilekneelinghigh.jpg"
+    },
+    {
+        "name": "profile56",
+        "name_cn": "profile56",
+        "prompt": "{prompt} profile view, kneeling, forward on hands, leg extended",
+        "negative_prompt": " ",
+        "thumbnail": "__profile56.jpg"
+    },
+    {
+        "name": "rear-kneeling-standup",
+        "name_cn": "rear-kneeling-standup",
+        "prompt": "{prompt} rear view, kneeling, standup",
+        "negative_prompt": " ",
+        "thumbnail": "__rearkneelingstandup.jpg"
+    },
+    {
+        "name": "rear",
+        "name_cn": "rear",
+        "prompt": "{prompt} rear view, kneeling, standup, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__rear.jpg"
+    },
+    {
+        "name": "front-crawling",
+        "name_cn": "front-crawling",
+        "prompt": "{prompt} front view, crawling",
+        "negative_prompt": " ",
+        "thumbnail": "__frontcrawling.jpg"
+    },
+    {
+        "name": "front-crawling-legs",
+        "name_cn": "front-crawling-legs",
+        "prompt": "{prompt} front view, crawling, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontcrawlinglegs.jpg"
+    },
+    {
+        "name": "front61",
+        "name_cn": "front61",
+        "prompt": "{prompt} front view, crawling, legs wide apart",
+        "negative_prompt": " ",
+        "thumbnail": "__front61.jpg"
+    },
+    {
+        "name": "profile-crawling",
+        "name_cn": "profile-crawling",
+        "prompt": "{prompt} profile view, crawling",
+        "negative_prompt": " ",
+        "thumbnail": "__profilecrawling.jpg"
+    },
+    {
+        "name": "profile-crawling-legs",
+        "name_cn": "profile-crawling-legs",
+        "prompt": "{prompt} profile view, crawling, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__profilecrawlinglegs.jpg"
+    },
+    {
+        "name": "profile64",
+        "name_cn": "profile64",
+        "prompt": "{prompt} profile view, squatting, leaning back, legs extended",
+        "negative_prompt": " ",
+        "thumbnail": "__profile64.jpg"
+    },
+    {
+        "name": "profile65",
+        "name_cn": "profile65",
+        "prompt": "{prompt} profile view, squatting, leaning back, high kick",
+        "negative_prompt": " ",
+        "thumbnail": "__profile65.jpg"
+    },
+    {
+        "name": "rear-squatting",
+        "name_cn": "rear-squatting",
+        "prompt": "{prompt} rear view, squatting",
+        "negative_prompt": " ",
+        "thumbnail": "__rearsquatting.jpg"
+    },
+    {
+        "name": "rear-squatting-knees",
+        "name_cn": "rear-squatting-knees",
+        "prompt": "{prompt} rear view, squatting, knees together",
+        "negative_prompt": " ",
+        "thumbnail": "__rearsquattingknees.jpg"
+    },
+    {
+        "name": "rear-squatting-leg",
+        "name_cn": "rear-squatting-leg",
+        "prompt": "{prompt} rear view, squatting, one leg extended",
+        "negative_prompt": " ",
+        "thumbnail": "__rearsquattingleg.jpg"
+    },
+    {
+        "name": "rear-squatting-forward",
+        "name_cn": "rear-squatting-forward",
+        "prompt": "{prompt} rear view, squatting, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__rearsquattingforward.jpg"
+    },
+    {
+        "name": "profile-squatting-forward",
+        "name_cn": "profile-squatting-forward",
+        "prompt": "{prompt} profile view, squatting, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquattingforward.jpg"
+    },
+    {
+        "name": "front-squatting-forward",
+        "name_cn": "front-squatting-forward",
+        "prompt": "{prompt} front view, squatting, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__frontsquattingforward.jpg"
+    },
+    {
+        "name": "overhead-squatting",
+        "name_cn": "overhead-squatting",
+        "prompt": "{prompt} overhead view, squatting",
+        "negative_prompt": " ",
+        "thumbnail": "__overheadsquatting.jpg"
+    },
+    {
+        "name": "profile-squatting-head",
+        "name_cn": "profile-squatting-head",
+        "prompt": "{prompt} profile view, squatting, head back",
+        "negative_prompt": " ",
+        "thumbnail": "__profilesquattinghead.jpg"
+    },
+    {
+        "name": "front-kneeling",
+        "name_cn": "front-kneeling",
+        "prompt": "{prompt} front view, kneeling",
+        "negative_prompt": " ",
+        "thumbnail": "__frontkneeling.jpg"
+    },
+    {
+        "name": "front-kneeling-legs",
+        "name_cn": "front-kneeling-legs",
+        "prompt": "{prompt} front view, kneeling, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontkneelinglegs.jpg"
+    },
+    {
+        "name": "front76",
+        "name_cn": "front76",
+        "prompt": "{prompt} front view, kneeling, legs wide apart",
+        "negative_prompt": " ",
+        "thumbnail": "__front76.jpg"
+    },
+    {
+        "name": "front-kneeling-leaning",
+        "name_cn": "front-kneeling-leaning",
+        "prompt": "{prompt} front view, kneeling, leaning back, legs wide apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontkneelingleaning.jpg"
+    },
+    {
+        "name": "front-kneeling-forward",
+        "name_cn": "front-kneeling-forward",
+        "prompt": "{prompt} front view, kneeling, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__frontkneelingforward.jpg"
+    },
+    {
+        "name": "front79",
+        "name_cn": "front79",
+        "prompt": "{prompt} front view, kneeling, legs wide, forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__front79.jpg"
+    },
+    {
+        "name": "profile80",
+        "name_cn": "profile80",
+        "prompt": "{prompt} profile view, standing, knee bent",
+        "negative_prompt": " ",
+        "thumbnail": "__profile80.jpg"
+    },
+    {
+        "name": "profile-standing-toes",
+        "name_cn": "profile-standing-toes",
+        "prompt": "{prompt} profile view, standing, on toes",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingtoes.jpg"
+    },
+    {
+        "name": "profile-standing-feet",
+        "name_cn": "profile-standing-feet",
+        "prompt": "{prompt} profile view, standing, feet wide",
+        "negative_prompt": " ",
+        "thumbnail": "__profilestandingfeet.jpg"
+    },
+    {
+        "name": "rear-standing",
+        "name_cn": "rear-standing",
+        "prompt": "{prompt} rear view, standing",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstanding.jpg"
+    },
+    {
+        "name": "rear-standing-feet",
+        "name_cn": "rear-standing-feet",
+        "prompt": "{prompt} rear view, standing, feet apart",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandingfeet.jpg"
+    },
+    {
+        "name": "rear-standing-weight",
+        "name_cn": "rear-standing-weight",
+        "prompt": "{prompt} rear view, standing, weight on one leg",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandingweight.jpg"
+    },
+    {
+        "name": "rear-standing-legs",
+        "name_cn": "rear-standing-legs",
+        "prompt": "{prompt} rear view, standing, legs crossed",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandinglegs.jpg"
+    },
+    {
+        "name": "rear-standing-toes",
+        "name_cn": "rear-standing-toes",
+        "prompt": "{prompt} rear view, standing, on toes",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandingtoes.jpg"
+    },
+    {
+        "name": "rear-standing-knee",
+        "name_cn": "rear-standing-knee",
+        "prompt": "{prompt} rear view, standing, knee bent",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandingknee.jpg"
+    },
+    {
+        "name": "rear-standing-toe",
+        "name_cn": "rear-standing-toe",
+        "prompt": "{prompt} rear view, standing, toe stretch",
+        "negative_prompt": " ",
+        "thumbnail": "__rearstandingtoe.jpg"
+    },
+    {
+        "name": "front-seated-floor",
+        "name_cn": "front-seated-floor",
+        "prompt": "{prompt} front view, seated on floor",
+        "negative_prompt": " ",
+        "thumbnail": "__frontseatedfloor.jpg"
+    },
+    {
+        "name": "front-seated",
+        "name_cn": "front-seated",
+        "prompt": "{prompt} front view, seated on floor, legs open",
+        "negative_prompt": " ",
+        "thumbnail": "__frontseated.jpg"
+    },
+    {
+        "name": "front92",
+        "name_cn": "front92",
+        "prompt": "{prompt} front view, seated on floor, legs crossed",
+        "negative_prompt": " ",
+        "thumbnail": "__front92.jpg"
+    },
+    {
+        "name": "front93",
+        "name_cn": "front93",
+        "prompt": "{prompt} front view, seated on floor, one knee up, one knee down",
+        "negative_prompt": " ",
+        "thumbnail": "__front93.jpg"
+    },
+    {
+        "name": "front94",
+        "name_cn": "front94",
+        "prompt": "{prompt} front view, seated on floor, knees bent",
+        "negative_prompt": " ",
+        "thumbnail": "__front94.jpg"
+    },
+    {
+        "name": "front95",
+        "name_cn": "front95",
+        "prompt": "{prompt} front view, seated on floor, leg stretched",
+        "negative_prompt": " ",
+        "thumbnail": "__front95.jpg"
+    },
+    {
+        "name": "front96",
+        "name_cn": "front96",
+        "prompt": "{prompt} front view, seated on floor, knees up",
+        "negative_prompt": " ",
+        "thumbnail": "__front96.jpg"
+    },
+    {
+        "name": "front97",
+        "name_cn": "front97",
+        "prompt": "{prompt} front view, seated on floor, legs akimbo, feet together",
+        "negative_prompt": " ",
+        "thumbnail": "__front97.jpg"
+    },
+    {
+        "name": "front98",
+        "name_cn": "front98",
+        "prompt": "{prompt} front view, seated on floor, leaned forward on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__front98.jpg"
+    },
+    {
+        "name": "front99",
+        "name_cn": "front99",
+        "prompt": "{prompt} front view, seated on floor, leaned back on hands",
+        "negative_prompt": " ",
+        "thumbnail": "__front99.jpg"
+    },
+    {
+        "name": "profile-seated-floor",
+        "name_cn": "profile-seated-floor",
+        "prompt": "{prompt} profile view, seated on floor",
+        "negative_prompt": " ",
+        "thumbnail": "__profileseatedfloor.jpg"
+    },
+    {
+        "name": "profile-seated",
+        "name_cn": "profile-seated",
+        "prompt": "{prompt} profile view, seated on floor, one knee up",
+        "negative_prompt": " ",
+        "thumbnail": "__profileseated.jpg"
+    },
+    {
+        "name": "profile102",
+        "name_cn": "profile102",
+        "prompt": "{prompt} profile view, seated on floor, hugging legs",
+        "negative_prompt": " ",
+        "thumbnail": "__profile102.jpg"
+    },
+    {
+        "name": "rear-seated-floor",
+        "name_cn": "rear-seated-floor",
+        "prompt": "{prompt} rear view, seated on floor",
+        "negative_prompt": " ",
+        "thumbnail": "__rearseatedfloor.jpg"
+    },
+    {
+        "name": "rear-seated",
+        "name_cn": "rear-seated",
+        "prompt": "{prompt} rear view, seated on floor, legs open",
+        "negative_prompt": " ",
+        "thumbnail": "__rearseated.jpg"
+    },
+    {
+        "name": "rear105",
+        "name_cn": "rear105",
+        "prompt": "{prompt} rear view, seated on floor, one knee up",
+        "negative_prompt": " ",
+        "thumbnail": "__rear105.jpg"
+    },
+    {
+        "name": "front-prone",
+        "name_cn": "front-prone",
+        "prompt": "{prompt} front view, prone",
+        "negative_prompt": " ",
+        "thumbnail": "__frontprone.jpg"
+    },
+    {
+        "name": "front-prone-legs",
+        "name_cn": "front-prone-legs",
+        "prompt": "{prompt} front view, prone, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__frontpronelegs.jpg"
+    },
+    {
+        "name": "front-prone-stomach",
+        "name_cn": "front-prone-stomach",
+        "prompt": "{prompt} front view, prone, on stomach",
+        "negative_prompt": " ",
+        "thumbnail": "__frontpronestomach.jpg"
+    },
+    {
+        "name": "front109",
+        "name_cn": "front109",
+        "prompt": "{prompt} front view, prone, on stomach, feet raised",
+        "negative_prompt": " ",
+        "thumbnail": "__front109.jpg"
+    },
+    {
+        "name": "front110",
+        "name_cn": "front110",
+        "prompt": "{prompt} front view, prone, on stomach, feet crossed",
+        "negative_prompt": " ",
+        "thumbnail": "__front110.jpg"
+    },
+    {
+        "name": "profile111",
+        "name_cn": "profile111",
+        "prompt": "{prompt} profile view, prone",
+        "negative_prompt": " ",
+        "thumbnail": "__profile111.jpg"
+    },
+    {
+        "name": "rear-crawling",
+        "name_cn": "rear-crawling",
+        "prompt": "{prompt} rear view, crawling",
+        "negative_prompt": " ",
+        "thumbnail": "__rearcrawling.jpg"
+    },
+    {
+        "name": "rear113",
+        "name_cn": "rear113",
+        "prompt": "{prompt} rear view, crawling",
+        "negative_prompt": " ",
+        "thumbnail": "__rear113.jpg"
+    },
+    {
+        "name": "rear-crawling-legs",
+        "name_cn": "rear-crawling-legs",
+        "prompt": "{prompt} rear view, crawling, legs apart",
+        "negative_prompt": " ",
+        "thumbnail": "__rearcrawlinglegs.jpg"
+    },
+    {
+        "name": "rear-crawling-low",
+        "name_cn": "rear-crawling-low",
+        "prompt": "{prompt} rear view, crawling, low, legs wide apart",
+        "negative_prompt": " ",
+        "thumbnail": "__rearcrawlinglow.jpg"
+    },
+    {
+        "name": "rear116",
+        "name_cn": "rear116",
+        "prompt": "{prompt} rear view, crawling, legs split",
+        "negative_prompt": " ",
+        "thumbnail": "__rear116.jpg"
+    },
+    {
+        "name": "overhead-fetal",
+        "name_cn": "overhead-fetal",
+        "prompt": "{prompt} overhead view, fetal",
+        "negative_prompt": " ",
+        "thumbnail": "__overheadfetal.jpg"
+    },
+    {
+        "name": "profile-fetal",
+        "name_cn": "profile-fetal",
+        "prompt": "{prompt} profile view, fetal",
+        "negative_prompt": " ",
+        "thumbnail": "__profilefetal.jpg"
+    },
+    {
+        "name": "rear-fetal",
+        "name_cn": "rear-fetal",
+        "prompt": "{prompt} rear view, fetal",
+        "negative_prompt": " ",
+        "thumbnail": "__rearfetal.jpg"
+    }
+]
