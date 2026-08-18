@@ -1,10 +1,18 @@
 import os
+import re
 import torch
 import numpy as np
 from PIL import Image, ImageOps
 from collections import defaultdict
 import folder_paths
 from pathlib import Path
+
+def natural_sort_key(s):
+    """
+    Функция разбивает путь к файлу на текстовые и числовые блоки.
+    Это позволяет сортировать файлы как человек: 1, 2, 3... 10, 11... 20.
+    """
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
 
 class OreXImageLoadBatch:
     def __init__(self):
@@ -69,7 +77,8 @@ class OreXImageLoadBatch:
             print(f"[OreX] Path search error: {str(e)}")
             return []
         
-        return sorted(image_paths)
+        # ВАЖНОЕ ИЗМЕНЕНИЕ: Применяем функцию natural_sort_key для правильной сортировки
+        return sorted(image_paths, key=natural_sort_key)
 
     def _load_and_process_image(self, image_path):
         """Вспомогательная функция для безопасной загрузки картинки"""
