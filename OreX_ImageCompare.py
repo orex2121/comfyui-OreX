@@ -81,7 +81,7 @@ class OreXImageCompare:
         self,
         mode: str = "Slider",
         opacity: float = 0.50,
-        blink_speed: float = 0.50,
+        blink_speed: float = 1.0,
         image_1: Optional[torch.Tensor] = None,
         image_2: Optional[torch.Tensor] = None,
         prompt: Optional[Any] = None,
