@@ -41,6 +41,15 @@ const COMPARE_HELP_DESCRIPTIONS = [
             "Middle Click + Drag: Перемещение кадра / Pan image",
             "Double Click: Сброс масштаба и позиции / Reset Zoom & Pan"
         ]
+    },
+    {
+        name: "save_btn",
+        label: "Save Current View / Сохранить текущий вид",
+        icon: "💾",
+        lines: [
+            "RU: Сохраняет текущий режим и текущий вид (позиция слайдера, zoom, pan). Без подключённого output_path — в output/<дата>/<режим>/. С подключённым output_path — в <путь>/<режим>/. Для Blink — GIF с фиксированным периодом 1 сек.",
+            "EN: Saves the current mode and view (slider position, zoom, pan). Without an output_path, saves to output/<date>/<mode>/. With an output_path, saves to <path>/<mode>/. For Blink, saves a GIF with a fixed period of 1 second."
+        ]
     }
 ];
 
@@ -76,10 +85,22 @@ app.registerExtension({
                 panX: 0,
                 panY: 0,
                 isDraggingPan: false,
-                lastMousePos: [0, 0]
+                lastMousePos: [0, 0],
+                meta1: null,
+                meta2: null,
+                outputPath: ""
             };
 
             this.size = [440, 520];
+
+            this._saveBtnWidget = this.addWidget(
+                "button",
+                "💾 Сохранить текущий вид",
+                null,
+                () => this._saveCompareOutput()
+            );
+            this._saveBtnWidget.tooltipKey = "save_btn";
+
             this.activeTooltip = null;
             this.activeTooltipY = null;
             this.hoverTimer = null;
@@ -306,7 +327,9 @@ app.registerExtension({
 
                             const tooltipInfo = COMPARE_HELP_DESCRIPTIONS.find(item => {
                                 const itemName = item.name.toLowerCase();
-                                return wName === itemName || (hoveredWidget.label || "").toLowerCase() === itemName;
+                                return wName === itemName
+                                    || (hoveredWidget.label || "").toLowerCase() === itemName
+                                    || (hoveredWidget.tooltipKey || "") === item.name;
                             });
 
                             if (tooltipInfo) {
@@ -398,6 +421,12 @@ app.registerExtension({
             st.img2 = null;
             st.dim1 = null;
             st.dim2 = null;
+            st.meta1 = null;
+            st.meta2 = null;
+
+            // Путь для сохранения (если подключён вход output_path) —
+            // становится известен только после выполнения графа.
+            st.outputPath = (message.output_path && message.output_path[0]) ? message.output_path[0] : "";
 
             message.images.forEach(imgData => {
                 const url = api.apiURL(`/view?filename=${encodeURIComponent(imgData.filename)}&subfolder=${encodeURIComponent(imgData.subfolder)}&type=${imgData.type}`);
@@ -405,15 +434,266 @@ app.registerExtension({
                 img.src = url;
                 img.onload = () => this.setDirtyCanvas(true, true);
 
+                const meta = { filename: imgData.filename, subfolder: imgData.subfolder, type: imgData.type };
+
                 if (imgData.slot === 1) {
                     st.img1 = img;
+                    st.meta1 = meta;
                     if (imgData.width && imgData.height) st.dim1 = `${imgData.width}×${imgData.height}`;
                 }
                 if (imgData.slot === 2) {
                     st.img2 = img;
+                    st.meta2 = meta;
                     if (imgData.width && imgData.height) st.dim2 = `${imgData.width}×${imgData.height}`;
                 }
             });
+        };
+
+        // Общая отрисовка композита текущего режима в произвольный ctx/rect.
+        // Используется и для живого превью (onDrawForeground), и для захвата
+        // "как видишь" при сохранении по кнопке (offscreen-канвас).
+        proto._drawComposite = function (ctx, rect, mode, img1, img2, opacityVal, blinkSpeedVal, st) {
+            // Применение матрицы трансформации Zoom & Pan
+            const viewCenterX = rect.x + rect.w / 2;
+            const viewCenterY = rect.y + rect.h / 2;
+
+            ctx.save();
+            ctx.translate(viewCenterX + st.panX, viewCenterY + st.panY);
+            ctx.scale(st.zoom, st.zoom);
+            ctx.translate(-viewCenterX, -viewCenterY);
+
+            const baseImg = img1 || img2;
+            const baseW = baseImg.naturalWidth || baseImg.width;
+            const baseH = baseImg.naturalHeight || baseImg.height;
+
+            const fitScale = Math.min(rect.w / baseW, rect.h / baseH);
+            const drawW = baseW * fitScale;
+            const drawH = baseH * fitScale;
+
+            const drawX = rect.x + (rect.w - drawW) / 2;
+            const drawY = rect.y + (rect.h - drawH) / 2;
+
+            if (img1 && img2) {
+                if (mode === "Slider") {
+                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+
+                    const splitX = rect.x + rect.w * st.sliderPos;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(splitX, rect.y, rect.x + rect.w - splitX, rect.h);
+                    ctx.clip();
+                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    ctx.restore();
+
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 1 / st.zoom;
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+                    ctx.shadowBlur = 3;
+
+                    ctx.beginPath();
+                    ctx.moveTo(splitX, rect.y);
+                    ctx.lineTo(splitX, rect.y + rect.h);
+                    ctx.stroke();
+
+                } else if (mode === "Side-by-Side") {
+                    const gap = 2;
+                    const halfW = rect.w / 2 - gap / 2;
+
+                    const w1 = img1.naturalWidth || img1.width;
+                    const h1 = img1.naturalHeight || img1.height;
+                    const fit1 = Math.min(halfW / w1, rect.h / h1);
+                    const dW1 = w1 * fit1;
+                    const dH1 = h1 * fit1;
+                    const dX1 = rect.x + (halfW - dW1) / 2;
+                    const dY1 = rect.y + (rect.h - dH1) / 2;
+
+                    ctx.drawImage(img1, dX1, dY1, dW1, dH1);
+
+                    const w2 = img2.naturalWidth || img2.width;
+                    const h2 = img2.naturalHeight || img2.height;
+                    const fit2 = Math.min(halfW / w2, rect.h / h2);
+                    const dW2 = w2 * fit2;
+                    const dH2 = h2 * fit2;
+                    const dX2 = rect.x + rect.w / 2 + gap / 2 + (halfW - dW2) / 2;
+                    const dY2 = rect.y + (rect.h - dH2) / 2;
+
+                    ctx.drawImage(img2, dX2, dY2, dW2, dH2);
+
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                    ctx.lineWidth = 1 / st.zoom;
+                    ctx.beginPath();
+                    ctx.moveTo(rect.x + rect.w / 2, rect.y);
+                    ctx.lineTo(rect.x + rect.w / 2, rect.y + rect.h);
+                    ctx.stroke();
+
+                } else if (mode === "Overlap") {
+                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    ctx.globalAlpha = Math.max(0, Math.min(1, opacityVal));
+                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    ctx.globalAlpha = 1.0;
+
+                } else if (mode === "Difference") {
+                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    ctx.globalCompositeOperation = "difference";
+                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    ctx.globalCompositeOperation = "source-over";
+
+                } else if (mode === "Blink") {
+                    const speedSec = Math.max(1.0, blinkSpeedVal);
+                    const phaseDurMs = speedSec * 1000;
+                    const totalLoopMs = phaseDurMs * 2; // Полный цикл A -> B -> A
+                    const elapsed = Date.now() % totalLoopMs;
+
+                    let alpha1 = 1.0;
+
+                    if (elapsed < phaseDurMs) {
+                        // Фаза A -> B
+                        const t = elapsed / phaseDurMs;
+                        if (t < 1 / 3) {
+                            alpha1 = 1.0; // 1/3 времени: Первое фото на 100%
+                        } else if (t < 2 / 3) {
+                            // 1/3 времени: Плавный переход 1.0 -> 0.0
+                            const progress = (t - 1 / 3) * 3;
+                            alpha1 = 0.5 + 0.5 * Math.cos(progress * Math.PI);
+                        } else {
+                            alpha1 = 0.0; // 1/3 времени: Второе фото на 100%
+                        }
+                    } else {
+                        // Фаза B -> A
+                        const t = (elapsed - phaseDurMs) / phaseDurMs;
+                        if (t < 1 / 3) {
+                            alpha1 = 0.0; // 1/3 времени: Второе фото на 100%
+                        } else if (t < 2 / 3) {
+                            // 1/3 времени: Плавный возврат 0.0 -> 1.0
+                            const progress = (t - 1 / 3) * 3;
+                            alpha1 = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+                        } else {
+                            alpha1 = 1.0; // 1/3 времени: Первое фото на 100%
+                        }
+                    }
+
+                    // Отрисовка Image 2 как базового фонового слоя
+                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    // Отрисовка Image 1 поверх с вычисленной прозрачностью
+                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha1));
+                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    ctx.globalAlpha = 1.0;
+
+                    this.setDirtyCanvas(true, true);
+                }
+            } else {
+                const targetImg = img1 || img2;
+                if (targetImg) ctx.drawImage(targetImg, drawX, drawY, drawW, drawH);
+            }
+            ctx.restore(); // Сброс матрицы трансформации
+        };
+
+        // Захват "как видишь" для Slider/Side-by-Side/Overlap/Difference:
+        // рендерит композит на отдельном офскрин-канвасе 1:1 с областью
+        // просмотра и возвращает PNG data URL.
+        proto._captureComposite = function (mode) {
+            const rect = this.getViewerRect();
+            const st = this.compareState;
+            if (!rect || !st.img1 || !st.img2) return null;
+
+            const w1 = st.img1.naturalWidth || st.img1.width;
+            const h1 = st.img1.naturalHeight || st.img1.height;
+            const w2 = st.img2.naturalWidth || st.img2.width;
+            const h2 = st.img2.naturalHeight || st.img2.height;
+
+            const area1 = w1 * h1;
+            const area2 = w2 * h2;
+            const bigW = area1 >= area2 ? w1 : w2;
+            const bigH = area1 >= area2 ? h1 : h2;
+
+            // Side-by-Side: канвас вдвое шире — под ДВЕ половины размером с
+            // более крупное изображение. Само вписывание картинок в половины
+            // (с сохранением пропорций) делает общий _drawComposite ниже —
+            // он уже это умеет, просто передаём ему увеличенную рамку.
+            const offW = mode === "Side-by-Side" ? bigW * 2 : bigW;
+            const offH = bigH;
+
+            const offCanvas = document.createElement("canvas");
+            offCanvas.width = offW;
+            offCanvas.height = offH;
+            const offCtx = offCanvas.getContext("2d");
+
+            const offRect = { x: 0, y: 0, w: offW, h: offH };
+
+            offCtx.fillStyle = "#18181c";
+            offCtx.fillRect(0, 0, offW, offH);
+
+            const opacityWidget = this.widgets?.find(w => w.name === "opacity");
+            const opacityVal = opacityWidget ? opacityWidget.value : st.opacity;
+            const blinkSpeedWidget = this.widgets?.find(w => w.name === "blink_speed");
+            const blinkSpeedVal = blinkSpeedWidget ? blinkSpeedWidget.value : 1.0;
+
+            // Пересчитываем pan (в пикселях) под увеличенный канвас, чтобы
+            // сохранить то же относительное положение, что видно на экране узла.
+            // На Side-by-Side pan/zoom не действуют (см. _drawComposite), так
+            // что пересчёт для неё безвреден, но и не используется.
+            const scaleX = offW / rect.w;
+            const scaleY = offH / rect.h;
+            const scaledState = Object.assign({}, st, {
+                panX: st.panX * scaleX,
+                panY: st.panY * scaleY
+            });
+
+            this._drawComposite(offCtx, offRect, mode, st.img1, st.img2, opacityVal, blinkSpeedVal, scaledState);
+
+            // JPEG, качество 0.80 — картинки нужны для ориентировочной оценки,
+            // не для пиксель-в-пиксель сверки, поэтому размер файла важнее.
+            return offCanvas.toDataURL("image/jpeg", 0.80);
+        };
+
+        // Обработчик кнопки "Сохранить": для статичных режимов отправляет
+        // снимок канваса, для Blink — просит бэкенд собрать GIF из исходников.
+        proto._saveCompareOutput = async function () {
+            const modeWidget = this.widgets?.find(w => w.name === "mode");
+            const mode = modeWidget ? modeWidget.value : "Slider";
+            const st = this.compareState;
+            const saveWidget = this._saveBtnWidget;
+
+            const setBtnLabel = (text) => { if (saveWidget) saveWidget.name = text; };
+
+            if (!st.img1 || !st.img2) {
+                setBtnLabel("⚠️ Нет обоих изображений");
+                setTimeout(() => setBtnLabel("💾 Сохранить текущий вид"), 1800);
+                this.setDirtyCanvas(true, true);
+                return;
+            }
+
+            try {
+                let resp;
+                if (mode === "Blink") {
+                    if (!st.meta1 || !st.meta2) throw new Error("Нет метаданных исходных файлов");
+                    resp = await api.fetchApi("/orex/save_blink_gif", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ img1: st.meta1, img2: st.meta2, output_path: st.outputPath || "" })
+                    });
+                } else {
+                    const dataUrl = this._captureComposite(mode);
+                    if (!dataUrl) throw new Error("Не удалось захватить изображение");
+                    resp = await api.fetchApi("/orex/save_compare", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ mode, image: dataUrl, output_path: st.outputPath || "" })
+                    });
+                }
+
+                const result = await resp.json();
+                if (result.success) {
+                    setBtnLabel(`✅ Сохранено: ${result.filename}`);
+                } else {
+                    setBtnLabel(`⚠️ Ошибка: ${result.error || "неизвестно"}`);
+                }
+            } catch (err) {
+                setBtnLabel(`⚠️ Ошибка: ${err.message}`);
+            }
+
+            this.setDirtyCanvas(true, true);
+            setTimeout(() => setBtnLabel("💾 Сохранить текущий вид"), 2200);
         };
 
         const onDrawForeground = proto.onDrawForeground;
@@ -461,26 +741,6 @@ app.registerExtension({
                 ctx.fillText("Подключите изображения и запустите схему...", rect.x + rect.w / 2, rect.y + rect.h / 2);
                 ctx.restore();
             } else {
-                // Применение матрицы трансформации Zoom & Pan
-                const viewCenterX = rect.x + rect.w / 2;
-                const viewCenterY = rect.y + rect.h / 2;
-
-                ctx.save();
-                ctx.translate(viewCenterX + st.panX, viewCenterY + st.panY);
-                ctx.scale(st.zoom, st.zoom);
-                ctx.translate(-viewCenterX, -viewCenterY);
-
-                const baseImg = img1 || img2;
-                const baseW = baseImg.naturalWidth || baseImg.width;
-                const baseH = baseImg.naturalHeight || baseImg.height;
-
-                const fitScale = Math.min(rect.w / baseW, rect.h / baseH);
-                const drawW = baseW * fitScale;
-                const drawH = baseH * fitScale;
-
-                const drawX = rect.x + (rect.w - drawW) / 2;
-                const drawY = rect.y + (rect.h - drawH) / 2;
-
                 const modeWidget = this.widgets?.find(w => w.name === "mode");
                 const mode = modeWidget ? modeWidget.value : "Slider";
                 const opacityWidget = this.widgets?.find(w => w.name === "opacity");
@@ -488,119 +748,7 @@ app.registerExtension({
                 const blinkSpeedWidget = this.widgets?.find(w => w.name === "blink_speed");
                 const blinkSpeedVal = blinkSpeedWidget ? blinkSpeedWidget.value : 0.5;
 
-                if (img1 && img2) {
-                    if (mode === "Slider") {
-                        ctx.drawImage(img1, drawX, drawY, drawW, drawH);
-
-                        const splitX = rect.x + rect.w * st.sliderPos;
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.rect(splitX, rect.y, rect.x + rect.w - splitX, rect.h);
-                        ctx.clip();
-                        ctx.drawImage(img2, drawX, drawY, drawW, drawH);
-                        ctx.restore();
-
-                        ctx.strokeStyle = "#ffffff";
-                        ctx.lineWidth = 1 / st.zoom;
-                        ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-                        ctx.shadowBlur = 3;
-
-                        ctx.beginPath();
-                        ctx.moveTo(splitX, rect.y);
-                        ctx.lineTo(splitX, rect.y + rect.h);
-                        ctx.stroke();
-
-                    } else if (mode === "Side-by-Side") {
-                        const gap = 2;
-                        const halfW = rect.w / 2 - gap / 2;
-
-                        const w1 = img1.naturalWidth || img1.width;
-                        const h1 = img1.naturalHeight || img1.height;
-                        const fit1 = Math.min(halfW / w1, rect.h / h1);
-                        const dW1 = w1 * fit1;
-                        const dH1 = h1 * fit1;
-                        const dX1 = rect.x + (halfW - dW1) / 2;
-                        const dY1 = rect.y + (rect.h - dH1) / 2;
-
-                        ctx.drawImage(img1, dX1, dY1, dW1, dH1);
-
-                        const w2 = img2.naturalWidth || img2.width;
-                        const h2 = img2.naturalHeight || img2.height;
-                        const fit2 = Math.min(halfW / w2, rect.h / h2);
-                        const dW2 = w2 * fit2;
-                        const dH2 = h2 * fit2;
-                        const dX2 = rect.x + rect.w / 2 + gap / 2 + (halfW - dW2) / 2;
-                        const dY2 = rect.y + (rect.h - dH2) / 2;
-
-                        ctx.drawImage(img2, dX2, dY2, dW2, dH2);
-
-                        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-                        ctx.lineWidth = 1 / st.zoom;
-                        ctx.beginPath();
-                        ctx.moveTo(rect.x + rect.w / 2, rect.y);
-                        ctx.lineTo(rect.x + rect.w / 2, rect.y + rect.h);
-                        ctx.stroke();
-
-                    } else if (mode === "Overlap") {
-                        ctx.drawImage(img2, drawX, drawY, drawW, drawH);
-                        ctx.globalAlpha = Math.max(0, Math.min(1, opacityVal));
-                        ctx.drawImage(img1, drawX, drawY, drawW, drawH);
-                        ctx.globalAlpha = 1.0;
-
-                    } else if (mode === "Difference") {
-                        ctx.drawImage(img1, drawX, drawY, drawW, drawH);
-                        ctx.globalCompositeOperation = "difference";
-                        ctx.drawImage(img2, drawX, drawY, drawW, drawH);
-                        ctx.globalCompositeOperation = "source-over";
-
-                    } else if (mode === "Blink") {
-                        const speedSec = Math.max(1.0, blinkSpeedVal);
-                        const phaseDurMs = speedSec * 1000;
-                        const totalLoopMs = phaseDurMs * 2; // Полный цикл A -> B -> A
-                        const elapsed = Date.now() % totalLoopMs;
-
-                        let alpha1 = 1.0;
-
-                        if (elapsed < phaseDurMs) {
-                            // Фаза A -> B
-                            const t = elapsed / phaseDurMs;
-                            if (t < 1 / 3) {
-                                alpha1 = 1.0; // 1/3 времени: Первое фото на 100%
-                            } else if (t < 2 / 3) {
-                                // 1/3 времени: Плавный переход 1.0 -> 0.0
-                                const progress = (t - 1 / 3) * 3;
-                                alpha1 = 0.5 + 0.5 * Math.cos(progress * Math.PI);
-                            } else {
-                                alpha1 = 0.0; // 1/3 времени: Второе фото на 100%
-                            }
-                        } else {
-                            // Фаза B -> A
-                            const t = (elapsed - phaseDurMs) / phaseDurMs;
-                            if (t < 1 / 3) {
-                                alpha1 = 0.0; // 1/3 времени: Второе фото на 100%
-                            } else if (t < 2 / 3) {
-                                // 1/3 времени: Плавный возврат 0.0 -> 1.0
-                                const progress = (t - 1 / 3) * 3;
-                                alpha1 = 0.5 - 0.5 * Math.cos(progress * Math.PI);
-                            } else {
-                                alpha1 = 1.0; // 1/3 времени: Первое фото на 100%
-                            }
-                        }
-
-                        // Отрисовка Image 2 как базового фонового слоя
-                        ctx.drawImage(img2, drawX, drawY, drawW, drawH);
-                        // Отрисовка Image 1 поверх с вычисленной прозрачностью
-                        ctx.globalAlpha = Math.max(0, Math.min(1, alpha1));
-                        ctx.drawImage(img1, drawX, drawY, drawW, drawH);
-                        ctx.globalAlpha = 1.0;
-
-                        this.setDirtyCanvas(true, true);
-                    }
-                } else {
-                    const targetImg = img1 || img2;
-                    if (targetImg) ctx.drawImage(targetImg, drawX, drawY, drawW, drawH);
-                }
-                ctx.restore(); // Сброс матрицы трансформации
+                this._drawComposite(ctx, rect, mode, img1, img2, opacityVal, blinkSpeedVal, st);
 
                 // Индикатор Zoom
                 if (st.zoom > 1.01) {
