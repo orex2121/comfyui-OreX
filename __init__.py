@@ -22,6 +22,8 @@ from .OreX_StyleSelector import OrexStyleSelector
 from .OreX_ImageMergingV2 import OrexImageMergingV2 
 # Импорт узла сравнения изображений
 from .OreX_ImageCompare import OreXImageCompare
+# Импорт узла цветокоррекции Camera Raw
+from .OreX_CameraRaw import OreX_CameraRaw
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -47,6 +49,7 @@ NODE_CLASS_MAPPINGS = {
     "OrexStyleSelector": OrexStyleSelector,
     "OrexImageMergingV2": OrexImageMergingV2,
     "OreX Image Compare": OreXImageCompare,
+    "orex Camera Raw": OreX_CameraRaw,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -73,6 +76,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "OrexStyleSelector": "🪄 Style Selector (OreX)",
     "OrexImageMergingV2": "OreX Image Merging V2",
     "OreX Image Compare": "↔️ OreX Image Compare",
+    "orex Camera Raw": "📸 Camera Raw (OreX)",
 }
 
 WEB_DIRECTORY = "./js"
