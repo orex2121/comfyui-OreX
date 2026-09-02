@@ -19,6 +19,67 @@ const svgCurve = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" st
 const CURSOR_EYEDROPPER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3l3 3-3 3-9 9-4 1 1-4 9-9z"/><path d="M14 6l4 4"/></g><g fill="none" stroke="white" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3l3 3-3 3-9 9-4 1 1-4 9-9z"/><path d="M14 6l4 4"/></g></svg>`;
 const CURSOR_EYEDROPPER = `url("data:image/svg+xml,${encodeURIComponent(CURSOR_EYEDROPPER_SVG)}") 3 21, crosshair`;
 
+// Единый источник подсказок по всем параметрам Camera Raw — используется
+// и для canvas-тултипа в компактном виде узла (name сопоставляется с
+// widget.name — реальным именем инпута из INPUT_TYPES), и для тултипов
+// в полноэкранном редакторе (по conf.label, который равен тому же имени).
+const CR_HELP_DESCRIPTIONS = [
+    { name: 'Exposure', icon: '☀️',
+        desc: 'Shifts overall brightness by scaling in linear light — like adjusting aperture/shutter on a camera.',
+        ru_desc: 'Сдвигает общую яркость через масштабирование в линейном свете — как изменение диафрагмы/выдержки на камере.' },
+    { name: 'Contrast', icon: '◐',
+        desc: 'Increases or decreases the difference between light and dark tones around the midpoint.',
+        ru_desc: 'Увеличивает или уменьшает разницу между светлыми и тёмными тонами вокруг средней точки.' },
+    { name: 'Highlights', icon: '🔆',
+        desc: 'Adjusts brightness selectively in the brightest areas of the image, leaving shadows untouched.',
+        ru_desc: 'Меняет яркость выборочно в самых светлых участках изображения, не трогая тени.' },
+    { name: 'Shadows', icon: '🌑',
+        desc: 'Adjusts brightness selectively in the darkest areas of the image, leaving highlights untouched.',
+        ru_desc: 'Меняет яркость выборочно в самых тёмных участках изображения, не трогая света.' },
+    { name: 'Whites', icon: '⬜',
+        desc: 'Sets the white point — controls how far the very brightest tones are pushed toward clipping.',
+        ru_desc: 'Задаёт точку белого — насколько сильно самые светлые тона подводятся к обрезанию.' },
+    { name: 'Blacks', icon: '⬛',
+        desc: 'Sets the black point — controls how far the very darkest tones are pushed toward clipping.',
+        ru_desc: 'Задаёт точку чёрного — насколько сильно самые тёмные тона подводятся к обрезанию.' },
+    { name: 'Temperature', icon: '🌡️',
+        desc: 'Shifts white balance along the blue↔amber axis. Positive = warmer (amber), negative = cooler (blue).',
+        ru_desc: 'Сдвигает баланс белого по оси синий↔янтарный. Положительные значения — теплее (янтарный), отрицательные — холоднее (синий).' },
+    { name: 'Tint', icon: '💚',
+        desc: 'Shifts white balance along the green↔magenta axis.',
+        ru_desc: 'Сдвигает баланс белого по оси зелёный↔пурпурный.' },
+    { name: 'Colorfulness', icon: '🌈',
+        desc: 'Like Vibrance in Lightroom: boosts saturation of muted, low-saturation areas more strongly, while protecting already vivid colors and skin tones from oversaturation.',
+        ru_desc: 'Аналог Vibrance в Lightroom: сильнее поднимает насыщенность приглушённых, малонасыщенных участков, бережно относясь к уже ярким цветам и тонам кожи.' },
+    { name: 'Saturation', icon: '🎨',
+        desc: 'Uniformly boosts or reduces the saturation of all colors equally — unlike Colorfulness, it does not protect already-vivid colors.',
+        ru_desc: 'Равномерно повышает или понижает насыщенность всех цветов, в отличие от Colorfulness — уже насыщенные цвета не защищены.' },
+    { name: 'Texture', icon: '🧵',
+        desc: 'Enhances fine, high-frequency detail (fabric, hair, foliage) without changing overall contrast — gentler and safer for skin than Clarity.',
+        ru_desc: 'Усиливает мелкие детали высокой частоты (ткань, волосы, листва), не трогая общий контраст — мягче и безопаснее для кожи, чем Clarity.' },
+    { name: 'Clarity', icon: '🔎',
+        desc: 'Boosts mid-frequency local contrast — a stronger, punchier effect than Texture. Same idea as Clarity in Lightroom.',
+        ru_desc: 'Усиливает локальный контраст средней частоты — эффект сильнее и «жёстче», чем у Texture. Аналог Clarity в Lightroom.' },
+    { name: 'Dehaze', icon: '🌫️',
+        desc: 'Increases local contrast and saturation specifically in flat, low-color midtone areas typical of haze/fog, making the image feel clearer. Negative values soften those same areas for a hazy look.',
+        ru_desc: 'Повышает локальный контраст и насыщенность именно в плоских малоконтрастных участках средних тонов (характерных для дымки/тумана), делая изображение «чище». Отрицательные значения, наоборот, смягчают эти зоны, добавляя лёгкую дымку.' },
+    { name: 'Grain', icon: '🎞️',
+        desc: 'Adds simulated film grain (random noise) across the image.',
+        ru_desc: 'Добавляет имитацию плёночного зерна (случайный шум) на изображение.' },
+    { name: 'Sharpening', icon: '🔪',
+        desc: 'Sharpens fine edges to increase perceived detail. Works only in the positive direction.',
+        ru_desc: 'Повышает резкость мелких контуров для усиления детализации. Работает только в положительную сторону.' },
+    { name: 'Gaussian Blur', icon: '🌀',
+        desc: 'Blurs the whole image uniformly — useful for softening or as a base for other effects.',
+        ru_desc: 'Равномерно размывает всё изображение целиком — полезно для смягчения или как основа для других эффектов.' },
+    { name: 'Vignette', icon: '⭕',
+        desc: 'Darkens the corners and edges of the frame, drawing the eye toward the center.',
+        ru_desc: 'Затемняет углы и края кадра, привлекая внимание к центру изображения.' },
+    { name: 'Enable Settings', icon: '⚡',
+        desc: 'Turns all Camera Raw adjustments on/off without resetting their values — handy for a quick before/after comparison.',
+        ru_desc: 'Включает/выключает все настройки Camera Raw без сброса их значений — удобно для быстрого сравнения до/после.' }
+];
+
 const HSL_SATURATION_MULTIPLIER = 5;
 const HSL_SATURATION_LOG = Math.log(1 + HSL_SATURATION_MULTIPLIER);
 
@@ -616,7 +677,135 @@ app.registerExtension({
                 }
             };
 
-            // Перехватываем onDrawBackground, чтобы отслеживать изменения ползунков в реальном времени
+            // Всплывающая подсказка при наведении на слайдер в КОМПАКТНОМ виде
+            // узла (не в полноэкранном редакторе) — портировано из OreX_Crop.js:
+            // хит-тест по прямоугольнику виджета (w.last_y/computeSize),
+            // задержка перед показом, отрисовка прямо на канвасе узла.
+            nodeType.prototype.onMouseMove = function (e, pos) {
+                const [mx, my] = pos;
+
+                if (mx < 0 || mx > this.size[0] || my < 0 || my > this.size[1]) {
+                    if (this.crHoverTimer) { clearTimeout(this.crHoverTimer); this.crHoverTimer = null; }
+                    if (this.crActiveTooltip) {
+                        this.crActiveTooltip = null; this.crActiveTooltipY = null;
+                        this.setDirtyCanvas(true);
+                    }
+                    return;
+                }
+
+                let hoveredWidget = null;
+                if (this.widgets) {
+                    for (const w of this.widgets) {
+                        if (!w || w.last_y === undefined || w.hidden) continue;
+                        const wy = w.last_y;
+                        const wh = w.computeSize ? w.computeSize(this.size[0])[1] : 24;
+                        if (mx >= 10 && mx <= this.size[0] - 10 && my >= wy && my <= wy + wh) {
+                            hoveredWidget = w;
+                            break;
+                        }
+                    }
+                }
+
+                let tooltipInfo = null;
+                if (hoveredWidget) {
+                    tooltipInfo = CR_HELP_DESCRIPTIONS.find(item => item.name === (hoveredWidget.name || "").trim());
+                }
+
+                if (this.crActiveTooltip !== tooltipInfo) {
+                    if (this.crHoverTimer) { clearTimeout(this.crHoverTimer); this.crHoverTimer = null; }
+                    if (!tooltipInfo) {
+                        if (this.crActiveTooltip) {
+                            this.crActiveTooltip = null; this.crActiveTooltipY = null;
+                            this.setDirtyCanvas(true);
+                        }
+                    } else {
+                        if (this.crActiveTooltip) {
+                            this.crActiveTooltip = null; this.crActiveTooltipY = null;
+                            this.setDirtyCanvas(true);
+                        }
+                        const widgetY = hoveredWidget.last_y;
+                        this.crHoverTimer = setTimeout(() => {
+                            this.crActiveTooltip = tooltipInfo;
+                            this.crActiveTooltipY = widgetY;
+                            this.setDirtyCanvas(true);
+                            this.crHoverTimer = null;
+                        }, 800);
+                    }
+                }
+            };
+
+            nodeType.prototype.onDrawForeground = function (ctx) {
+                if (this.flags?.collapsed) return;
+                if (this.crActiveTooltip) this._crDrawTooltip(ctx);
+            };
+
+            nodeType.prototype._crDrawTooltip = function (ctx) {
+                if (!this.crActiveTooltip) return;
+                const item = this.crActiveTooltip;
+                const wy = this.crActiveTooltipY !== null ? this.crActiveTooltipY : 100;
+                const margin = 12;
+                const bx = this.size[0] + 25;
+
+                ctx.save();
+                ctx.font = "bold 13px Arial, sans-serif";
+                const titleText = `${item.icon || "💡"} ${item.name}`;
+                const titleW = ctx.measureText(titleText).width;
+
+                ctx.font = "11px Arial, sans-serif";
+                const descText = `EN: ${item.desc}`;
+                const ruDescText = `RU: ${item.ru_desc}`;
+                const descW = ctx.measureText(descText).width;
+                const ruDescW = ctx.measureText(ruDescText).width;
+
+                const boxW = Math.max(titleW, descW, ruDescW) + margin * 2;
+                const boxH = 74;
+                const by = wy + 12 - boxH / 2;
+
+                ctx.fillStyle = "rgba(18, 18, 18, 0.98)";
+                ctx.strokeStyle = "rgba(0, 255, 70, 0.5)";
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetY = 4;
+
+                const r = 6, arrowW = 8, arrowH = 6, arrowTipY = boxH / 2;
+
+                ctx.beginPath();
+                ctx.moveTo(bx + r, by);
+                ctx.lineTo(bx + boxW - r, by);
+                ctx.arcTo(bx + boxW, by, bx + boxW, by + r, r);
+                ctx.lineTo(bx + boxW, by + boxH - r);
+                ctx.arcTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH, r);
+                ctx.lineTo(bx + r, by + boxH);
+                ctx.arcTo(bx, by + boxH, bx, by + boxH - r, r);
+                ctx.lineTo(bx, by + arrowTipY + arrowH);
+                ctx.lineTo(bx - arrowW, by + arrowTipY);
+                ctx.lineTo(bx, by + arrowTipY - arrowH);
+                ctx.lineTo(bx, by + r);
+                ctx.arcTo(bx, by, bx + r, by, r);
+                ctx.closePath();
+
+                ctx.fill();
+                ctx.shadowColor = "transparent";
+                ctx.stroke();
+
+                ctx.textBaseline = "top";
+                ctx.textAlign = "left";
+
+                ctx.font = "bold 13px Arial, sans-serif";
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(titleText, bx + margin, by + margin);
+
+                ctx.font = "11px Arial, sans-serif";
+                ctx.fillStyle = "#cccccc";
+                ctx.fillText(descText, bx + margin, by + margin + 22);
+
+                ctx.font = "11px Arial, sans-serif";
+                ctx.fillStyle = "#999999";
+                ctx.fillText(ruDescText, bx + margin, by + margin + 38);
+
+                ctx.restore();
+            };
             const onDrawBackground = nodeType.prototype.onDrawBackground;
             nodeType.prototype.onDrawBackground = function (ctx) {
                 if (onDrawBackground) onDrawBackground.apply(this, arguments);
@@ -1002,37 +1191,19 @@ export function openOreX_CameraRawEditor(node) {
         [
             {id: 'cr_temp', label: 'Temperature', min:-150, max:150},
             {id: 'cr_tint', label: 'Tint', min:-150, max:150},
-            {id: 'cr_colorfulness', label: 'Colorfulness', min:-150, max:150,
-                icon: '🌈',
-                desc: 'Like Vibrance in Lightroom: boosts saturation of muted, low-saturation areas more strongly, while protecting already vivid colors and skin tones from oversaturation.',
-                ru_desc: 'Аналог Vibrance в Lightroom: сильнее поднимает насыщенность приглушённых, малонасыщенных участков, бережно относясь к уже ярким цветам и тонам кожи.'},
+            {id: 'cr_colorfulness', label: 'Colorfulness', min:-150, max:150},
             {id: 'cr_sat', label: 'Saturation', min:-100, max:100}
         ],
         [
-            {id: 'cr_tex', label: 'Texture', min:-150, max:150,
-                icon: '🧵',
-                desc: 'Enhances fine, high-frequency detail (fabric, hair, foliage) without changing overall contrast — gentler and safer for skin than Clarity.',
-                ru_desc: 'Усиливает мелкие детали высокой частоты (ткань, волосы, листва), не трогая общий контраст — мягче и безопаснее для кожи, чем Clarity.'},
-            {id: 'cr_clar', label: 'Clarity', min:-150, max:150,
-                icon: '🔎',
-                desc: 'Boosts mid-frequency local contrast — a stronger, punchier effect than Texture. Same idea as Clarity in Lightroom.',
-                ru_desc: 'Усиливает локальный контраст средней частоты — эффект сильнее и «жёстче», чем у Texture. Аналог Clarity в Lightroom.'},
-            {id: 'cr_dehz', label: 'Dehaze', min:-150, max:150,
-                icon: '🌫️',
-                desc: 'Increases local contrast and saturation specifically in flat, low-color midtone areas typical of haze/fog, making the image feel clearer. Negative values soften those same areas for a hazy look.',
-                ru_desc: 'Повышает локальный контраст и насыщенность именно в плоских малоконтрастных участках средних тонов (характерных для дымки/тумана), делая изображение «чище». Отрицательные значения, наоборот, смягчают эти зоны, добавляя лёгкую дымку.'},
-            {id: 'cr_grain', label: 'Grain', min:0, max:150,
-                icon: '🎞️',
-                desc: 'Adds simulated film grain (random noise) across the image.',
-                ru_desc: 'Добавляет имитацию плёночного зерна (случайный шум) на изображение.'}
+            {id: 'cr_tex', label: 'Texture', min:-150, max:150},
+            {id: 'cr_clar', label: 'Clarity', min:-150, max:150},
+            {id: 'cr_dehz', label: 'Dehaze', min:-150, max:150},
+            {id: 'cr_grain', label: 'Grain', min:0, max:150}
         ],
         [
             {id: 'cr_sharp', label: 'Sharpening', min:0, max:150},
             {id: 'cr_blur', label: 'Gaussian Blur', min:0, max:150},
-            {id: 'cr_vignette', label: 'Vignette', min:0, max:150,
-                icon: '⭕',
-                desc: 'Darkens the corners and edges of the frame, drawing the eye toward the center.',
-                ru_desc: 'Затемняет углы и края кадра, привлекая внимание к центру изображения.'}
+            {id: 'cr_vignette', label: 'Vignette', min:0, max:150}
         ]
     ];
 
@@ -1079,9 +1250,10 @@ export function openOreX_CameraRawEditor(node) {
             const tSpan = document.createElement("span");
             tSpan.innerText = conf.label;
             tSpan.style.cssText = "color: #bbb; font-family: var(--comfy-font-family, sans-serif); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 80px; cursor: pointer;";
-            if (conf.desc) {
+            const helpInfo = CR_HELP_DESCRIPTIONS.find(item => item.name === conf.label);
+            if (helpInfo) {
                 tSpan.style.borderBottom = "1px dotted #666";
-                attachHelpTooltip(tSpan, conf);
+                attachHelpTooltip(tSpan, { ...helpInfo, label: conf.label });
             }
             
             const sEl = document.createElement("input");
