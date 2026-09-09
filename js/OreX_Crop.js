@@ -4,10 +4,8 @@ import { api } from "../../../scripts/api.js";
 function getImageUrl(node, depth = 0) {
     if (!node || depth > 5) return null;
     try {
-        // 1. Узнаем, является ли текущий узел узлом загрузки
         const isLoad = (node.type || "").toLowerCase().includes("load") || (node.comfyClass || "").toLowerCase().includes("load");
 
-        // 2. Для узлов загрузки (Load Image) - всегда приоритет у виджета выбора файла!
         if (isLoad) {
             const findWidget = (n) => (node.widgets || []).find(w => w && (w.name === n || w.label === n));
             const imageWidget = findWidget("image") || findWidget("image_path") || findWidget("file_path");
@@ -27,8 +25,6 @@ function getImageUrl(node, depth = 0) {
             }
         }
 
-        // 3. Для узла Crop (и других) ПЕРВЫМ ДЕЛОМ проверяем входящий кабель (link)
-        // Это решает проблему переподключения: мы игнорируем свой старый кэш и идем по кабелю к источнику
         const imageInput = (node.inputs || []).find(i => i && (i.name.toLowerCase().includes("image") || i.type === "IMAGE"));
         if (imageInput && imageInput.link) {
             const link = app.graph.links[imageInput.link];
@@ -41,7 +37,6 @@ function getImageUrl(node, depth = 0) {
             }
         }
 
-        // 4. Если кабеля нет или он пустой (ничего еще не сгенерировано на источнике), проверяем кэш выходов узла
         const output = app.node_outputs?.[node.id];
         if (output) {
             if (output.images && output.images.length > 0) {
@@ -57,7 +52,6 @@ function getImageUrl(node, depth = 0) {
             }
         }
 
-        // 5. Фолбэк на внутренние картинки (стандартный кэш интерфейса ComfyUI)
         if (node.imgs && node.imgs.length > 0 && node.imgs[0].src) return node.imgs[0].src;
 
     } catch (e) { console.error("Error fetching image URL: ", e); } 
@@ -125,52 +119,58 @@ app.registerExtension({
             this.activeTooltipY = null;
             this.hoverTimer = null;
 
-            // Интеллектуальное масштабирование рамки без сброса выделения
             this.image.onload = () => {
                 this.imageLoaded = true;
                 
-                // Вычисляем реальный размер исходника, отменяя сжатие превью
-                const newW = Math.round(this.image.naturalWidth / this.previewScale);
-                const newH = Math.round(this.image.naturalHeight / this.previewScale);
+                let newW = Math.round(this.image.naturalWidth / this.previewScale);
+                let newH = Math.round(this.image.naturalHeight / this.previewScale);
 
                 const oldW = this.properties.actualImageWidth || 0;
                 const oldH = this.properties.actualImageHeight || 0;
+
+                // ЗАЩИТА: Игнорируем микропогрешности при сжатии превью
+                if (oldW > 0 && Math.abs(oldW - newW) <= 5) newW = oldW;
+                if (oldH > 0 && Math.abs(oldH - newH) <= 5) newH = oldH;
 
                 this.properties.actualImageWidth = newW;
                 this.properties.actualImageHeight = newH;
 
                 if (oldW === 0 || oldH === 0) {
-                    // Самая первая загрузка картинки в ноду - охватываем всё изображение
                     this.properties.dragStart = [0, 0];
                     this.properties.dragEnd = [newW, newH];
                     this.syncWidgetsFromProperties(true);
                 } else if (oldW !== newW || oldH !== newH) {
-                    // Разрешение изменилось — на вход подано другое изображение
                     const lockWidget = this.widgets.find(w => w && w.name === "ratio_lock");
                     if (lockWidget && lockWidget.value) {
-                        this.applyAspectRatio(); // Условное срабатывание Maximize
-                        this.centerSelection();  // Выравниваем новую рамку по центру
+                        this.applyAspectRatio();
+                        this.centerSelection(); 
                     } else {
-                        this.applyAspectRatio("Full"); // Полный сброс (аналог Full Image)
+                        this.applyAspectRatio("Full");
                     }
                 } else {
-                    // Загрузился новый кадр того же размера или батч.
-                    // Сохраняем текущие проценты виджетов.
                     this.syncPropertiesFromWidgets();
                 }
 
-                const minSize = this.computeSize();
-                if (this.size[1] < minSize[1]) this.size[1] = minSize[1];
+                const minSize = this.computeSize([this.size[0], this.size[1]]);
+                this.size[1] = minSize[1]; 
                 this.setDirtyCanvas(true);
             };
 
             this._setupWidgets();
         };
 
+        const onResize = proto.onResize;
+        proto.onResize = function(size) {
+            if (onResize) onResize.apply(this, arguments);
+            if (this.imageLoaded && this.image) {
+                const minSize = this.computeSize([this.size[0], this.size[1]]);
+                this.size[1] = minSize[1];
+            }
+        };
+
         const onConnectionsChange = proto.onConnectionsChange;
         proto.onConnectionsChange = function(type, index, connected, link_info) {
             if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
-            // Если переподключили линк - форсируем перерисовку, чтобы новая картинка подтянулась сразу
             this.setDirtyCanvas(true);
         };
 
@@ -211,7 +211,7 @@ app.registerExtension({
                     const margin = 10;
                     const drawW = width - margin * 2;
                     if (node.imageLoaded && node.image && node.image.width > 0 && node.image.height > 0) {
-                        return [width, Math.max(200, (drawW / (node.image.width / node.image.height)) + margin * 2)];
+                        return [width, (drawW / (node.image.width / node.image.height)) + margin * 2]; 
                     }
                     return [width, 200];
                 },
@@ -733,7 +733,17 @@ app.registerExtension({
         };
 
         proto._drawPreviewCanvas = function (ctx, node, width, y) {
-            const margin = 10, drawW = width - margin * 2;
+            const margin = 10;
+            const drawW = width - margin * 2;
+
+            if (node.imageLoaded && node.image && node.image.width > 0 && node.image.height > 0) {
+                const imgAR = node.image.width / node.image.height;
+                const targetH = y + (drawW / imgAR) + margin * 2;
+                if (Math.abs(node.size[1] - targetH) > 1) {
+                    node.size[1] = targetH;
+                }
+            }
+
             const drawH = Math.max(50, node.size[1] - y - margin * 2);
             const startY = y + margin;
             ctx.fillStyle = "#161616"; ctx.fillRect(margin, startY, drawW, drawH);
@@ -742,8 +752,6 @@ app.registerExtension({
             if (currentUrl && node._lastLoadedUrl !== currentUrl) {
                 node._lastLoadedUrl = currentUrl;
                 
-                // ИСПРАВЛЕНИЕ: Если загрузилась совершенно новая картинка (не наше превью),
-                // сбрасываем масштаб превью на единицу
                 if (!currentUrl.includes("orex_crop_preview")) {
                     node.previewScale = 1.0;
                 }
@@ -904,9 +912,13 @@ app.registerExtension({
                 }
 
                 if (message.orig_size) {
-                    const [newW, newH] = message.orig_size;
+                    let [newW, newH] = message.orig_size;
                     const oldW = this.properties.actualImageWidth || 0;
                     const oldH = this.properties.actualImageHeight || 0;
+
+                    // ЗАЩИТА: Синхронизируем микропогрешности, приходящие от Python
+                    if (oldW > 0 && Math.abs(oldW - newW) <= 5) newW = oldW;
+                    if (oldH > 0 && Math.abs(oldH - newH) <= 5) newH = oldH;
                     
                     this.properties.actualImageWidth = newW; 
                     this.properties.actualImageHeight = newH;
