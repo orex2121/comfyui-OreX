@@ -1,6 +1,10 @@
 import { app } from "../../../scripts/app.js";
 import { api } from "../../../scripts/api.js";
 
+// Зазор (px) между половинами в режиме Side-by-Side — общая константа для
+// отрисовки и для расчёта зума/панорамирования, чтобы значения не разошлись.
+const SBS_GAP = 2;
+
 const COMPARE_HELP_DESCRIPTIONS = [
     {
         name: "mode",
@@ -47,8 +51,8 @@ const COMPARE_HELP_DESCRIPTIONS = [
         label: "Save Current View / Сохранить текущий вид",
         icon: "💾",
         lines: [
-            "RU: Сохраняет текущий режим и текущий вид (позиция слайдера, zoom, pan). Без подключённого output_path — в output/<дата>/<режим>/. С подключённым output_path — в <путь>/<режим>/. Для Blink — GIF с фиксированным периодом 1 сек.",
-            "EN: Saves the current mode and view (slider position, zoom, pan). Without an output_path, saves to output/<date>/<mode>/. With an output_path, saves to <path>/<mode>/. For Blink, saves a GIF with a fixed period of 1 second."
+            "RU: Сохраняет ИМЕННО текущий режим и текущий вид (позиция слайдера, zoom, pan). Без подключённого output_path — в output/<дата>/<режим>/. С подключённым output_path — в <путь>/<режим>/ (без даты). Для Blink — GIF с плавным кроссфейдом (фиксированный цикл A→B→A, независимо от виджета blink_speed).",
+            "EN: Saves the CURRENT mode and current view (slider position, zoom, pan). Without output_path connected — to output/<date>/<mode>/. With output_path connected — to <path>/<mode>/ (no date). For Blink — a GIF with a smooth crossfade (fixed A→B→A loop, independent of the blink_speed widget)."
         ]
     }
 ];
@@ -88,7 +92,12 @@ app.registerExtension({
                 lastMousePos: [0, 0],
                 meta1: null,
                 meta2: null,
-                outputPath: ""
+                outputPath: "",
+                // Точка фокуса (0..1 от размера картинки) для независимого
+                // зума половин в Side-by-Side — общая для обеих половин,
+                // чтобы при увеличении было видно одно и то же место.
+                sbsFocusU: 0.5,
+                sbsFocusV: 0.5
             };
 
             this.size = [440, 520];
@@ -145,6 +154,38 @@ app.registerExtension({
                 st.panY = Math.max(-maxPanY, Math.min(maxPanY, st.panY));
             };
 
+            this._getMode = function () {
+                const w = this.widgets?.find(w => w.name === "mode");
+                return w ? w.value : "Slider";
+            };
+
+            // Геометрия половины Side-by-Side для конкретного изображения:
+            // ширина половины, её левый край (boxX) и масштаб вписывания.
+            // Используется и отрисовкой, и обработчиками зума/панорамирования —
+            // чтобы расчёты точки фокуса всегда совпадали с тем, что на экране.
+            this._sbsHalfLayout = function (rect, img, boxX) {
+                const halfW = rect.w / 2 - SBS_GAP / 2;
+                const iw = img.naturalWidth || img.width;
+                const ih = img.naturalHeight || img.height;
+                const fitScale = Math.min(halfW / iw, rect.h / ih);
+                return {
+                    halfW, iw, ih, fitScale,
+                    halfCenterX: boxX + halfW / 2,
+                    halfCenterY: rect.y + rect.h / 2
+                };
+            };
+
+            // Определяет, над какой половиной (и над каким изображением)
+            // сейчас курсор, для расчёта точки фокуса зума.
+            this._sbsHalfAt = function (rect, localX) {
+                const st = this.compareState;
+                const seamX = rect.x + rect.w / 2;
+                if (localX < seamX) {
+                    return st.img1 ? { img: st.img1, boxX: rect.x } : null;
+                }
+                return st.img2 ? { img: st.img2, boxX: seamX + SBS_GAP / 2 } : null;
+            };
+
             // Глобальный перехват событий мыши
             const canvasEl = app.canvas?.canvas;
             if (canvasEl && !this._domHandlers) {
@@ -173,23 +214,50 @@ app.registerExtension({
                             const prevZoom = st.zoom;
                             const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
                             let newZoom = Math.max(1.0, Math.min(10.0, prevZoom * zoomFactor));
+                            const mode = this._getMode();
 
-                            if (Math.abs(newZoom - 1.0) < 0.001) {
-                                newZoom = 1.0;
-                                st.panX = 0;
-                                st.panY = 0;
+                            if (mode === "Side-by-Side") {
+                                if (Math.abs(newZoom - 1.0) < 0.001) {
+                                    newZoom = 1.0;
+                                    st.sbsFocusU = 0.5;
+                                    st.sbsFocusV = 0.5;
+                                } else {
+                                    const half = this._sbsHalfAt(rect, localX);
+                                    if (half) {
+                                        const { halfCenterX, halfCenterY, iw, ih, fitScale } = this._sbsHalfLayout(rect, half.img, half.boxX);
+                                        const effOld = fitScale * prevZoom;
+
+                                        // Точка изображения (0..1), которая сейчас под курсором
+                                        const uCursor = st.sbsFocusU + (localX - halfCenterX) / (iw * effOld);
+                                        const vCursor = st.sbsFocusV + (localY - halfCenterY) / (ih * effOld);
+
+                                        const effNew = fitScale * newZoom;
+                                        // Подбираем новый фокус так, чтобы та же точка осталась под курсором
+                                        st.sbsFocusU = uCursor - (localX - halfCenterX) / (iw * effNew);
+                                        st.sbsFocusV = vCursor - (localY - halfCenterY) / (ih * effNew);
+
+                                        st.sbsFocusU = Math.max(0, Math.min(1, st.sbsFocusU));
+                                        st.sbsFocusV = Math.max(0, Math.min(1, st.sbsFocusV));
+                                    }
+                                }
                             } else {
-                                const centerX = rect.x + rect.w / 2;
-                                const centerY = rect.y + rect.h / 2;
-                                const mouseRelX = localX - centerX;
-                                const mouseRelY = localY - centerY;
-                                const scaleRatio = newZoom / prevZoom;
-                                st.panX = (st.panX - mouseRelX) * scaleRatio + mouseRelX;
-                                st.panY = (st.panY - mouseRelY) * scaleRatio + mouseRelY;
+                                if (Math.abs(newZoom - 1.0) < 0.001) {
+                                    newZoom = 1.0;
+                                    st.panX = 0;
+                                    st.panY = 0;
+                                } else {
+                                    const centerX = rect.x + rect.w / 2;
+                                    const centerY = rect.y + rect.h / 2;
+                                    const mouseRelX = localX - centerX;
+                                    const mouseRelY = localY - centerY;
+                                    const scaleRatio = newZoom / prevZoom;
+                                    st.panX = (st.panX - mouseRelX) * scaleRatio + mouseRelX;
+                                    st.panY = (st.panY - mouseRelY) * scaleRatio + mouseRelY;
+                                }
+                                this._clampPan(rect);
                             }
 
                             st.zoom = newZoom;
-                            this._clampPan(rect);
                             this.setDirtyCanvas(true, true);
                         }
                     },
@@ -222,11 +290,27 @@ app.registerExtension({
                             st.lastMousePos = [e.clientX, e.clientY];
 
                             const canvasScale = app.canvas.ds.scale || 1.0;
-                            st.panX += dx / canvasScale;
-                            st.panY += dy / canvasScale;
-
                             const rect = this.getViewerRect();
-                            if (rect) this._clampPan(rect);
+                            const mode = this._getMode();
+
+                            if (mode === "Side-by-Side") {
+                                const img = st.img1 || st.img2;
+                                if (rect && img) {
+                                    const boxX = st.img1 ? rect.x : (rect.x + rect.w / 2 + SBS_GAP / 2);
+                                    const { iw, ih, fitScale } = this._sbsHalfLayout(rect, img, boxX);
+                                    const effScale = fitScale * st.zoom;
+
+                                    st.sbsFocusU -= (dx / canvasScale) / (iw * effScale);
+                                    st.sbsFocusV -= (dy / canvasScale) / (ih * effScale);
+                                    st.sbsFocusU = Math.max(0, Math.min(1, st.sbsFocusU));
+                                    st.sbsFocusV = Math.max(0, Math.min(1, st.sbsFocusV));
+                                }
+                            } else {
+                                st.panX += dx / canvasScale;
+                                st.panY += dy / canvasScale;
+                                if (rect) this._clampPan(rect);
+                            }
+
                             this.setDirtyCanvas(true, true);
                         }
                     },
@@ -249,6 +333,8 @@ app.registerExtension({
                             this.compareState.zoom = 1.0;
                             this.compareState.panX = 0;
                             this.compareState.panY = 0;
+                            this.compareState.sbsFocusU = 0.5;
+                            this.compareState.sbsFocusV = 0.5;
                             this.setDirtyCanvas(true, true);
                         }
                     }
@@ -273,7 +359,18 @@ app.registerExtension({
                         const mode = modeWidget ? modeWidget.value : "Slider";
 
                         if (mode === "Slider" && !st.isDraggingPan) {
-                            let relX = (mx - rect.x) / rect.w;
+                            // Курсор (mx) — это координата в системе координат
+                            // ОТРИСОВАННОГО (уже зумленного/панорамированного)
+                            // изображения, а splitX/sliderPos живут в исходной,
+                            // "дозумовой" системе координат. Отрисовка линии
+                            // проходит через ту же трансформацию zoom/pan, что
+                            // и картинка — значит, курсор нужно обратно
+                            // пересчитать через ту же трансформацию, иначе на
+                            // зуме и при sliderPos far from center линия и
+                            // курсор расходятся.
+                            const viewCenterX = rect.x + rect.w / 2;
+                            const splitXFromCursor = viewCenterX + (mx - viewCenterX - st.panX) / st.zoom;
+                            let relX = (splitXFromCursor - rect.x) / rect.w;
                             st.sliderPos = Math.max(0, Math.min(1, relX));
                             this.setDirtyCanvas(true, true);
                         }
@@ -452,8 +549,56 @@ app.registerExtension({
         // Общая отрисовка композита текущего режима в произвольный ctx/rect.
         // Используется и для живого превью (onDrawForeground), и для захвата
         // "как видишь" при сохранении по кнопке (offscreen-канвас).
+        // Side-by-Side отрисовывается ОТДЕЛЬНО от остальных режимов: каждая
+        // половина зумится независимо вокруг общей точки фокуса (в
+        // нормализованных 0..1 координатах картинки), а не через единую
+        // трансформацию на весь rect (как раньше) — иначе при зуме "плыло"
+        // относительное положение картинок друг к другу и терялась привязка
+        // к одному и тому же месту на фото.
+        proto._drawSideBySideComposite = function (ctx, rect, img1, img2, st) {
+            const focusU = st.sbsFocusU !== undefined ? st.sbsFocusU : 0.5;
+            const focusV = st.sbsFocusV !== undefined ? st.sbsFocusV : 0.5;
+
+            const boxes = [
+                { img: img1, boxX: rect.x },
+                { img: img2, boxX: rect.x + rect.w / 2 + SBS_GAP / 2 }
+            ];
+
+            for (const box of boxes) {
+                const { halfW, iw, ih, fitScale, halfCenterX, halfCenterY } = this._sbsHalfLayout(rect, box.img, box.boxX);
+                const effScale = fitScale * st.zoom;
+                const dW = iw * effScale;
+                const dH = ih * effScale;
+                // Точка фокуса (в пикселях изображения) всегда попадает в
+                // центр своей половины — одинаково для обеих картинок.
+                const dX = halfCenterX - focusU * iw * effScale;
+                const dY = halfCenterY - focusV * ih * effScale;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(box.boxX, rect.y, halfW, rect.h);
+                ctx.clip();
+                ctx.drawImage(box.img, dX, dY, dW, dH);
+                ctx.restore();
+            }
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.lineWidth = 1 / st.zoom;
+            ctx.beginPath();
+            ctx.moveTo(rect.x + rect.w / 2, rect.y);
+            ctx.lineTo(rect.x + rect.w / 2, rect.y + rect.h);
+            ctx.stroke();
+        };
+
         proto._drawComposite = function (ctx, rect, mode, img1, img2, opacityVal, blinkSpeedVal, st) {
-            // Применение матрицы трансформации Zoom & Pan
+            if (mode === "Side-by-Side" && img1 && img2) {
+                this._drawSideBySideComposite(ctx, rect, img1, img2, st);
+                return;
+            }
+
+            // Применение матрицы трансформации Zoom & Pan (остальные режимы —
+            // единая трансформация на весь rect, т.к. там всегда ОДНА
+            // общая область просмотра, а не две независимые половины)
             const viewCenterX = rect.x + rect.w / 2;
             const viewCenterY = rect.y + rect.h / 2;
 
@@ -485,45 +630,16 @@ app.registerExtension({
                     ctx.drawImage(img2, drawX, drawY, drawW, drawH);
                     ctx.restore();
 
-                    ctx.strokeStyle = "#ffffff";
+                    // Тонкая жёлтая линия без тени и без компенсации под
+                    // размер канваса захвата — тень убрана, значит и
+                    // масштабировать толщину линии больше не для чего;
+                    // такая же логика толщины, как у разделителя Side-by-Side.
+                    ctx.strokeStyle = "#FFEE00";
                     ctx.lineWidth = 1 / st.zoom;
-                    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-                    ctx.shadowBlur = 3;
 
                     ctx.beginPath();
                     ctx.moveTo(splitX, rect.y);
                     ctx.lineTo(splitX, rect.y + rect.h);
-                    ctx.stroke();
-
-                } else if (mode === "Side-by-Side") {
-                    const gap = 2;
-                    const halfW = rect.w / 2 - gap / 2;
-
-                    const w1 = img1.naturalWidth || img1.width;
-                    const h1 = img1.naturalHeight || img1.height;
-                    const fit1 = Math.min(halfW / w1, rect.h / h1);
-                    const dW1 = w1 * fit1;
-                    const dH1 = h1 * fit1;
-                    const dX1 = rect.x + (halfW - dW1) / 2;
-                    const dY1 = rect.y + (rect.h - dH1) / 2;
-
-                    ctx.drawImage(img1, dX1, dY1, dW1, dH1);
-
-                    const w2 = img2.naturalWidth || img2.width;
-                    const h2 = img2.naturalHeight || img2.height;
-                    const fit2 = Math.min(halfW / w2, rect.h / h2);
-                    const dW2 = w2 * fit2;
-                    const dH2 = h2 * fit2;
-                    const dX2 = rect.x + rect.w / 2 + gap / 2 + (halfW - dW2) / 2;
-                    const dY2 = rect.y + (rect.h - dH2) / 2;
-
-                    ctx.drawImage(img2, dX2, dY2, dW2, dH2);
-
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-                    ctx.lineWidth = 1 / st.zoom;
-                    ctx.beginPath();
-                    ctx.moveTo(rect.x + rect.w / 2, rect.y);
-                    ctx.lineTo(rect.x + rect.w / 2, rect.y + rect.h);
                     ctx.stroke();
 
                 } else if (mode === "Overlap") {
@@ -636,7 +752,11 @@ app.registerExtension({
             const scaleY = offH / rect.h;
             const scaledState = Object.assign({}, st, {
                 panX: st.panX * scaleX,
-                panY: st.panY * scaleY
+                panY: st.panY * scaleY,
+                // Для линий/теней, которые рисуются в абсолютных пикселях
+                // (например, разделитель Slider) — единый коэффициент
+                // масштабирования под увеличенный канвас захвата.
+                captureScale: (scaleX + scaleY) / 2
             });
 
             this._drawComposite(offCtx, offRect, mode, st.img1, st.img2, opacityVal, blinkSpeedVal, scaledState);

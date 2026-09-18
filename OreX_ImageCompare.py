@@ -31,8 +31,14 @@ MODE_FOLDER_MAP = {
     "Blink": "blink",
 }
 
-# Фиксированный период смены кадра для Blink GIF (мс), не зависит от виджета blink_speed
-BLINK_GIF_FRAME_MS = 1000
+# Длительность одной "фазы" Blink (мс) — по аналогии с blink_speed в live-режиме,
+# делится на треть/треть/треть (статика / переход / статика). Фиксирована,
+# от виджета blink_speed не зависит. Полный цикл A->B->A = 2 * BLINK_PHASE_MS.
+BLINK_PHASE_MS = 1500
+
+# Число промежуточных кадров на один переход (A->B или B->A). Больше — плавнее,
+# но тяжелее файл; для предварительного просмотра достаточно небольшого числа.
+BLINK_TRANSITION_FRAMES = 10
 
 
 def _today_folder() -> str:
@@ -307,7 +313,9 @@ if _HAS_SERVER:
         """
         Собирает зацикленный GIF из двух исходных изображений
         (уже сохранённых узлом при выполнении схемы) для режима Blink.
-        Период кадра фиксирован (BLINK_GIF_FRAME_MS), не зависит от blink_speed.
+        Плавный кроссфейд между кадрами — как в live-просмотре узла:
+        статика A -> плавный переход -> статика B -> плавный переход -> ...
+        Период фиксирован (BLINK_PHASE_MS), не зависит от виджета blink_speed.
         """
         try:
             data = await request.json()
@@ -329,28 +337,70 @@ if _HAS_SERVER:
             path1 = _resolve_source_path(meta1["filename"], meta1.get("subfolder", ""), meta1.get("type", "temp"))
             path2 = _resolve_source_path(meta2["filename"], meta2.get("subfolder", ""), meta2.get("type", "temp"))
 
-            frame1 = Image.open(path1).convert("RGB")
-            frame2 = Image.open(path2).convert("RGB")
+            frame_a = Image.open(path1).convert("RGB")
+            frame_b = Image.open(path2).convert("RGB")
 
             # Приводим кадры к одному размеру (по первому кадру), если вдруг отличаются
-            if frame2.size != frame1.size:
-                frame2 = frame2.resize(frame1.size)
+            if frame_b.size != frame_a.size:
+                frame_b = frame_b.resize(frame_a.size)
+
+            # Тайминг по треть/треть/треть: статика физически показывается
+            # 2/3 фазы (склейка конца одной фазы и начала следующей — та же
+            # картинка, поэтому паузы сливаются в одну), переход — 1/3 фазы.
+            static_ms = round(BLINK_PHASE_MS * 2 / 3)
+            transition_ms = round(BLINK_PHASE_MS * 1 / 3)
+            n = max(1, BLINK_TRANSITION_FRAMES)
+            per_transition_frame_ms = max(20, round(transition_ms / n))
+
+            # Общая палитра для всех кадров — без неё каждый кадр квантуется
+            # отдельно, и получаются лёгкие цветовые "скачки"/мерцание между
+            # кадрами анимации при воспроизведении.
+            combined = Image.new("RGB", (frame_a.width * 2, frame_a.height))
+            combined.paste(frame_a, (0, 0))
+            combined.paste(frame_b, (frame_a.width, 0))
+            shared_palette = combined.quantize(colors=256)
+
+            def to_gif_frame(img: Image.Image) -> Image.Image:
+                return img.quantize(palette=shared_palette, dither=Image.FLOYDSTEINBERG)
+
+            frames = []
+            durations = []
+
+            # Статика A
+            frames.append(to_gif_frame(frame_a))
+            durations.append(static_ms)
+
+            # Переход A -> B
+            for i in range(1, n + 1):
+                alpha = i / (n + 1)
+                frames.append(to_gif_frame(Image.blend(frame_a, frame_b, alpha)))
+                durations.append(per_transition_frame_ms)
+
+            # Статика B
+            frames.append(to_gif_frame(frame_b))
+            durations.append(static_ms)
+
+            # Переход B -> A
+            for i in range(1, n + 1):
+                alpha = i / (n + 1)
+                frames.append(to_gif_frame(Image.blend(frame_b, frame_a, alpha)))
+                durations.append(per_transition_frame_ms)
 
             mode_dir = _ensure_mode_dir("blink", custom_root=output_path or None)
             idx = _next_counter(mode_dir, "blink", "gif")
             file_name = f"OreX_Compare_blink_{idx:05}.gif"
             file_path = os.path.join(mode_dir, file_name)
 
-            frame1.save(
+            frames[0].save(
                 file_path,
                 save_all=True,
-                append_images=[frame2],
-                duration=BLINK_GIF_FRAME_MS,
+                append_images=frames[1:],
+                duration=durations,
                 loop=0,
                 disposal=2,
             )
 
-            logger.info(f"[OreX Compare] Сохранён Blink GIF: {file_path}")
+            logger.info(f"[OreX Compare] Сохранён Blink GIF ({len(frames)} кадров): {file_path}")
             return web.json_response({"success": True, "path": file_path, "filename": file_name})
 
         except Exception as e:

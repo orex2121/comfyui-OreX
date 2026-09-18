@@ -9,6 +9,7 @@ from .OreX_Crop import OreXCrop
 from .OreX_Ratio import OreXRatio
 from .OreX_StringFunction import OreX_StringFunction
 from .OreX_AudioLoad import OreX_AudioLoad
+from .OreX_AudioLoad_v2 import OreX_AudioLoad_v2
 from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
 from .OreX_StringSelector import OreXStringSelector
 from .OreX_ImageChunkCut import OreXImageChunkCut
@@ -36,6 +37,7 @@ NODE_CLASS_MAPPINGS = {
     "orex Ratio": OreXRatio,
     "orex String Function": OreX_StringFunction,
     "orex Audio load": OreX_AudioLoad,
+    "orex Audio load v2": OreX_AudioLoad_v2,
     "orex Advanced Video Load": OreX_AdvancedVideoLoad,
     "orex String Selector": OreXStringSelector,
     "orex Image Chunk Cut": OreXImageChunkCut,
@@ -64,6 +66,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Ratio": "📐 Ratio (OreX)",
     "orex String Function": "✍️ String Function (OreX)",
     "orex Audio load": "🔉 Audio Load (OreX)",
+    "orex Audio load v2": "🔉 Audio Load V2 (OreX)",
     "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
     "orex String Selector": "📝 String Selector (OreX)",
     "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
