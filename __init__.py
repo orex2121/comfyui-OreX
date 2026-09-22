@@ -25,6 +25,7 @@ from .OreX_ImageCompare import OreXImageCompare
 from .OreX_CameraRaw import OreX_CameraRaw
 from .OreX_VideoPreview import OreX_VideoPreview
 from .OreX_Painter import OreXPainter
+from .OreX_SkinRetouchingAI import OreX_SkinRetouchingAI
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -54,6 +55,7 @@ NODE_CLASS_MAPPINGS = {
     "orex Camera Raw": OreX_CameraRaw,
     "OreX Video Preview": OreX_VideoPreview,
     "orex Painter": OreXPainter,
+    "orex Skin Retouching AI": OreX_SkinRetouchingAI,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -84,6 +86,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Camera Raw": "📸 Camera Raw (OreX)",
     "OreX Video Preview": "📺 Video Preview (OreX)",
     "orex Painter": "🖼️ Painter (OreX)",
+    "orex Skin Retouching AI": "✨ Skin Retouching AI (OreX)",
 }
 
 WEB_DIRECTORY = "./js"

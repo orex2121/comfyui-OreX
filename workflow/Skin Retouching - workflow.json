@@ -1,0 +1,759 @@
+{
+  "id": "9c94f145-dce4-4a92-8480-2aabfdb84521",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 12,
+  "nodes": [
+    {
+      "id": 5,
+      "type": "Mask Fill Holes",
+      "pos": [
+        6057.012189627726,
+        3031.8668430545463
+      ],
+      "size": [
+        166.7181499574665,
+        26
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "masks",
+          "name": "masks",
+          "type": "MASK",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MASKS",
+          "name": "MASKS",
+          "type": "MASK",
+          "slot_index": 0,
+          "links": [
+            6,
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "was-node-suite-comfyui",
+        "ver": "1.0.2",
+        "Node name for S&R": "Mask Fill Holes",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.4.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#96dc96",
+      "bgcolor": "#82c882"
+    },
+    {
+      "id": 6,
+      "type": "ImageAndMaskPreview",
+      "pos": [
+        6273.848492260957,
+        3091.8953465569316
+      ],
+      "size": [
+        301.7725814595317,
+        338
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": 8
+        },
+        {
+          "localized_name": "mask_opacity",
+          "name": "mask_opacity",
+          "type": "FLOAT",
+          "widget": {
+            "name": "mask_opacity"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mask_color",
+          "name": "mask_color",
+          "type": "STRING",
+          "widget": {
+            "name": "mask_color"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "pass_through",
+          "name": "pass_through",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "pass_through"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "composite",
+          "name": "composite",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "01d9fa9c983273532cacdf9532c74a93c7dc86d2",
+        "Node name for S&R": "ImageAndMaskPreview",
+        "aux_id": "kijai/ComfyUI-KJNodes",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        0.75,
+        "255, 0, 0",
+        false
+      ],
+      "widgets_values_named": {
+        "mask_opacity": 0.75,
+        "mask_color": "255, 0, 0",
+        "pass_through": false
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 3,
+      "type": "orex Load Image",
+      "pos": [
+        5748.276221938198,
+        2882.389738213528
+      ],
+      "size": [
+        270,
+        374
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            2,
+            4,
+            7,
+            11
+          ]
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "type": "MASK",
+          "links": [
+            5
+          ]
+        },
+        {
+          "localized_name": "filename",
+          "name": "filename",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "aux_id": "orex2121/comfyui-OreX",
+        "ver": "f59d9abc4acca9981ef4791d929149db3e0c5576",
+        "Node name for S&R": "orex Load Image",
+        "cnr_id": "comfyui-orex",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "image": "clipspace-painted-masked-1789744961282.png [input]"
+      },
+      "widgets_values": [
+        "pasted/image (8).png",
+        "image"
+      ],
+      "widgets_values_named": {
+        "image": "pasted/image (8).png",
+        "upload": "image"
+      },
+      "color": "#0096ff",
+      "bgcolor": "#0096ff"
+    },
+    {
+      "id": 1,
+      "type": "orex Skin Retouching AI",
+      "pos": [
+        6267.555795004134,
+        2878.488191331879
+      ],
+      "size": [
+        294.4986328125,
+        126
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "localized_name": "mask",
+          "name": "mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": 6
+        },
+        {
+          "localized_name": "strength",
+          "name": "strength",
+          "type": "FLOAT",
+          "widget": {
+            "name": "strength"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "density",
+          "name": "density",
+          "type": "FLOAT",
+          "widget": {
+            "name": "density"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mask_feather",
+          "name": "mask_feather",
+          "shape": 7,
+          "type": "INT",
+          "widget": {
+            "name": "mask_feather"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "result",
+          "name": "result",
+          "type": "IMAGE",
+          "links": [
+            1,
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "orex2121/comfyui-OreX",
+        "ver": "f59d9abc4acca9981ef4791d929149db3e0c5576",
+        "Node name for S&R": "orex Skin Retouching AI",
+        "cnr_id": "comfyui-orex",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        1,
+        -0.05,
+        15
+      ],
+      "widgets_values_named": {
+        "strength": 1,
+        "density": -0.05,
+        "mask_feather": 15
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 9,
+      "type": "orex Image Merging",
+      "pos": [
+        7204.180707539326,
+        2873.9165719192806
+      ],
+      "size": [
+        280.8182346227295,
+        368
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image1",
+          "name": "image1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "localized_name": "image2",
+          "name": "image2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 12
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "image_number",
+          "name": "image_number",
+          "type": "INT",
+          "widget": {
+            "name": "image_number"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "merging_mode",
+          "name": "merging_mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "merging_mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "main_resolution_image",
+          "name": "main_resolution_image",
+          "type": "INT",
+          "widget": {
+            "name": "main_resolution_image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "footer_height",
+          "name": "footer_height",
+          "type": "FLOAT",
+          "widget": {
+            "name": "footer_height"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "font_name",
+          "name": "font_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "font_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "font_size",
+          "name": "font_size",
+          "type": "FLOAT",
+          "widget": {
+            "name": "font_size"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "border_thickness",
+          "name": "border_thickness",
+          "type": "FLOAT",
+          "widget": {
+            "name": "border_thickness"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "upscale_method",
+          "name": "upscale_method",
+          "type": "COMBO",
+          "widget": {
+            "name": "upscale_method"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "megapixels",
+          "name": "megapixels",
+          "type": "FLOAT",
+          "widget": {
+            "name": "megapixels"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            10
+          ]
+        },
+        {
+          "localized_name": "width",
+          "name": "width",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "localized_name": "height",
+          "name": "height",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "aux_id": "orex2121/comfyui-OreX",
+        "ver": "f59d9abc4acca9981ef4791d929149db3e0c5576",
+        "Node name for S&R": "orex Image Merging",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "cnr_id": "comfyui-orex"
+      },
+      "widgets_values": [
+        "Before\nAfter",
+        2,
+        "horizontal",
+        1,
+        5,
+        "Roboto-Regular.ttf",
+        4,
+        "white",
+        2,
+        "lanczos",
+        0
+      ],
+      "widgets_values_named": {
+        "text": "Before\nAfter",
+        "image_number": 2,
+        "merging_mode": "horizontal",
+        "main_resolution_image": 1,
+        "footer_height": 5,
+        "font_name": "Roboto-Regular.ttf",
+        "font_size": 4,
+        "mode": "white",
+        "border_thickness": 2,
+        "upscale_method": "lanczos",
+        "megapixels": 0
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 2,
+      "type": "OreX Image Compare",
+      "pos": [
+        6643.780603910857,
+        2877.0293807882035
+      ],
+      "size": [
+        502.4787627384194,
+        548.0325450811079
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image_1",
+          "name": "image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "localized_name": "image_2",
+          "name": "image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 1
+        },
+        {
+          "localized_name": "output_path",
+          "name": "output_path",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "opacity",
+          "name": "opacity",
+          "type": "FLOAT",
+          "widget": {
+            "name": "opacity"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "blink_speed",
+          "name": "blink_speed",
+          "type": "FLOAT",
+          "widget": {
+            "name": "blink_speed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "aux_id": "orex2121/comfyui-OreX",
+        "ver": "f59d9abc4acca9981ef4791d929149db3e0c5576",
+        "Node name for S&R": "OreX Image Compare",
+        "cnr_id": "comfyui-orex",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "Slider",
+        0.5,
+        1,
+        null
+      ],
+      "widgets_values_named": {
+        "mode": "Slider",
+        "opacity": 0.5,
+        "blink_speed": 1,
+        "💾 Сохранить текущий вид": null
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 10,
+      "type": "PreviewImage",
+      "pos": [
+        6272.846957811228,
+        3501.7548148621586
+      ],
+      "size": [
+        886.9868994962253,
+        497.64400665226003
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.36.0",
+        "Node name for S&R": "PreviewImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [],
+      "widgets_values_named": {},
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      1,
+      "IMAGE"
+    ],
+    [
+      2,
+      3,
+      0,
+      1,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      3,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      3,
+      1,
+      5,
+      0,
+      "MASK"
+    ],
+    [
+      6,
+      5,
+      0,
+      1,
+      1,
+      "MASK"
+    ],
+    [
+      7,
+      3,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      5,
+      0,
+      6,
+      1,
+      "MASK"
+    ],
+    [
+      10,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      3,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      1,
+      0,
+      9,
+      1,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ue_links": [],
+    "ds": {
+      "scale": 0.699761070314601,
+      "offset": [
+        -5649.466415894026,
+        -2825.69129411685
+      ]
+    },
+    "links_added_by_ue": []
+  },
+  "version": 0.4
+}

@@ -2,3 +2,4 @@ Pillow
 soundfile
 pydub
 pyloudnorm
+modelscope
