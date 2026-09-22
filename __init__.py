@@ -24,7 +24,6 @@ from .OreX_ImageMergingV2 import OrexImageMergingV2
 from .OreX_ImageCompare import OreXImageCompare
 from .OreX_CameraRaw import OreX_CameraRaw
 from .OreX_VideoPreview import OreX_VideoPreview
-from .OreX_Painter import OreXPainter
 from .OreX_SkinRetouchingAI import OreX_SkinRetouchingAI
 
 NODE_CLASS_MAPPINGS = {
@@ -54,7 +53,6 @@ NODE_CLASS_MAPPINGS = {
     "OreX Image Compare": OreXImageCompare,
     "orex Camera Raw": OreX_CameraRaw,
     "OreX Video Preview": OreX_VideoPreview,
-    "orex Painter": OreXPainter,
     "orex Skin Retouching AI": OreX_SkinRetouchingAI,
 }
 
@@ -85,7 +83,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "OreX Image Compare": "↔️ OreX Image Compare",
     "orex Camera Raw": "📸 Camera Raw (OreX)",
     "OreX Video Preview": "📺 Video Preview (OreX)",
-    "orex Painter": "🖼️ Painter (OreX)",
     "orex Skin Retouching AI": "✨ Skin Retouching AI (OreX)",
 }
 
