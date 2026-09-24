@@ -681,20 +681,23 @@ app.registerExtension({
             // узла (не в полноэкранном редакторе) — портировано из OreX_Crop.js:
             // хит-тест по прямоугольнику виджета (w.last_y/computeSize),
             // задержка перед показом, отрисовка прямо на канвасе узла.
-            nodeType.prototype.onMouseMove = function (e, pos) {
-                const [mx, my] = pos;
-
-                if (mx < 0 || mx > this.size[0] || my < 0 || my > this.size[1]) {
-                    if (this.crHoverTimer) { clearTimeout(this.crHoverTimer); this.crHoverTimer = null; }
-                    if (this.crActiveTooltip) {
-                        this.crActiveTooltip = null; this.crActiveTooltipY = null;
-                        this.setDirtyCanvas(true);
-                    }
-                    return;
-                }
+            // Обновляет состояние подсказки по текущему положению курсора.
+            // Раньше это делалось в onMouseMove, но LiteGraph вызывает
+            // onMouseMove узла только пока курсор считается "над" этим
+            // узлом — как только курсор уходит на пустой холст или на
+            // соседний узел, вызовы прекращаются, и отменить уже
+            // запущенный таймер показа подсказки становится нечем. Вместо
+            // этого проверяем позицию мыши на каждый кадр из
+            // onDrawBackground (он крутится постоянно, независимо от
+            // фокуса), беря координаты из app.canvas.graph_mouse.
+            nodeType.prototype._crUpdateHoverTooltip = function () {
+                const gm = app.canvas && app.canvas.graph_mouse;
+                if (!gm) return;
+                const mx = gm[0] - this.pos[0];
+                const my = gm[1] - this.pos[1];
 
                 let hoveredWidget = null;
-                if (this.widgets) {
+                if (mx >= 0 && mx <= this.size[0] && my >= 0 && my <= this.size[1] && this.widgets) {
                     for (const w of this.widgets) {
                         if (!w || w.last_y === undefined || w.hidden) continue;
                         const wy = w.last_y;
@@ -706,31 +709,34 @@ app.registerExtension({
                     }
                 }
 
-                let tooltipInfo = null;
-                if (hoveredWidget) {
-                    tooltipInfo = CR_HELP_DESCRIPTIONS.find(item => item.name === (hoveredWidget.name || "").trim());
+                const tooltipInfo = hoveredWidget
+                    ? CR_HELP_DESCRIPTIONS.find(item => item.name === (hoveredWidget.name || "").trim())
+                    : null;
+
+                // Сравниваем с целью под курсором (crHoverTarget), а не с уже
+                // ПОКАЗАННОЙ подсказкой (crActiveTooltip) — та остаётся null
+                // всё время, пока тикает таймер задержки.
+                if (this.crHoverTarget === tooltipInfo) return;
+                this.crHoverTarget = tooltipInfo;
+
+                if (this.crHoverTimer) { clearTimeout(this.crHoverTimer); this.crHoverTimer = null; }
+                if (this.crActiveTooltip) {
+                    this.crActiveTooltip = null; this.crActiveTooltipY = null;
+                    this.setDirtyCanvas(true);
                 }
 
-                if (this.crActiveTooltip !== tooltipInfo) {
-                    if (this.crHoverTimer) { clearTimeout(this.crHoverTimer); this.crHoverTimer = null; }
-                    if (!tooltipInfo) {
-                        if (this.crActiveTooltip) {
-                            this.crActiveTooltip = null; this.crActiveTooltipY = null;
-                            this.setDirtyCanvas(true);
-                        }
-                    } else {
-                        if (this.crActiveTooltip) {
-                            this.crActiveTooltip = null; this.crActiveTooltipY = null;
-                            this.setDirtyCanvas(true);
-                        }
-                        const widgetY = hoveredWidget.last_y;
-                        this.crHoverTimer = setTimeout(() => {
-                            this.crActiveTooltip = tooltipInfo;
-                            this.crActiveTooltipY = widgetY;
-                            this.setDirtyCanvas(true);
-                            this.crHoverTimer = null;
-                        }, 800);
-                    }
+                if (tooltipInfo) {
+                    const widgetY = hoveredWidget.last_y;
+                    this.crHoverTimer = setTimeout(() => {
+                        // Подстраховка: за время ожидания цель могла снова
+                        // смениться (или узел удалиться) — применяем
+                        // результат, только если всё ещё актуально.
+                        if (this.crHoverTarget !== tooltipInfo) return;
+                        this.crActiveTooltip = tooltipInfo;
+                        this.crActiveTooltipY = widgetY;
+                        this.setDirtyCanvas(true);
+                        this.crHoverTimer = null;
+                    }, 800);
                 }
             };
 
@@ -809,6 +815,8 @@ app.registerExtension({
             const onDrawBackground = nodeType.prototype.onDrawBackground;
             nodeType.prototype.onDrawBackground = function (ctx) {
                 if (onDrawBackground) onDrawBackground.apply(this, arguments);
+
+                if (this._crUpdateHoverTooltip) this._crUpdateHoverTooltip();
 
                 // Живое обновление источника изображения без нажатия Run:
                 // следим за картинкой в узле, подключённом ко входу "image"

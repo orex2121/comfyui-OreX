@@ -615,11 +615,21 @@ app.registerExtension({
                 
                 // Красим узел в темно-красный, если есть ошибки (имитация стандартного поведения ComfyUI)
                 if (hasMissing) {
+                    // Запоминаем пользовательский цвет только один раз, перед тем как его перекрыть
+                    if (!this._orexColorOverridden) {
+                        this._orexUserColor = this.color;
+                        this._orexUserBgcolor = this.bgcolor;
+                        this._orexColorOverridden = true;
+                    }
                     this.color = "#5a1e1e";
                     this.bgcolor = "#3a1212";
-                } else {
-                    delete this.color;
-                    delete this.bgcolor;
+                } else if (this._orexColorOverridden) {
+                    // Возвращаем именно тот цвет, что был у пользователя до ошибки
+                    if (this._orexUserColor !== undefined) this.color = this._orexUserColor;
+                    else delete this.color;
+                    if (this._orexUserBgcolor !== undefined) this.bgcolor = this._orexUserBgcolor;
+                    else delete this.bgcolor;
+                    this._orexColorOverridden = false;
                 }
                 this.setDirtyCanvas(true, true);
             };
