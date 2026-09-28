@@ -48,6 +48,7 @@
 `24.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Павел К.)](#ru-24-load-image-batch-size)  
 `25.` [💾 Save Image — PaBoKor (Павел К.)](#ru-25-save-image)  
 `26.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-26-kontext-presets)  
+`27.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-27-trim-video-to-audio)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -446,6 +447,20 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 Как и у Style Selector, узел зависит от JSON-файлов конфигурации рядом с ним в папке — но, в отличие от Style Selector, редактора пресетов прямо в интерфейсе узла нет, править нужно вручную в самих JSON-файлах.
 
+<a id="ru-27-trim-video-to-audio"></a>
+#### 27. 🎬✂️ Trim Video To Audio
+Автор: PaBoKor (Павел К.)
+
+Обрезает видеодорожку по длине аудио. Нужен, когда модель генерирует видео чуть длиннее звука (например, из-за округления числа кадров до требуемого моделью формата), и при склейке нескольких роликов в один на стыках появляется рассинхрон или «хвост» без звука.
+
+**Узел поддерживает:**
+- Вход `video` (VIDEO) и вход `audio` (AUDIO) — звук, по длительности которого обрезается видео; в итоговое видео встраивается именно этот звук.
+- Точный расчёт числа кадров: `ceil(длительность_аудио × fps)` с небольшим допуском на погрешность float; fps берётся из самого видео, поэтому корректно работает и после интерполяции (RIFE и т.п.). Если в видео кадров меньше, чем нужно, оно не растягивается.
+- Два режима подгонки звука (`audio_fit`):
+  - **pad_silence** (по умолчанию) — аудио не режется, в конец добавляется тишина до границы кадра (не более одного кадра); длины видео и звука совпадают, ни один сэмпл озвучки не теряется — оптимально для последующей склейки роликов.
+  - **trim** — аудио никогда не удлиняется: если оно длиннее видео, обрезается по его длине; если короче — остаётся как есть.
+- Вывод: обрезанное видео со встроенным звуком (`video`) и его итоговая длительность в секундах (`duration_sec`).
+
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -510,6 +525,7 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `24.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Pavel K.)](#en-24-load-image-batch-size)  
 `25.` [💾 Save Image — PaBoKor (Pavel K.)](#en-25-save-image)  
 `26.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-26-kontext-presets)  
+`27.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-27-trim-video-to-audio)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -907,6 +923,20 @@ Assembles a structured system/instruction prompt (for LLM or Kontext-style editi
 - Output: the fully assembled prompt (`text prompt`), plus a separate readable dump of every preset in the manual-presets file (`manual prompt from file` — title/comment/system text for each, in file order) — handy as a quick reference of the custom presets available.
 
 Like Style Selector, this node depends on JSON config files sitting next to it — but unlike Style Selector, there's no in-node editor for the presets; they're edited by hand in the JSON files.
+
+<a id="en-27-trim-video-to-audio"></a>
+#### 27. 🎬✂️ Trim Video To Audio
+Author: PaBoKor (Pavel K.)
+
+Trims the video track to the audio length. Useful when a model generates video slightly longer than the sound (e.g. because the frame count is rounded up to the format the model requires), which causes desync or a silent "tail" at the seams when several clips are joined into one.
+
+**The node supports:**
+- A `video` input (VIDEO) and an `audio` input (AUDIO) — the sound whose duration the video is trimmed to; exactly this sound is embedded into the resulting video.
+- Exact frame-count calculation: `ceil(audio_duration × fps)` with a small float-error tolerance; the fps is taken from the video itself, so it works correctly after interpolation (RIFE etc.) too. If the video has fewer frames than needed, it is not stretched.
+- Two audio-fitting modes (`audio_fit`):
+  - **pad_silence** (default) — the audio is not cut; silence (at most one frame long) is appended up to the frame boundary; video and audio lengths match and not a single sample of the voice-over is lost — best for joining clips afterwards.
+  - **trim** — the audio is never extended: if it is longer than the video it is cut to the video length; if shorter, it is left as is.
+- Output: the trimmed video with embedded audio (`video`) and its final duration in seconds (`duration_sec`).
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import
