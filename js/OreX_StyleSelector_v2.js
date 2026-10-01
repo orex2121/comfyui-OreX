@@ -101,16 +101,27 @@ function parsePrompts(widget) {
     }
 }
 
-function openPromptEditor(node, namesWidget, promptWidget, storageWidget, selectWidget, index, refresh, syncFavorite) {
+function openPromptEditor(
+    node,
+    namesWidget,
+    promptWidget,
+    storageWidget,
+    selectWidget,
+    index,
+    refresh,
+    syncFavorite,
+    sourceEntries = null,
+    saveSharedEntry = null,
+) {
     document.querySelector(`[data-orex-prompt-editor="${node.id}"]`)?.remove();
 
     const names = String(namesWidget.value ?? "").split("\n");
     const prompts = parsePrompts(storageWidget);
     if (index < 0 || index >= names.length) return;
     while (prompts.length < names.length) prompts.push("");
-    const savedEntries = Array.isArray(node.properties?.orexPromptEntries)
-        ? node.properties.orexPromptEntries
-        : [];
+    const savedEntries = Array.isArray(sourceEntries)
+        ? sourceEntries
+        : (Array.isArray(node.properties?.orexPromptEntries) ? node.properties.orexPromptEntries : []);
     const savedType = ["prompt", "style", "edit", "llm"].includes(savedEntries[index]?.type)
         ? savedEntries[index].type
         : "prompt";
@@ -208,7 +219,7 @@ function openPromptEditor(node, namesWidget, promptWidget, storageWidget, select
         overlay.remove();
     };
 
-    const save = () => {
+    const save = async () => {
         const currentNames = String(namesWidget.value ?? "").split("\n");
         const currentPrompts = parsePrompts(storageWidget);
         if (index >= currentNames.length) return close();
@@ -217,8 +228,7 @@ function openPromptEditor(node, namesWidget, promptWidget, storageWidget, select
         currentNames[index] = nameInput.value.replace(/[\r\n]+/g, " ");
         currentPrompts[index] = promptEditor.value;
         const selectedType = [...typeInputs.entries()].find(([, input]) => input.checked)?.[0] ?? "prompt";
-        node.properties ??= {};
-        node.properties.orexPromptEntries = currentNames.map((name, entryIndex) => ({
+        const updatedEntries = currentNames.map((name, entryIndex) => ({
             id: typeof savedEntries[entryIndex]?.id === "string" && savedEntries[entryIndex].id
                 ? savedEntries[entryIndex].id
                 : makeEntryId(),
@@ -230,6 +240,22 @@ function openPromptEditor(node, namesWidget, promptWidget, storageWidget, select
                     ? savedEntries[entryIndex].type
                     : "prompt"),
         }));
+        if (saveSharedEntry) {
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            try {
+                await saveSharedEntry(updatedEntries[index]);
+                close();
+            } catch (error) {
+                console.error("[OreX StringSelector v2] Failed to edit shared prompt", error);
+                saveButton.disabled = false;
+                cancelButton.disabled = false;
+            }
+            return;
+        }
+
+        node.properties ??= {};
+        node.properties.orexPromptEntries = updatedEntries;
         namesWidget.value = currentNames.join("\n");
         storageWidget.value = JSON.stringify(currentPrompts.slice(0, currentNames.length));
         namesWidget.inputEl.value = namesWidget.value;
@@ -672,6 +698,8 @@ app.registerExtension({
                 if (!document.body.contains(namesArea)) return;
                 const entries = currentEntries();
                 const list = names();
+                const isCustom = activeTab === "custom";
+                namesArea.style.paddingRight = isCustom ? "108px" : "38px";
                 const { lineHeight, paddingTop } = lineMetrics();
                 Object.assign(tagsLayer.style, {
                     left: `${namesArea.offsetLeft}px`,
@@ -684,24 +712,25 @@ app.registerExtension({
                 for (let index = 0; index < list.length; index++) {
                     const top = paddingTop + index * lineHeight - namesArea.scrollTop;
                     if (top + lineHeight < 0 || top > namesArea.clientHeight) continue;
-                    const type = ["prompt", "style", "edit", "llm"].includes(entries[index]?.type)
-                        ? entries[index].type
-                        : "prompt";
-                    const label = document.createElement("span");
-                    label.textContent = type;
-                    Object.assign(label.style, {
-                        position: "absolute", right: "33px", top: `${top}px`,
-                        font: window.getComputedStyle(namesArea).font,
-                        height: `${lineHeight}px`, lineHeight: `${lineHeight}px`,
-                        minWidth: "52px", paddingLeft: "7px", textAlign: "right",
-                        boxSizing: "border-box", background: "#222", color: "#48d56a",
-                    });
-                    tagsLayer.appendChild(label);
+                    if (isCustom) {
+                        const type = ["prompt", "style", "edit", "llm"].includes(entries[index]?.type)
+                            ? entries[index].type
+                            : "prompt";
+                        const label = document.createElement("span");
+                        label.textContent = type;
+                        Object.assign(label.style, {
+                            position: "absolute", right: "33px", top: `${top}px`,
+                            font: window.getComputedStyle(namesArea).font,
+                            height: `${lineHeight}px`, lineHeight: `${lineHeight}px`,
+                            minWidth: "52px", paddingLeft: "7px", textAlign: "right",
+                            boxSizing: "border-box", background: "#222", color: "#48d56a",
+                        });
+                        tagsLayer.appendChild(label);
+                    }
 
                     const entry = entries[index];
                     const actionButton = document.createElement("button");
                     actionButton.type = "button";
-                    const isCustom = activeTab === "custom";
                     const isFavorite = Boolean(entry?.id && favoriteIds.has(entry.id));
                     actionButton.textContent = isCustom ? (isFavorite ? "♥" : "♡") : "🗑";
                     actionButton.title = isCustom
@@ -956,13 +985,14 @@ app.registerExtension({
             });
 
             namesArea.addEventListener("dblclick", (event) => {
-                if (activeTab !== "custom") return;
                 const index = lineIndexFromEvent(event);
                 if (index < 0) return;
                 event.preventDefault();
                 event.stopPropagation();
                 selectWidget.value = index + 1;
                 refreshPrompt();
+                const isCustom = activeTab === "custom";
+                const editorEntries = [...currentEntries()];
                 openPromptEditor(
                     node,
                     namesWidget,
@@ -971,7 +1001,20 @@ app.registerExtension({
                     selectWidget,
                     index,
                     refreshPrompt,
-                    syncFavoriteEntry,
+                    isCustom ? syncFavoriteEntry : null,
+                    editorEntries,
+                    isCustom ? null : async (entry) => {
+                        await updateFavorite("add", entry);
+                        const response = await fetch(FAVORITES_URL);
+                        if (!response.ok) throw new Error(await response.text());
+                        replaceFavoriteEntries(await response.json());
+                        switchTab(entry.type, true);
+                        const updatedIndex = currentEntries().findIndex((candidate) => candidate.id === entry.id);
+                        if (updatedIndex >= 0) {
+                            selectWidget.value = updatedIndex + 1;
+                            selectWidget.callback?.(selectWidget.value);
+                        }
+                    },
                 );
             });
 
