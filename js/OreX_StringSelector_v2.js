@@ -306,6 +306,7 @@ app.registerExtension({
             const promptWidget = node.widgets?.find((widget) => widget.name === "prompt");
             const storageWidget = node.widgets?.find((widget) => widget.name === "prompts_json");
             const selectWidget = node.widgets?.find((widget) => widget.name === "select");
+            const selectionWidget = node.widgets?.find((widget) => widget.name === "selection_state");
             const namesArea = namesWidget?.inputEl;
             const promptArea = promptWidget?.inputEl;
             if (!namesWidget || !promptWidget || !storageWidget || !selectWidget || !namesArea || !promptArea) return;
@@ -313,6 +314,11 @@ app.registerExtension({
             storageWidget.computeSize = () => [0, -4];
             storageWidget.draw = () => {};
             if (storageWidget.inputEl) storageWidget.inputEl.style.display = "none";
+            if (selectionWidget) {
+                selectionWidget.computeSize = () => [0, -4];
+                selectionWidget.draw = () => {};
+                if (selectionWidget.inputEl) selectionWidget.inputEl.style.display = "none";
+            }
 
             namesArea.style.backgroundAttachment = "local";
             namesArea.style.backgroundRepeat = "no-repeat";
@@ -334,9 +340,69 @@ app.registerExtension({
             const favoriteIds = new Set();
             let favoriteEntries = [];
             const validTabs = ["custom", "prompt", "style", "edit", "llm"];
+            const selectionPropertyName = (tab) => `orexSelectedPrompt_${tab}`;
             let activeTab = validTabs.includes(node.properties.orexActiveTab)
                 ? node.properties.orexActiveTab
                 : "custom";
+            let serializedSelections = {};
+            try {
+                const parsed = JSON.parse(String(selectionWidget?.value ?? "{}"));
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    serializedSelections = parsed;
+                }
+            } catch {}
+            const propertySelections = node.properties.orexSelectedPromptByTab;
+            node.properties.orexSelectedPromptByTab = {
+                ...(propertySelections && typeof propertySelections === "object" && !Array.isArray(propertySelections)
+                    ? propertySelections
+                    : {}),
+                ...serializedSelections,
+            };
+            for (const tab of validTabs) {
+                const flatSelection = Number(node.properties[selectionPropertyName(tab)]);
+                if (Number.isFinite(flatSelection) && flatSelection >= 1) {
+                    node.properties.orexSelectedPromptByTab[tab] = flatSelection;
+                }
+            }
+            const sessionSelectionKey = `orex-string-selector-v2:${node.id}:selections`;
+            try {
+                const sessionSelections = JSON.parse(sessionStorage.getItem(sessionSelectionKey) ?? "{}");
+                if (sessionSelections && typeof sessionSelections === "object" && !Array.isArray(sessionSelections)) {
+                    for (const tab of validTabs) {
+                        const sessionSelection = Number(sessionSelections[tab]);
+                        if (Number.isFinite(sessionSelection) && sessionSelection >= 1) {
+                            node.properties.orexSelectedPromptByTab[tab] = sessionSelection;
+                        }
+                    }
+                }
+            } catch {}
+            const storeSelection = (tab, value) => {
+                const normalized = Math.max(1, Number(value) || 1);
+                node.properties.orexSelectedPromptByTab[tab] = normalized;
+                const propertyName = selectionPropertyName(tab);
+                if (node.properties[propertyName] !== normalized) {
+                    if (typeof node.setProperty === "function") node.setProperty(propertyName, normalized);
+                    else node.properties[propertyName] = normalized;
+                }
+                return normalized;
+            };
+            const writeSelectionState = () => {
+                try {
+                    sessionStorage.setItem(
+                        sessionSelectionKey,
+                        JSON.stringify(node.properties.orexSelectedPromptByTab),
+                    );
+                } catch {}
+                if (!selectionWidget) return;
+                const value = JSON.stringify(node.properties.orexSelectedPromptByTab);
+                selectionWidget.value = value;
+                if (selectionWidget.inputEl) selectionWidget.inputEl.value = value;
+                selectionWidget.callback?.(value);
+            };
+            if (!Number.isFinite(Number(node.properties.orexSelectedPromptByTab[activeTab]))) {
+                storeSelection(activeTab, selectWidget.value);
+            }
+            writeSelectionState();
             let switchTab = () => {};
             const replaceFavoriteEntries = (favorites) => {
                 favoriteIds.clear();
@@ -504,6 +570,24 @@ app.registerExtension({
             const currentEntries = () => activeTab === "custom"
                 ? customEntries()
                 : favoriteEntries.filter((entry) => entry.type === activeTab);
+            const rememberSelection = (tab = activeTab, markChanged = false) => {
+                if (!validTabs.includes(tab)) return;
+                storeSelection(tab, selectWidget.value);
+                writeSelectionState();
+                if (markChanged) {
+                    node.graph?.change?.();
+                    node.graph?.setDirtyCanvas(true, true);
+                }
+            };
+            const savedSelection = (tab, count) => {
+                const selected = Math.max(1, Number(node.properties.orexSelectedPromptByTab[tab]) || 1);
+                // Shared tabs are empty until their JSON entries finish loading.
+                if (count <= 0) return selected;
+                const clamped = Math.min(selected, count);
+                storeSelection(tab, clamped);
+                writeSelectionState();
+                return clamped;
+            };
             const persistEntries = (list, prompts) => {
                 if (activeTab !== "custom") return;
                 const previousEntries = Array.isArray(node.properties.orexPromptEntries)
@@ -814,7 +898,10 @@ app.registerExtension({
 
             switchTab = (tab, force = false) => {
                 if (!validTabs.includes(tab) || (!force && tab === activeTab)) return;
-                if (!force && activeTab === "custom") normalizeStorage();
+                if (!force) {
+                    rememberSelection();
+                    if (activeTab === "custom") normalizeStorage();
+                }
 
                 activeTab = tab;
                 node.properties.orexActiveTab = tab;
@@ -829,7 +916,7 @@ app.registerExtension({
                 if (storageWidget.options?.setValue) storageWidget.options.setValue(promptsText);
                 else storageWidget.value = promptsText;
                 if (storageWidget.inputEl) storageWidget.inputEl.value = promptsText;
-                selectWidget.value = 1;
+                selectWidget.value = savedSelection(tab, entries.length);
                 namesArea.readOnly = tab !== "custom";
                 promptArea.readOnly = tab !== "custom";
                 for (const [buttonTab, button] of tabButtons) {
@@ -841,6 +928,7 @@ app.registerExtension({
                 syncing = false;
                 refreshPrompt();
                 node.graph?.setDirtyCanvas(true, true);
+                if (!force) node.graph?.change?.();
             };
 
             const lineIndexFromEvent = (event) => {
@@ -959,6 +1047,7 @@ app.registerExtension({
             const originalSelectCallback = selectWidget.callback;
             selectWidget.callback = function () {
                 const result = originalSelectCallback?.apply(this, arguments);
+                rememberSelection(activeTab, true);
                 refreshPrompt();
                 return result;
             };
@@ -990,7 +1079,7 @@ app.registerExtension({
                 event.preventDefault();
                 event.stopPropagation();
                 selectWidget.value = index + 1;
-                refreshPrompt();
+                selectWidget.callback?.(selectWidget.value);
                 const isCustom = activeTab === "custom";
                 const editorEntries = [...currentEntries()];
                 openPromptEditor(

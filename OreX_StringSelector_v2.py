@@ -166,6 +166,7 @@ class OreXStringSelectorV2:
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
                 "prompts_json": ("STRING", {"multiline": True, "default": '[""]'}),
                 "select": ("INT", {"min": 1, "max": sys.maxsize, "step": 1, "default": 1}),
+                "selection_state": ("STRING", {"default": "{}"}),
             },
             "optional": {
                 "text_before": ("STRING", {"forceInput": True}),
@@ -179,7 +180,7 @@ class OreXStringSelectorV2:
     FUNCTION = "select_prompt"
     CATEGORY = "OreX"
 
-    def select_prompt(self, prompt_names, prompt, prompts_json, select, text_before="", text_after=""):
+    def select_prompt(self, prompt_names, prompt, prompts_json, select, selection_state="{}", text_before="", text_after=""):
         if not prompt_names.strip():
             selected = self._join_prompt(text_before, "", text_after)
             return (selected, [])
