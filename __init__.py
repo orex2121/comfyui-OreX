@@ -12,6 +12,7 @@ from .OreX_AudioLoad import OreX_AudioLoad
 from .OreX_AudioLoad_v2 import OreX_AudioLoad_v2
 from .OreX_AdvancedVideoLoad import OreX_AdvancedVideoLoad
 from .OreX_StringSelector import OreXStringSelector
+from .OreX_StringSelector_v2 import OreXStringSelectorV2
 from .OreX_ImageChunkCut import OreXImageChunkCut
 from .OreX_ImageChunkStich import OreXImageChunkStich 
 from .OreX_Scail import OreX_Scail 
@@ -42,6 +43,7 @@ NODE_CLASS_MAPPINGS = {
     "orex Audio load v2": OreX_AudioLoad_v2,
     "orex Advanced Video Load": OreX_AdvancedVideoLoad,
     "orex String Selector": OreXStringSelector,
+    "orex String Selector v2": OreXStringSelectorV2,
     "orex Image Chunk Cut": OreXImageChunkCut,
     "orex Image Chunk Stich": OreXImageChunkStich, 
     "orex Scail2": OreX_Scail, 
@@ -73,6 +75,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "orex Audio load v2": "🔉 Audio Load V2 (OreX)",
     "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
     "orex String Selector": "📝 String Selector (OreX)",
+    "orex String Selector v2": "📝 String Selector v2 (OreX)",
     "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
     "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)",
     "orex Scail2": "📼 Scail2 (OreX)", 

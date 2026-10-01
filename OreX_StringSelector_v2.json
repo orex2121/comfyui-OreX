@@ -1,0 +1,122 @@
+[
+    {
+        "id": "example-krea2-prompt-01",
+        "name": "Neon Rain Courier",
+        "prompt": "A lone bicycle courier racing through a rain-soaked futuristic city at midnight, transparent umbrella canopies above narrow streets, neon signs reflected in black pavement, dynamic low-angle tracking shot, wet fabric and chrome details, deep cyan and warm amber light, cinematic atmosphere, realistic motion and natural film grain",
+        "type": "prompt"
+    },
+    {
+        "id": "example-krea2-prompt-02",
+        "name": "Desert Fashion Expedition",
+        "prompt": "An avant-garde fashion expedition crossing a vast white salt desert, five figures in sculptural wind-blown garments carrying mirrored instruments, distant mountains dissolving into heat haze, wide editorial composition, hard midday sun, crisp shadows, restrained ivory and cobalt palette, tactile fabric detail, photographed on medium-format film",
+        "type": "prompt"
+    },
+    {
+        "id": "example-krea2-prompt-03",
+        "name": "Underwater Museum",
+        "prompt": "A monumental brutalist art museum submerged beneath clear tropical water, visitors walking through dry glass tunnels while manta rays glide overhead, enormous concrete galleries illuminated by moving caustic light, symmetrical wide-angle composition, serene blue-green atmosphere, believable architecture, cinematic photorealism and intricate material detail",
+        "type": "prompt"
+    },
+    {
+        "id": "example-krea2-prompt-04",
+        "name": "Botanical Observatory",
+        "prompt": "A Victorian botanical observatory built inside the crown of an ancient tree, brass telescopes among giant luminous flowers, a botanist recording constellations at blue hour, layered foliage framing the scene, warm lantern light against a violet sky, whimsical yet believable craftsmanship, richly detailed storybook realism",
+        "type": "prompt"
+    },
+    {
+        "id": "example-krea2-prompt-05",
+        "name": "Alpine Glass House",
+        "prompt": "An intimate dinner inside a modern glass house on a snowy alpine ridge, friends gathered around a long wooden table, candles and steam glowing against the cold landscape, a storm moving through distant peaks, warm interior reflections, cinematic 35mm framing, natural expressions, luxurious architectural photography with subtle film grain",
+        "type": "prompt"
+    },
+    {
+        "id": "example-krea2-style-01",
+        "name": "Analog Editorial",
+        "prompt": "Analog editorial photography, medium-format film, soft directional daylight, restrained color palette, authentic skin and fabric texture, slightly imperfect framing, gentle highlight bloom, fine natural grain, sophisticated magazine composition",
+        "type": "style"
+    },
+    {
+        "id": "example-krea2-style-02",
+        "name": "Painterly Gouache",
+        "prompt": "Hand-painted gouache illustration on textured cotton paper, bold simplified shapes, visible dry-brush edges, layered opaque pigments, warm imperfect color registration, expressive lighting, elegant negative space, tactile traditional-media finish",
+        "type": "style"
+    },
+    {
+        "id": "example-krea2-style-03",
+        "name": "Cinematic Naturalism",
+        "prompt": "Cinematic naturalism, grounded production design, motivated practical lighting, realistic atmospheric depth, nuanced shadows, subtle lens character, believable materials, quiet emotional tension, carefully composed widescreen film still",
+        "type": "style"
+    },
+    {
+        "id": "example-krea2-style-04",
+        "name": "Retrofuturist Print",
+        "prompt": "1970s retrofuturist screen print, limited burnt orange, cream, navy and metallic silver palette, coarse halftone texture, geometric silhouettes, bold editorial typography shapes without readable text, offset ink imperfections, collectible poster design",
+        "type": "style"
+    },
+    {
+        "id": "example-krea2-style-05",
+        "name": "Tactile Miniature",
+        "prompt": "Handcrafted miniature diorama, painted resin and paper textures, tiny practical lights, shallow depth of field, macro photography, charming physical imperfections, soft cinematic haze, carefully staged composition, convincing sense of scale",
+        "type": "style"
+    },
+    {
+        "id": "example-qwen21-edit-01",
+        "name": "Golden Hour Relight",
+        "prompt": "Relight the existing scene as warm late golden hour. Preserve the exact composition, camera viewpoint, geometry, people, objects and identities. Replace the current illumination with low-angle sunlight, soft warm highlights, long coherent shadows and subtle atmospheric depth while keeping materials and colors natural.",
+        "type": "edit"
+    },
+    {
+        "id": "example-qwen21-edit-02",
+        "name": "Change Outfit Preserve Identity",
+        "prompt": "Replace the subject's current outfit with an elegant dark navy tailored suit and a clean white shirt. Preserve the person's face, hairstyle, body proportions, pose, hands, expression, camera angle, background and lighting. Make the new clothing fit naturally with realistic folds, seams and fabric texture.",
+        "type": "edit"
+    },
+    {
+        "id": "example-qwen21-edit-03",
+        "name": "Clean Product Background",
+        "prompt": "Keep the product unchanged and remove every distracting object from the scene. Reconstruct the background as a seamless light-gray studio sweep, add a soft grounded contact shadow, preserve the product's exact shape, branding, proportions, materials and viewing angle, and produce clean commercial catalog lighting.",
+        "type": "edit"
+    },
+    {
+        "id": "example-qwen21-edit-04",
+        "name": "Replace Sign Text",
+        "prompt": "Replace only the visible text on the main sign with \"OPEN STUDIO\". Preserve the sign's original size, perspective, material, color, typography style, lighting, reflections and surrounding scene. Make every letter sharp, correctly spelled and naturally integrated into the photograph.",
+        "type": "edit"
+    },
+    {
+        "id": "example-qwen21-edit-05",
+        "name": "Transparent Subject Cutout",
+        "prompt": "Extract the main subject as a clean RGBA cutout with a fully transparent background. Preserve all original subject details, colors and proportions, including fine hair, fur, translucent fabric and soft edge detail. Remove background color contamination and do not add a replacement background or shadow.",
+        "type": "edit"
+    },
+    {
+        "id": "example-llm-system-01",
+        "name": "Helpful Assistant",
+        "prompt": "You are a helpful, accurate, and concise assistant. Answer the user's actual question directly, explain complex ideas in clear language, distinguish facts from assumptions, and say when information is uncertain. Ask a focused clarifying question only when it is necessary to produce a correct answer.",
+        "type": "llm"
+    },
+    {
+        "id": "example-llm-system-02",
+        "name": "Senior Software Engineer",
+        "prompt": "You are a senior software engineer. Produce correct, secure, maintainable solutions that match the existing codebase and constraints. Consider edge cases, failure modes, performance, compatibility, and testing. Prefer simple designs, explain important tradeoffs, and never invent APIs or claim that unverified code was tested.",
+        "type": "llm"
+    },
+    {
+        "id": "example-llm-system-03",
+        "name": "Research Analyst",
+        "prompt": "You are a rigorous research analyst. Break the question into testable claims, evaluate source quality, compare competing explanations, separate evidence from inference, identify uncertainty and missing information, and present a concise conclusion supported by the strongest available evidence.",
+        "type": "llm"
+    },
+    {
+        "id": "example-llm-system-04",
+        "name": "Professional Editor",
+        "prompt": "You are a professional editor. Improve clarity, structure, flow, tone, and precision while preserving the author's meaning and voice. Remove repetition and ambiguity, correct grammar and punctuation, and return polished text without adding unsupported facts. Follow any requested audience, format, or style constraints.",
+        "type": "llm"
+    },
+    {
+        "id": "example-llm-system-05",
+        "name": "Prompt Engineer",
+        "prompt": "You are an expert prompt engineer. Transform the user's goal into a precise and reusable prompt containing the role, objective, relevant context, constraints, process guidance, and required output format. Preserve all explicit requirements, remove ambiguity, and do not add goals the user did not request.",
+        "type": "llm"
+    }
+]

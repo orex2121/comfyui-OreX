@@ -40,15 +40,16 @@
 `16.` [✨ Skin Retouching AI — PaBoKor (Павел К.)](#ru-16-skin-retouching-ai)  
 `17.` [🔤 String Function — OreX (Олег К.)](#ru-17-string-function)  
 `18.` [🔤 String Selector — OreX (Олег К.)](#ru-18-string-selector)  
-`19.` [🎨 Style Selector — OreX (Олег К.)](#ru-19-style-selector)  
-`20.` [📝💾 Text Save — OreX (Олег К.)](#ru-20-text-save)  
-`21.` [🎬 Video Preview — OreX (Олег К.)](#ru-21-video-preview)  
-`22.` [🖼️🔃 Load Image — PaBoKor (Павел К.)](#ru-22-load-image)  
-`23.` [🖼️🔃📦 Load Image Batch — PaBoKor (Павел К.)](#ru-23-load-image-batch)  
-`24.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Павел К.)](#ru-24-load-image-batch-size)  
-`25.` [💾 Save Image — PaBoKor (Павел К.)](#ru-25-save-image)  
-`26.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-26-kontext-presets)  
-`27.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-27-trim-video-to-audio)  
+`19.` [📝 String Selector v2 — OreX (Олег К.)](#ru-19-string-selector-v2)  
+`20.` [🎨 Style Selector — OreX (Олег К.)](#ru-20-style-selector)  
+`21.` [📝💾 Text Save — OreX (Олег К.)](#ru-21-text-save)  
+`22.` [🎬 Video Preview — OreX (Олег К.)](#ru-22-video-preview)  
+`23.` [🖼️🔃 Load Image — PaBoKor (Павел К.)](#ru-23-load-image)  
+`24.` [🖼️🔃📦 Load Image Batch — PaBoKor (Павел К.)](#ru-24-load-image-batch)  
+`25.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Павел К.)](#ru-25-load-image-batch-size)  
+`26.` [💾 Save Image — PaBoKor (Павел К.)](#ru-26-save-image)  
+`27.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-27-kontext-presets)  
+`28.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-28-trim-video-to-audio)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -316,8 +317,25 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Клик мышью по любой строке текста сразу выбирает её — `select` обновляется автоматически, без необходимости считать номер строки вручную.
 - Вывод: выбранная строка целиком.
 
-<a id="ru-19-style-selector"></a>
-#### 19. 🎨 Style Selector
+<a id="ru-19-string-selector-v2"></a>
+#### 19. 📝 String Selector v2
+Автор: OreX (Олег К.)
+
+Расширенный менеджер промптов: хранит именованные промпты внутри workflow, позволяет собирать общую библиотеку по типам и выдаёт как выбранный текст, так и весь набор для пакетной генерации.
+
+**Узел поддерживает:**
+- Вкладку **Custom** для промптов текущего workflow: названия и тексты сохраняются вместе с графом, выбранный промпт показывается в отдельном нижнем поле с переносом строк.
+- Общую библиотеку в файле `OreX_StringSelector_v2.json` рядом с узлом и вкладки **Prompt**, **Style**, **Edit**, **LLM**, автоматически фильтрующие записи по типу.
+- Редактирование записи двойным щелчком: имя, многострочный текст и один обязательный тип из Prompt / Style / Edit / LLM; изменения имени и текста сохраняются вместе.
+- Добавление Custom-промпта в общую библиотеку кнопкой-сердцем и удаление библиотечной записи красной корзиной с подтверждением.
+- Перетаскивание строк для изменения порядка: во вкладке Custom порядок сохраняется в workflow, в библиотечных вкладках — непосредственно в `OreX_StringSelector_v2.json`; записи в файле группируются по типу.
+- Перетаскиваемую горизонтальную перегородку между списком и текстом промпта; выбранное положение сохраняется в workflow, начальное соотношение областей — 3:1.
+- Опциональные входы `text_before` и `text_after`: непустые части добавляются до и после промпта с разделением одним пробелом.
+- Два выхода: `String` с выбранным объединённым промптом и `String Batch` со всеми Custom-промптами для пакетной генерации (с теми же `text_before` и `text_after`).
+- Голубую кнопку **Backup**, сохраняющую отдельную резервную копию `OreX_StringSelector_v2.json` в выбранную пользователем папку без смены рабочего файла библиотеки.
+
+<a id="ru-20-style-selector"></a>
+#### 20. 🎨 Style Selector
 Автор: OreX (Олег К.)
 
 Визуальный выбор стилей промпта из галереи с превью-картинками (как в A1111/Fooocus), прямо на узле, на основе JSON-наборов с шаблонами промптов.
@@ -333,8 +351,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Переключатель batch-режима (`batch_mode`): выключен — все выбранные стили объединяются в один общий промпт (по умолчанию); включён — вместо этого на выходе отдельная позитивная/негативная строка и имя файла на каждый выбранный стиль, в виде параллельных списков — удобно для генерации по одному изображению на стиль за проход батча.
 - Вывод (списками): позитивный(е) промпт(ы), негативный(е) промпт(ы) и подсказка имени файла на каждый стиль (берётся из имени файла превью — удобно для именования сохранённых результатов по использованному стилю).
 
-<a id="ru-20-text-save"></a>
-#### 20. 📝💾 Text Save
+<a id="ru-21-text-save"></a>
+#### 21. 📝💾 Text Save
 Автор: OreX (Олег К.)
 
 Сохранение произвольного текста (логов, подписей, сгенерированных промптов и т.п.) в файл нужного формата, опционально вместе с изображением — аналог Save Image, но для текстовых данных.
@@ -347,8 +365,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Опциональное сохранение изображения вместе с текстом, в одном из 6 форматов (PNG/JPG/JPEG/WEBP/BMP/TIFF) с настройкой качества для JPG/WEBP, опциональной оптимизацией PNG и встраиванием workflow в метаданные сохранённого изображения (текстовый чанк PNG или EXIF у WEBP).
 - Вывод: пробрасывает текст и изображение дальше без изменений, так что узел можно вставить в середину цепочки, не разрывая поток данных.
 
-<a id="ru-21-video-preview"></a>
-#### 21. 🎬 Video Preview
+<a id="ru-22-video-preview"></a>
+#### 22. 🎬 Video Preview
 Автор: OreX (Олег К.)
 
 Просмотр и сохранение видео прямо в workflow — принимает как готовое видео, так и секвенцию изображений, с гибкими настройками кодирования, разрешения и звука.
@@ -365,8 +383,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Двуязычную систему подсказок по каждому параметру.
 - Вывод: итоговый видеообъект (для дальнейшей передачи по цепочке) плюс встроенный видеоплеер прямо в интерфейсе ComfyUI.
 
-<a id="ru-22-load-image"></a>
-#### 22. 🖼️🔃 Load Image
+<a id="ru-23-load-image"></a>
+#### 23. 🖼️🔃 Load Image
 Автор: PaBoKor (Павел К.)
 
 **Узел поддерживает:**
@@ -377,8 +395,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Вывод имени файла без расширения (`filename`) — для дальнейшего именования в узле Save Image.
 - Вывод ширины и высоты изображения (`width`, `height`).
 
-<a id="ru-23-load-image-batch"></a>
-#### 23. 🖼️🔃📦 Load Image Batch
+<a id="ru-24-load-image-batch"></a>
+#### 24. 🖼️🔃📦 Load Image Batch
 Автор: PaBoKor (Павел К.)
 
 **Узел поддерживает:**
@@ -393,8 +411,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Защиту от "зависания", если часть файлов пропала с диска между запусками — узел пропускает отсутствующие файлы и переходит к следующему.
 - Вывод: изображение, имя файла (без расширения), путь к папке, общее количество найденных файлов, индекс текущего изображения.
 
-<a id="ru-24-load-image-batch-size"></a>
-#### 24. 🖼️📦📏 Load Image Batch Size
+<a id="ru-25-load-image-batch-size"></a>
+#### 25. 🖼️📦📏 Load Image Batch Size
 Автор: PaBoKor (Павел К.)
 
 Похож на Load Image Batch, но вместо выдачи по одному изображению за проход сразу загружает пачку из N изображений списком, начиная с указанного индекса — для параллельной, а не последовательной обработки батча.
@@ -408,8 +426,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Если `start_index` выходит за пределы количества файлов — подставляется последний доступный файл вместо ошибки; если запрошенная пачка выходит за конец списка, просто возвращается меньше изображений (без зацикливания, в отличие от инкрементального узла).
 - Вывод: список изображений, список имён файлов, путь к папке, общее число найденных файлов.
 
-<a id="ru-25-save-image"></a>
-#### 25. 💾 Save Image
+<a id="ru-26-save-image"></a>
+#### 26. 💾 Save Image
 Автор: PaBoKor (Павел К.)
 
 **Узел поддерживает:**
@@ -429,8 +447,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 ![Show Text](screenshots/Save-Load-Image-workflow2.jpg)
 
-<a id="ru-26-kontext-presets"></a>
-#### 26. 🖌️ Kontext Presets
+<a id="ru-27-kontext-presets"></a>
+#### 27. 🖌️ Kontext Presets
 Автор: OreX (Олег К.)
 
 Сборка структурированного системного промпта (для LLM или Kontext-style моделей редактирования/vision) из фиксированных начала/конца и переключаемых пресетов — на основе двух отдельных JSON-файлов конфигурации.
@@ -447,8 +465,8 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 Как и у Style Selector, узел зависит от JSON-файлов конфигурации рядом с ним в папке — но, в отличие от Style Selector, редактора пресетов прямо в интерфейсе узла нет, править нужно вручную в самих JSON-файлах.
 
-<a id="ru-27-trim-video-to-audio"></a>
-#### 27. 🎬✂️ Trim Video To Audio
+<a id="ru-28-trim-video-to-audio"></a>
+#### 28. 🎬✂️ Trim Video To Audio
 Автор: PaBoKor (Павел К.)
 
 Обрезает видеодорожку по длине аудио. Нужен, когда модель генерирует видео чуть длиннее звука (например, из-за округления числа кадров до требуемого моделью формата), и при склейке нескольких роликов в один на стыках появляется рассинхрон или «хвост» без звука.
@@ -517,15 +535,16 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `16.` [✨ Skin Retouching AI — PaBoKor (Pavel K.)](#en-16-skin-retouching-ai)  
 `17.` [🔤 String Function — OreX (Oleg K.)](#en-17-string-function)  
 `18.` [🔤 String Selector — OreX (Oleg K.)](#en-18-string-selector)  
-`19.` [🎨 Style Selector — OreX (Oleg K.)](#en-19-style-selector)  
-`20.` [📝💾 Text Save — OreX (Oleg K.)](#en-20-text-save)  
-`21.` [🎬 Video Preview — OreX (Oleg K.)](#en-21-video-preview)  
-`22.` [🖼️🔃 Load Image — PaBoKor (Pavel K.)](#en-22-load-image)  
-`23.` [🖼️🔃📦 Load Image Batch — PaBoKor (Pavel K.)](#en-23-load-image-batch)  
-`24.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Pavel K.)](#en-24-load-image-batch-size)  
-`25.` [💾 Save Image — PaBoKor (Pavel K.)](#en-25-save-image)  
-`26.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-26-kontext-presets)  
-`27.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-27-trim-video-to-audio)  
+`19.` [📝 String Selector v2 — OreX (Oleg K.)](#en-19-string-selector-v2)  
+`20.` [🎨 Style Selector — OreX (Oleg K.)](#en-20-style-selector)  
+`21.` [📝💾 Text Save — OreX (Oleg K.)](#en-21-text-save)  
+`22.` [🎬 Video Preview — OreX (Oleg K.)](#en-22-video-preview)  
+`23.` [🖼️🔃 Load Image — PaBoKor (Pavel K.)](#en-23-load-image)  
+`24.` [🖼️🔃📦 Load Image Batch — PaBoKor (Pavel K.)](#en-24-load-image-batch)  
+`25.` [🖼️📦📏 Load Image Batch Size — PaBoKor (Pavel K.)](#en-25-load-image-batch-size)  
+`26.` [💾 Save Image — PaBoKor (Pavel K.)](#en-26-save-image)  
+`27.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-27-kontext-presets)  
+`28.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-28-trim-video-to-audio)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -793,8 +812,25 @@ Picks a single line out of a multiline block of text by number — an easy way t
 - Clicking any line in the text immediately selects it — `select` updates automatically, no need to count line numbers by hand.
 - Output: the selected line.
 
-<a id="en-19-style-selector"></a>
-#### 19. 🎨 Style Selector
+<a id="en-19-string-selector-v2"></a>
+#### 19. 📝 String Selector v2
+Author: OreX (Oleg K.)
+
+An advanced prompt manager that stores named prompts in the workflow, maintains a shared type-based library, and outputs either the selected text or the complete set for batch generation.
+
+**The node supports:**
+- A **Custom** tab for prompts belonging to the current workflow: names and prompt texts are saved with the graph, while the selected prompt is displayed in a separate word-wrapped field below the list.
+- A shared library stored in `OreX_StringSelector_v2.json` next to the node, with **Prompt**, **Style**, **Edit**, and **LLM** tabs that filter entries by type.
+- Double-click editing of an entry's name, multiline prompt text, and exactly one required type: Prompt / Style / Edit / LLM; name and text changes are saved together.
+- Adding a Custom prompt to the shared library with the heart button, and deleting a library entry with the red trash button after confirmation.
+- Drag-and-drop row reordering: Custom order is saved in the workflow, while library-tab order is written directly to `OreX_StringSelector_v2.json`; file entries remain grouped by type.
+- A draggable horizontal divider between the list and prompt text; its position is saved in the workflow, with an initial 3:1 area ratio.
+- Optional `text_before` and `text_after` inputs: non-empty parts are placed before and after the prompt, separated by a single space.
+- Two outputs: `String` for the selected combined prompt and `String Batch` for all Custom prompts in batch generation, with the same `text_before` and `text_after` applied.
+- A blue **Backup** button that saves a separate copy of `OreX_StringSelector_v2.json` to a user-selected location without changing the active library file.
+
+<a id="en-20-style-selector"></a>
+#### 20. 🎨 Style Selector
 Author: OreX (Oleg K.)
 
 A visual prompt-style picker with a thumbnail gallery (like the style browsers in A1111/Fooocus), built right into the node, backed by JSON style packs with prompt templates.
@@ -810,8 +846,8 @@ A visual prompt-style picker with a thumbnail gallery (like the style browsers i
 - A batch-mode toggle (`batch_mode`): off merges all selected styles into a single combined prompt (default); on instead outputs a separate positive/negative/file-name entry per selected style, as parallel lists — useful for generating one image per style in a batch run.
 - Output (as lists): the positive prompt(s), negative prompt(s), and a file-name hint per style (derived from its thumbnail's filename — handy for naming saved outputs after the style used).
 
-<a id="en-20-text-save"></a>
-#### 20. 📝💾 Text Save
+<a id="en-21-text-save"></a>
+#### 21. 📝💾 Text Save
 Author: OreX (Oleg K.)
 
 Saves arbitrary text (logs, captions, generated prompts, etc.) to a file in the chosen format, optionally alongside an image — similar in spirit to Save Image, but for text data.
@@ -824,8 +860,8 @@ Saves arbitrary text (logs, captions, generated prompts, etc.) to a file in the 
 - An optional accompanying image save alongside the text, in one of 6 formats (PNG/JPG/JPEG/WEBP/BMP/TIFF) with quality control for JPG/WEBP, optional PNG optimization, and the workflow embedded into the saved image's metadata (a PNG text chunk, or EXIF for WEBP).
 - Output: passes the text and image straight through unchanged, so the node can sit anywhere mid-chain without breaking the flow.
 
-<a id="en-21-video-preview"></a>
-#### 21. 🎬 Video Preview
+<a id="en-22-video-preview"></a>
+#### 22. 🎬 Video Preview
 Author: OreX (Oleg K.)
 
 Preview and save video right inside the workflow — accepts either a ready-made video or an image sequence, with flexible encoding, resolution, and audio settings.
@@ -842,8 +878,8 @@ Preview and save video right inside the workflow — accepts either a ready-made
 - A bilingual tooltip system for every parameter.
 - Output: the resulting video object (for further chaining), plus an inline video player shown right in the ComfyUI UI.
 
-<a id="en-22-load-image"></a>
-#### 22. 🖼️🔃 Load Image
+<a id="en-23-load-image"></a>
+#### 23. 🖼️🔃 Load Image
 Author: PaBoKor (Pavel K.)
 
 **The node supports:**
@@ -854,8 +890,8 @@ Author: PaBoKor (Pavel K.)
 - Output of the filename without extension (`filename`) — for later use, e.g. naming in the Save Image node.
 - Output of image width and height (`width`, `height`).
 
-<a id="en-23-load-image-batch"></a>
-#### 23. 🖼️🔃📦 Load Image Batch
+<a id="en-24-load-image-batch"></a>
+#### 24. 🖼️🔃📦 Load Image Batch
 Author: PaBoKor (Pavel K.)
 
 **The node supports:**
@@ -870,8 +906,8 @@ Author: PaBoKor (Pavel K.)
 - Protection against a "hang" if some files disappear from disk between runs — the node skips missing files and moves to the next one.
 - Output: image, filename (without extension), folder path, total number of files found, current image index.
 
-<a id="en-24-load-image-batch-size"></a>
-#### 24. 🖼️📦📏 Load Image Batch Size
+<a id="en-25-load-image-batch-size"></a>
+#### 25. 🖼️📦📏 Load Image Batch Size
 Author: PaBoKor (Pavel K.)
 
 Similar to Load Image Batch, but instead of returning one image per run it loads a batch of N images at once as a list, starting from a given index — for parallel rather than sequential batch processing.
@@ -885,8 +921,8 @@ Similar to Load Image Batch, but instead of returning one image per run it loads
 - If `start_index` is beyond the file count, it clamps to the last available file instead of erroring; if the requested batch runs past the end of the list, it simply returns fewer images (no wraparound, unlike the incremental node).
 - Output: a list of images, a list of filenames, the folder path, and the total number of files found.
 
-<a id="en-25-save-image"></a>
-#### 25. 💾 Save Image
+<a id="en-26-save-image"></a>
+#### 26. 💾 Save Image
 Author: PaBoKor (Pavel K.)
 
 **The node supports:**
@@ -906,8 +942,8 @@ Author: PaBoKor (Pavel K.)
 
 ![Show Text](screenshots/Save-Load-Image-workflow2.jpg)
 
-<a id="en-26-kontext-presets"></a>
-#### 26. 🖌️ Kontext Presets
+<a id="en-27-kontext-presets"></a>
+#### 27. 🖌️ Kontext Presets
 Author: OreX (Oleg K.)
 
 Assembles a structured system/instruction prompt (for LLM or Kontext-style editing/vision models) out of fixed start/end instructions plus swappable presets — driven by two separate JSON config files.
@@ -924,8 +960,8 @@ Assembles a structured system/instruction prompt (for LLM or Kontext-style editi
 
 Like Style Selector, this node depends on JSON config files sitting next to it — but unlike Style Selector, there's no in-node editor for the presets; they're edited by hand in the JSON files.
 
-<a id="en-27-trim-video-to-audio"></a>
-#### 27. 🎬✂️ Trim Video To Audio
+<a id="en-28-trim-video-to-audio"></a>
+#### 28. 🎬✂️ Trim Video To Audio
 Author: PaBoKor (Pavel K.)
 
 Trims the video track to the audio length. Useful when a model generates video slightly longer than the sound (e.g. because the frame count is rounded up to the format the model requires), which causes desync or a silent "tail" at the seams when several clips are joined into one.
