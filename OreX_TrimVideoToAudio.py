@@ -14,13 +14,16 @@ class OreX_TrimVideoToAudio:
     """
     Author: Pavel Korzhov (PaBoKor)
 
-    Обрезает видеодорожку по длине аудио. Аудио остаётся целиком:
-    длина видео = ceil(длительность_аудио * fps) кадров, а недостающий
-    хвост аудио (меньше одного кадра) добивается тишиной.
+    Обрезает видеодорожку по длине аудио (или, в режиме pad_to_video,
+    оставляет видео нетронутым и дополняет аудио тишиной до его длины —
+    для склейки роликов встык, когда последний кадр видео несёт смысловую
+    нагрузку как референс следующего куска и его нельзя терять при
+    обрезке).
 
-    Trims the video track to the audio length. Audio is kept intact:
-    video length = ceil(audio_duration * fps) frames, and the sub-frame
-    remainder is padded with silence.
+    Trims the video track to the audio length (or, in pad_to_video mode,
+    leaves the video untouched and pads the audio with silence to its
+    length — for back-to-back stitching, when the video's last frame
+    matters as the next chunk's reference frame and must not be cut away).
     """
 
     @classmethod
@@ -32,12 +35,18 @@ class OreX_TrimVideoToAudio:
                 "audio": ("AUDIO", {
                     "tooltip": "Аудио, по длине которого обрезаем видео / "
                                "Audio whose length defines the result"}),
-                "audio_fit": (["pad_silence", "trim"], {
+                "audio_fit": (["pad_silence", "trim", "pad_to_video"], {
                     "default": "pad_silence",
-                    "tooltip": "pad_silence: аудио не режется, в конец добавляется тишина до границы кадра. "
-                               "trim: аудио режется по длине видео, тишина не добавляется / "
-                               "pad_silence: audio is kept, silence is added up to the frame boundary. "
-                               "trim: audio is cut to the video length, no padding"}),
+                    "tooltip": "pad_silence: видео обрезается по аудио, аудио не режется, в конец добавляется "
+                               "тишина до границы кадра. trim: видео обрезается по аудио, аудио тоже режется "
+                               "по длине видео, тишина не добавляется. pad_to_video: видео НЕ обрезается (все "
+                               "кадры сохраняются, в т.ч. референсный последний кадр для склейки), аудио "
+                               "дополняется тишиной до полной длины видео / "
+                               "pad_silence: video is trimmed to the audio, audio is kept and padded with "
+                               "silence up to the frame boundary. trim: video is trimmed to the audio, audio is "
+                               "also cut to the video length, no padding. pad_to_video: video is NOT trimmed "
+                               "(all frames kept, including the last frame used as a reference for stitching), "
+                               "audio is padded with silence up to the full video length"}),
             }
         }
 
@@ -53,6 +62,31 @@ class OreX_TrimVideoToAudio:
 
         waveform = audio["waveform"]               # [B, C, S]
         sr = int(audio["sample_rate"])
+
+        if audio_fit == "pad_to_video":
+            # Видео остаётся как есть целиком; аудио просто дополняется
+            # тишиной до полной длины видео (или обрезается, если вдруг
+            # оказалось длиннее видео).
+            n_frames = images.shape[0]
+            video_dur = n_frames / fps
+            target = int(round(video_dur * sr))
+            cur = waveform.shape[-1]
+            if cur > target:
+                waveform = waveform[..., :target]
+            elif cur < target:
+                pad = torch.zeros(
+                    (*waveform.shape[:-1], target - cur),
+                    dtype=waveform.dtype, device=waveform.device,
+                )
+                waveform = torch.cat([waveform, pad], dim=-1)
+            waveform = waveform.contiguous()
+
+            out_audio = {"waveform": waveform, "sample_rate": sr}
+            new_video = VideoFromComponents(
+                VideoComponents(images=images, audio=out_audio, frame_rate=comps.frame_rate)
+            )
+            return (new_video, video_dur)
+
         audio_dur = waveform.shape[-1] / sr
 
         # Small tolerance so that 102.0000001 frames does not become 103

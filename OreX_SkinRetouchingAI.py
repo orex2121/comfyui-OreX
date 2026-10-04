@@ -120,6 +120,7 @@ class OreX_SkinRetouchingAI:
                 "skin-retouching-torch",
                 model=local_dir,
                 model_revision=_MODEL_REVISION,
+                trust_remote_code=True,
             )
         return cls._pipeline
 
