@@ -50,6 +50,7 @@
 `26.` [💾 Save Image — PaBoKor (Павел К.)](#ru-26-save-image)  
 `27.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-28-trim-video-to-audio)  
+`29.` [🎭 Mask Selection — OreX (Олег К.)](#ru-29-mask-selection)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -469,16 +470,31 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 #### 28. 🎬✂️ Trim Video To Audio
 Автор: PaBoKor (Павел К.)
 
-Подгоняет длину видеодорожки и аудиодорожки друг под друга. Нужен, когда модель генерирует видео чуть длиннее звука (например, из-за округления числа кадров до требуемого моделью формата), и при склейке нескольких роликов в один на стыках появляется рассинхрон или «хвост» без звука.
+Обрезает видеодорожку по длине аудио. Нужен, когда модель генерирует видео чуть длиннее звука (например, из-за округления числа кадров до требуемого моделью формата), и при склейке нескольких роликов в один на стыках появляется рассинхрон или «хвост» без звука.
 
 **Узел поддерживает:**
-- Вход `video` (VIDEO) и вход `audio` (AUDIO) — звук, под который подгоняется видео; в итоговое видео встраивается именно этот звук.
+- Вход `video` (VIDEO) и вход `audio` (AUDIO) — звук, по длительности которого обрезается видео; в итоговое видео встраивается именно этот звук.
 - Точный расчёт числа кадров: `ceil(длительность_аудио × fps)` с небольшим допуском на погрешность float; fps берётся из самого видео, поэтому корректно работает и после интерполяции (RIFE и т.п.). Если в видео кадров меньше, чем нужно, оно не растягивается.
-- Три режима подгонки (`audio_fit`):
-  - **pad_silence** (по умолчанию) — видео обрезается по длине аудио; само аудио не режется, в конец добавляется тишина до границы кадра (не более одного кадра); длины видео и звука совпадают, ни один сэмпл озвучки не теряется.
-  - **trim** — видео обрезается по длине аудио; аудио тоже режется по длине получившегося видео, тишина не добавляется.
-  - **pad_to_video** — видео НЕ обрезается, сохраняются все кадры целиком; аудио дополняется тишиной до полной длины видео. Нужен для склейки роликов встык «кусок за куском» (когда референс последнего кадра одного куска становится референсом первого кадра следующего): обрезка видео по аудио в этом сценарии срезает тот самый референсный кадр раньше, чем персонаж успевает дойти до нужной позы, и на стыке виден скачок — `pad_to_video` эту проблему убирает.
-- Вывод: итоговое видео со встроенным звуком (`video`) и его итоговая длительность в секундах (`duration_sec`).
+- Два режима подгонки звука (`audio_fit`):
+  - **pad_silence** (по умолчанию) — аудио не режется, в конец добавляется тишина до границы кадра (не более одного кадра); длины видео и звука совпадают, ни один сэмпл озвучки не теряется — оптимально для последующей склейки роликов.
+  - **trim** — аудио никогда не удлиняется: если оно длиннее видео, обрезается по его длине; если короче — остаётся как есть.
+- Вывод: обрезанное видео со встроенным звуком (`video`) и его итоговая длительность в секундах (`duration_sec`).
+
+<a id="ru-29-mask-selection"></a>
+#### 29. 🎭 Mask Selection
+Автор: OreX (Олег К.)
+
+Создаёт маску выбранных частей человека с помощью многоклассовой модели MediaPipe. Может одновременно выделять несколько категорий и при необходимости уточнять края маски.
+
+**Узел поддерживает:**
+- Пакетную обработку изображений через вход `images`.
+- Независимый выбор категорий `face`, `hair`, `body`, `clothes`, `accessories` и `background`; выбранные категории объединяются в одну маску. Если все категории отключены, возвращается пустая маска.
+- Настраиваемый порог вероятности `confidence`, определяющий, какие пиксели попадут в маску.
+- Четыре способа уточнения краёв: `VITMatte`, `VITMatte(local)`, `PyMatting` и `GuidedFilter`. Обработку краёв можно полностью отключить параметром `process_detail`.
+- Управление областью неопределённых краёв через `detail_erode` и `detail_dilate`, а также финальным контрастом маски через `black_point` и `white_point`.
+- Выбор `cuda` или `cpu` для VITMatte и ограничение рабочего разрешения параметром `max_megapixels` для экономии памяти.
+- Автоматическую загрузку модели MediaPipe `selfie_multiclass_256x256.tflite` из официального хранилища Google в `ComfyUI/models/mediapipe/`, если файла ещё нет.
+- Два выхода: исходное изображение с маской в альфа-канале (`image`) и отдельная маска ComfyUI (`mask`).
 
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
@@ -546,6 +562,7 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `26.` [💾 Save Image — PaBoKor (Pavel K.)](#en-26-save-image)  
 `27.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-28-trim-video-to-audio)  
+`29.` [🎭 Mask Selection — OreX (Oleg K.)](#en-29-mask-selection)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -965,16 +982,31 @@ Like Style Selector, this node depends on JSON config files sitting next to it �
 #### 28. 🎬✂️ Trim Video To Audio
 Author: PaBoKor (Pavel K.)
 
-Fits the video track and the audio track to each other's length. Useful when a model generates video slightly longer than the sound (e.g. because the frame count is rounded up to the format the model requires), which causes desync or a silent "tail" at the seams when several clips are joined into one.
+Trims the video track to the audio length. Useful when a model generates video slightly longer than the sound (e.g. because the frame count is rounded up to the format the model requires), which causes desync or a silent "tail" at the seams when several clips are joined into one.
 
 **The node supports:**
-- A `video` input (VIDEO) and an `audio` input (AUDIO) — the sound the video is fitted to; exactly this sound is embedded into the resulting video.
+- A `video` input (VIDEO) and an `audio` input (AUDIO) — the sound whose duration the video is trimmed to; exactly this sound is embedded into the resulting video.
 - Exact frame-count calculation: `ceil(audio_duration × fps)` with a small float-error tolerance; the fps is taken from the video itself, so it works correctly after interpolation (RIFE etc.) too. If the video has fewer frames than needed, it is not stretched.
-- Three fitting modes (`audio_fit`):
-  - **pad_silence** (default) — the video is trimmed to the audio length; the audio itself is not cut, silence (at most one frame long) is appended up to the frame boundary; video and audio lengths match and not a single sample of the voice-over is lost.
-  - **trim** — the video is trimmed to the audio length; the audio is also cut to the resulting video length, no padding.
-  - **pad_to_video** — the video is NOT trimmed, all frames are kept as-is; the audio is padded with silence up to the full video length. Needed for back-to-back stitching of clips (where the last frame's reference becomes the next clip's first-frame reference): trimming the video to the audio in that scenario cuts off the reference frame before the character reaches the intended pose, causing a visible jump at the seam — `pad_to_video` removes that problem.
-- Output: the resulting video with embedded audio (`video`) and its final duration in seconds (`duration_sec`).
+- Two audio-fitting modes (`audio_fit`):
+  - **pad_silence** (default) — the audio is not cut; silence (at most one frame long) is appended up to the frame boundary; video and audio lengths match and not a single sample of the voice-over is lost — best for joining clips afterwards.
+  - **trim** — the audio is never extended: if it is longer than the video it is cut to the video length; if shorter, it is left as is.
+- Output: the trimmed video with embedded audio (`video`) and its final duration in seconds (`duration_sec`).
+
+<a id="en-29-mask-selection"></a>
+#### 29. 🎭 Mask Selection
+Author: OreX (Oleg K.)
+
+Creates a mask of selected human parts using MediaPipe's multiclass segmentation model. Multiple categories can be selected at once, with optional edge refinement.
+
+**The node supports:**
+- Batch image processing through the `images` input.
+- Independent `face`, `hair`, `body`, `clothes`, `accessories`, and `background` category switches; enabled categories are merged into one mask. If every category is disabled, the node returns an empty mask.
+- An adjustable `confidence` threshold that controls which pixels are included in the mask.
+- Four edge-refinement methods: `VITMatte`, `VITMatte(local)`, `PyMatting`, and `GuidedFilter`. Refinement can be disabled completely with `process_detail`.
+- Control over the uncertain edge region with `detail_erode` and `detail_dilate`, plus final mask contrast adjustment with `black_point` and `white_point`.
+- `cuda` or `cpu` selection for VITMatte and a `max_megapixels` processing limit to reduce memory use.
+- Automatic download of the MediaPipe `selfie_multiclass_256x256.tflite` model from Google's official model storage into `ComfyUI/models/mediapipe/` when the file is missing.
+- Two outputs: the source image with the mask in its alpha channel (`image`) and a separate ComfyUI mask (`mask`).
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import

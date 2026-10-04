@@ -27,6 +27,7 @@ from .OreX_CameraRaw import OreX_CameraRaw
 from .OreX_VideoPreview import OreX_VideoPreview
 from .OreX_SkinRetouchingAI import OreX_SkinRetouchingAI
 from .OreX_TrimVideoToAudio import OreX_TrimVideoToAudio
+from .OreX_MaskSelection import OreX_MaskSelection
 
 NODE_CLASS_MAPPINGS = {
     "orex Load Image": OreXImageLoad,
@@ -58,6 +59,7 @@ NODE_CLASS_MAPPINGS = {
     "OreX Video Preview": OreX_VideoPreview,
     "orex Skin Retouching AI": OreX_SkinRetouchingAI,
     "orex Trim Video To Audio": OreX_TrimVideoToAudio,
+    "OreX_MaskSelection": OreX_MaskSelection,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -90,6 +92,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "OreX Video Preview": "📺 Video Preview (OreX)",
     "orex Skin Retouching AI": "✨ Skin Retouching AI (OreX)",
     "orex Trim Video To Audio": "✂️ Trim Video To Audio (OreX)",
+    "OreX_MaskSelection": "🎭 Mask Selection (OreX)",
 }
 
 WEB_DIRECTORY = "./js"

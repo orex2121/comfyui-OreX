@@ -3,3 +3,7 @@ soundfile
 pydub
 pyloudnorm
 modelscope
+mediapipe
+opencv-contrib-python
+pymatting
+transformers>=4.43.2
