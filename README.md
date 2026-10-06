@@ -51,6 +51,8 @@
 `27.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-28-trim-video-to-audio)  
 `29.` [🎭 Mask Selection — OreX (Олег К.)](#ru-29-mask-selection)  
+`30.` [⛓️‍💥 Image Tile Crop — OreX (Олег К.)](#ru-30-image-tile-crop)  
+`31.` [🔗Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -496,6 +498,42 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Автоматическую загрузку модели MediaPipe `selfie_multiclass_256x256.tflite` из официального хранилища Google в `ComfyUI/models/mediapipe/`, если файла ещё нет.
 - Два выхода: исходное изображение с маской в альфа-канале (`image`) и отдельная маска ComfyUI (`mask`).
 
+<a id="ru-30-image-tile-crop"></a>
+#### 30. ⛓️‍💥 Image Tile Crop
+Автор: OreX (Олег К.)  
+Основано на Divide and Conquer от Steudio.
+
+Подготавливает изображение к обработке по частям: рассчитывает итоговое разрешение, при необходимости увеличивает изображение и нарезает его на перекрывающиеся плитки. Работает в паре с **🔗Image Tile Stitch**, который собирает обработанные плитки обратно.
+
+**Узел поддерживает:**
+- Входное изображение `image` и выбор результата через `tile`: `0` возвращает все плитки, значение от `1` — только плитку с указанным номером.
+- Независимый размер плитки через `tile_width` и `tile_height`.
+- Перекрытие `min_overlap`: `None`, `1/64`, `1/56`, `1/48`, `1/40`, `1/32`, `1/28`, `1/24`, `1/20`, `1/16`, `1/12`, `1/8`, `1/6`, `1/4` или `1/2` размера плитки.
+- Три режима расчёта итогового разрешения (`mode_scale`):
+  - **max_tiles_by_side** (по умолчанию) — задаёт максимальное количество плиток по любой из сторон; `max_tiles_by_side` по умолчанию равен `2`. Ни горизонтальная, ни вертикальная сторона сетки не превысит выбранное значение, а одна из них достигнет этого предела. Перекрытие между плитками учитывается в итоговом размере.
+  - **min_scale_factor** — минимальный коэффициент увеличения; значение `min_scale_factor` по умолчанию равно `1.5`.
+  - **min_longest_size** — минимальный размер длинной стороны в пикселях; значение `min_longest_size` по умолчанию равно `1536`. Этот режим не уменьшает изображение, которое уже больше заданного размера.
+- Автоматическое сохранение пропорций исходного изображения и подгонку обеих сторон под целую сетку. Если в режиме `max_tiles_by_side` одна из сторон получается меньше одной плитки, узел сообщает минимально допустимый предел.
+- Два порядка плиток (`tile_order`): **linear** (по умолчанию) и **spiral**.
+- Методы изменения размера: nearest-exact, bilinear, area, bicubic и lanczos.
+- Встроенный выбор модели апскейла из `ComfyUI/models/upscale_models`; значение `none` отключает нейросетевой апскейл. После модели изображение приводится к точно рассчитанному разрешению выбранным методом масштабирования.
+- Три выхода: подготовленное полное изображение (`IMAGE`), служебные данные разметки (`dac_data`) и список/выбранная плитка (`TILE(S)`). `dac_data` необходимо без изменений передать в Image Tile Stitch.
+
+<a id="ru-31-image-tile-stitch"></a>
+#### 31. 🔗Image Tile Stitch
+Автор: OreX (Олег К.)  
+Основано на Divide and Conquer от Steudio.
+
+Собирает обработанные плитки от **⛓️‍💥 Image Tile Crop** обратно в одно изображение и плавно смешивает области перекрытия.
+
+**Узел поддерживает:**
+- Список обработанных плиток через вход `images` и данные исходной разметки через `dac_data`.
+- Проверку количества плиток: оно должно совпадать с рассчитанной сеткой, иначе выводится понятная ошибка.
+- Восстановление правильных координат как для линейного, так и для спирального порядка плиток.
+- Плавное смешивание перекрытий масками: для узких перекрытий используется Box Blur, для широких — Gaussian Blur.
+- Сохранение типа данных, устройства и фактического количества каналов входных изображений.
+- Один выход `image` без дополнительного UI-выхода.
+
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -563,6 +601,8 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `27.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-28-trim-video-to-audio)  
 `29.` [🎭 Mask Selection — OreX (Oleg K.)](#en-29-mask-selection)  
+`30.` [⛓️‍💥 Image Tile Crop — OreX (Oleg K.)](#en-30-image-tile-crop)  
+`31.` [🔗Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1007,6 +1047,42 @@ Creates a mask of selected human parts using MediaPipe's multiclass segmentation
 - `cuda` or `cpu` selection for VITMatte and a `max_megapixels` processing limit to reduce memory use.
 - Automatic download of the MediaPipe `selfie_multiclass_256x256.tflite` model from Google's official model storage into `ComfyUI/models/mediapipe/` when the file is missing.
 - Two outputs: the source image with the mask in its alpha channel (`image`) and a separate ComfyUI mask (`mask`).
+
+<a id="en-30-image-tile-crop"></a>
+#### 30. ⛓️‍💥 Image Tile Crop
+Author: OreX (Oleg K.)  
+Based on Divide and Conquer by Steudio.
+
+Prepares an image for tiled processing: calculates the target resolution, optionally upscales the image, and splits it into overlapping tiles. It is designed to work with **🔗Image Tile Stitch**, which assembles the processed tiles back into a complete image.
+
+**The node supports:**
+- An `image` input and tile selection through `tile`: `0` returns all tiles, while values starting at `1` return only the requested tile.
+- Independent tile dimensions through `tile_width` and `tile_height`.
+- `min_overlap` choices of `None`, `1/64`, `1/56`, `1/48`, `1/40`, `1/32`, `1/28`, `1/24`, `1/20`, `1/16`, `1/12`, `1/8`, `1/6`, `1/4`, or `1/2` of the tile size.
+- Three target-resolution modes (`mode_scale`):
+  - **max_tiles_by_side** (default) — sets the maximum tile count on either side; `max_tiles_by_side` defaults to `2`. Neither the horizontal nor vertical grid dimension can exceed the selected value, and one of them reaches that limit. Tile overlap is included in the resulting size.
+  - **min_scale_factor** — sets the minimum upscale factor; `min_scale_factor` defaults to `1.5`.
+  - **min_longest_size** — sets the minimum longest-side resolution in pixels; `min_longest_size` defaults to `1536`. This mode does not downscale an image that is already larger than the requested size.
+- Automatic preservation of the source aspect ratio and adjustment of both sides to a complete tile grid. If `max_tiles_by_side` would make either side smaller than one tile, the node reports the minimum valid limit.
+- Two tile orders (`tile_order`): **linear** (default) and **spiral**.
+- nearest-exact, bilinear, area, bicubic, and lanczos resize methods.
+- A built-in upscaler-model selector populated from `ComfyUI/models/upscale_models`; `none` disables model-based upscaling. After model upscaling, the image is resized to the exact calculated dimensions using the selected scaling method.
+- Three outputs: the complete prepared image (`IMAGE`), layout metadata (`dac_data`), and all/one selected tile (`TILE(S)`). Pass `dac_data` to Image Tile Stitch unchanged.
+
+<a id="en-31-image-tile-stitch"></a>
+#### 31. 🔗Image Tile Stitch
+Author: OreX (Oleg K.)  
+Based on Divide and Conquer by Steudio.
+
+Reassembles processed tiles from **⛓️‍💥 Image Tile Crop** into one image and smoothly blends their overlap regions.
+
+**The node supports:**
+- A processed tile list through `images` and the original layout metadata through `dac_data`.
+- Tile-count validation against the calculated grid, with a clear error when the count does not match.
+- Correct coordinate restoration for both linear and spiral tile order.
+- Smooth overlap blending with masks: Box Blur is used for narrow overlaps and Gaussian Blur for wider overlaps.
+- Preservation of the input images' data type, device, and actual channel count.
+- A single `image` output with no additional UI output.
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import

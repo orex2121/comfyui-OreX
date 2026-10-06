@@ -570,9 +570,24 @@ app.registerExtension({
             const currentEntries = () => activeTab === "custom"
                 ? customEntries()
                 : favoriteEntries.filter((entry) => entry.type === activeTab);
+            const activePromptCount = () => {
+                if (activeTab !== "custom") return currentEntries().length;
+                return String(namesWidget.value ?? "").trim() ? names().length : 0;
+            };
+            const clampSelect = (count = activePromptCount()) => {
+                const maximum = Math.max(1, Math.trunc(Number(count) || 0));
+                selectWidget.options ??= {};
+                selectWidget.options.min = 1;
+                selectWidget.options.max = maximum;
+                selectWidget.options.step = 1;
+                const selected = Math.trunc(Number(selectWidget.value) || 1);
+                const clamped = Math.min(maximum, Math.max(1, selected));
+                selectWidget.value = clamped;
+                return clamped;
+            };
             const rememberSelection = (tab = activeTab, markChanged = false) => {
                 if (!validTabs.includes(tab)) return;
-                storeSelection(tab, selectWidget.value);
+                storeSelection(tab, clampSelect());
                 writeSelectionState();
                 if (markChanged) {
                     node.graph?.change?.();
@@ -582,7 +597,7 @@ app.registerExtension({
             const savedSelection = (tab, count) => {
                 const selected = Math.max(1, Number(node.properties.orexSelectedPromptByTab[tab]) || 1);
                 // Shared tabs are empty until their JSON entries finish loading.
-                if (count <= 0) return selected;
+                if (count <= 0) return 1;
                 const clamped = Math.min(selected, count);
                 storeSelection(tab, clamped);
                 writeSelectionState();
@@ -645,7 +660,7 @@ app.registerExtension({
             const selectedIndex = () => {
                 const list = names();
                 if (!String(namesWidget.value ?? "").trim() || !list.length) return -1;
-                return Math.max(0, (Number(selectWidget.value) || 1) - 1) % list.length;
+                return Math.min(list.length - 1, Math.max(0, (Number(selectWidget.value) || 1) - 1));
             };
 
             const lineMetrics = () => {
@@ -916,6 +931,7 @@ app.registerExtension({
                 if (storageWidget.options?.setValue) storageWidget.options.setValue(promptsText);
                 else storageWidget.value = promptsText;
                 if (storageWidget.inputEl) storageWidget.inputEl.value = promptsText;
+                clampSelect(entries.length);
                 selectWidget.value = savedSelection(tab, entries.length);
                 namesArea.readOnly = tab !== "custom";
                 promptArea.readOnly = tab !== "custom";
@@ -1033,6 +1049,8 @@ app.registerExtension({
             const originalNamesCallback = namesWidget.callback;
             namesWidget.callback = function () {
                 const result = originalNamesCallback?.apply(this, arguments);
+                clampSelect();
+                rememberSelection(activeTab);
                 refreshPrompt();
                 return result;
             };
@@ -1046,6 +1064,8 @@ app.registerExtension({
 
             const originalSelectCallback = selectWidget.callback;
             selectWidget.callback = function () {
+                const clamped = clampSelect();
+                if (arguments.length) arguments[0] = clamped;
                 const result = originalSelectCallback?.apply(this, arguments);
                 rememberSelection(activeTab, true);
                 refreshPrompt();
@@ -1122,7 +1142,6 @@ app.registerExtension({
 
             restoreEntries();
             switchTab(activeTab, true);
-            node.setSize([Math.max(node.size[0], 540), Math.max(node.size[1], 640)]);
         }, 100);
     },
 });
