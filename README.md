@@ -51,8 +51,8 @@
 `27.` [🖌️ Kontext Presets — OreX (Олег К.)](#ru-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Павел К.)](#ru-28-trim-video-to-audio)  
 `29.` [🎭 Mask Selection — OreX (Олег К.)](#ru-29-mask-selection)  
-`30.` [⛓️‍💥 Image Tile Crop — OreX (Олег К.)](#ru-30-image-tile-crop)  
-`31.` [🔗Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
+`30.` [⛓️‍💥 Image Tile Split — OreX (Олег К.)](#ru-30-image-tile-split)  
+`31.` [⛓️‍💥 Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -498,12 +498,12 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Автоматическую загрузку модели MediaPipe `selfie_multiclass_256x256.tflite` из официального хранилища Google в `ComfyUI/models/mediapipe/`, если файла ещё нет.
 - Два выхода: исходное изображение с маской в альфа-канале (`image`) и отдельная маска ComfyUI (`mask`).
 
-<a id="ru-30-image-tile-crop"></a>
-#### 30. ⛓️‍💥 Image Tile Crop
+<a id="ru-30-image-tile-split"></a>
+#### 30. ⛓️‍💥 Image Tile Split
 Автор: OreX (Олег К.)  
 Основано на Divide and Conquer от Steudio.
 
-Подготавливает изображение к обработке по частям: рассчитывает итоговое разрешение, при необходимости увеличивает изображение и нарезает его на перекрывающиеся плитки. Работает в паре с **🔗Image Tile Stitch**, который собирает обработанные плитки обратно.
+Подготавливает изображение к обработке по частям: рассчитывает итоговое разрешение, при необходимости увеличивает изображение и нарезает его на перекрывающиеся плитки. Работает в паре с **⛓️‍💥 Image Tile Stitch**, который собирает обработанные плитки обратно.
 
 **Узел поддерживает:**
 - Входное изображение `image` и выбор результата через `tile`: `0` возвращает все плитки, значение от `1` — только плитку с указанным номером.
@@ -520,11 +520,11 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Три выхода: подготовленное полное изображение (`IMAGE`), служебные данные разметки (`dac_data`) и список/выбранная плитка (`TILE(S)`). `dac_data` необходимо без изменений передать в Image Tile Stitch.
 
 <a id="ru-31-image-tile-stitch"></a>
-#### 31. 🔗Image Tile Stitch
+#### 31. ⛓️‍💥 Image Tile Stitch
 Автор: OreX (Олег К.)  
 Основано на Divide and Conquer от Steudio.
 
-Собирает обработанные плитки от **⛓️‍💥 Image Tile Crop** обратно в одно изображение и плавно смешивает области перекрытия.
+Собирает обработанные плитки от **⛓️‍💥 Image Tile Split** обратно в одно изображение и плавно смешивает области перекрытия.
 
 **Узел поддерживает:**
 - Список обработанных плиток через вход `images` и данные исходной разметки через `dac_data`.
@@ -601,8 +601,8 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `27.` [🖌️ Kontext Presets — OreX (Oleg K.)](#en-27-kontext-presets)  
 `28.` [🎬✂️ Trim Video To Audio — PaBoKor (Pavel K.)](#en-28-trim-video-to-audio)  
 `29.` [🎭 Mask Selection — OreX (Oleg K.)](#en-29-mask-selection)  
-`30.` [⛓️‍💥 Image Tile Crop — OreX (Oleg K.)](#en-30-image-tile-crop)  
-`31.` [🔗Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
+`30.` [⛓️‍💥 Image Tile Split — OreX (Oleg K.)](#en-30-image-tile-split)  
+`31.` [⛓️‍💥 Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1048,12 +1048,12 @@ Creates a mask of selected human parts using MediaPipe's multiclass segmentation
 - Automatic download of the MediaPipe `selfie_multiclass_256x256.tflite` model from Google's official model storage into `ComfyUI/models/mediapipe/` when the file is missing.
 - Two outputs: the source image with the mask in its alpha channel (`image`) and a separate ComfyUI mask (`mask`).
 
-<a id="en-30-image-tile-crop"></a>
-#### 30. ⛓️‍💥 Image Tile Crop
+<a id="en-30-image-tile-split"></a>
+#### 30. ⛓️‍💥 Image Tile Split
 Author: OreX (Oleg K.)  
 Based on Divide and Conquer by Steudio.
 
-Prepares an image for tiled processing: calculates the target resolution, optionally upscales the image, and splits it into overlapping tiles. It is designed to work with **🔗Image Tile Stitch**, which assembles the processed tiles back into a complete image.
+Prepares an image for tiled processing: calculates the target resolution, optionally upscales the image, and splits it into overlapping tiles. It is designed to work with **⛓️‍💥 Image Tile Stitch**, which assembles the processed tiles back into a complete image.
 
 **The node supports:**
 - An `image` input and tile selection through `tile`: `0` returns all tiles, while values starting at `1` return only the requested tile.
@@ -1070,11 +1070,11 @@ Prepares an image for tiled processing: calculates the target resolution, option
 - Three outputs: the complete prepared image (`IMAGE`), layout metadata (`dac_data`), and all/one selected tile (`TILE(S)`). Pass `dac_data` to Image Tile Stitch unchanged.
 
 <a id="en-31-image-tile-stitch"></a>
-#### 31. 🔗Image Tile Stitch
+#### 31. ⛓️‍💥 Image Tile Stitch
 Author: OreX (Oleg K.)  
 Based on Divide and Conquer by Steudio.
 
-Reassembles processed tiles from **⛓️‍💥 Image Tile Crop** into one image and smoothly blends their overlap regions.
+Reassembles processed tiles from **⛓️‍💥 Image Tile Split** into one image and smoothly blends their overlap regions.
 
 **The node supports:**
 - A processed tile list through `images` and the original layout metadata through `dac_data`.

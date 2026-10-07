@@ -50,42 +50,10 @@ function updateScaleWidgets(node) {
 }
 
 
-function migrateLegacyWidgets(info) {
-    const values = info?.widgets_values;
-    if (Array.isArray(values) && values.length === 11 && values[4] === "tiles_longest_size") {
-        values[4] = "max_tiles_by_side";
-    }
-    const isOriginalSchema = Array.isArray(values)
-        && values.length === 8
-        && typeof values[4] === "number"
-        && ["linear", "spiral"].includes(values[5]);
-    if (isOriginalSchema) {
-        info.widgets_values = [
-            values[0], values[1], values[2], values[3],
-            "min_scale_factor", values[4], 1536, 2,
-            values[5], values[6], "none",
-        ];
-        return;
-    }
-
-    const isPreviousSchema = Array.isArray(values)
-        && values.length === 10
-        && ["min_scale_factor", "min_longest_size"].includes(values[4])
-        && ["linear", "spiral"].includes(values[7]);
-    if (isPreviousSchema) {
-        info.widgets_values = [
-            ...values.slice(0, 7),
-            2,
-            ...values.slice(7),
-        ];
-    }
-}
-
-
 app.registerExtension({
     name: "OreX.TileCrop.ScaleMode",
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== "OreX_TileCrop") return;
+        if (nodeData.name !== "OreX_TileSplit") return;
 
         const originalCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
@@ -103,8 +71,7 @@ app.registerExtension({
         };
 
         const originalConfigure = nodeType.prototype.onConfigure;
-        nodeType.prototype.onConfigure = function (info) {
-            migrateLegacyWidgets(info);
+        nodeType.prototype.onConfigure = function () {
             const result = originalConfigure?.apply(this, arguments);
             requestAnimationFrame(() => updateScaleWidgets(this));
             return result;

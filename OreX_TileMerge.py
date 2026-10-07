@@ -59,7 +59,7 @@ def create_tile_coordinates(
     return tiles
 
 
-class OreXTileStitch:
+class OreXTileMerge:
     @classmethod
     def INPUT_TYPES(cls):
         return {

@@ -193,7 +193,7 @@ def create_tile_coordinates(
     return tiles
 
 
-class OreXTileCrop:
+class OreXTileSplit:
     @classmethod
     def INPUT_TYPES(cls):
         return {
