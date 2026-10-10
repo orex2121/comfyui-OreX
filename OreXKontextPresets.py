@@ -218,11 +218,11 @@ class KontextPresetsOrex(object):
 # ========= Register (Убираем дублирование системных имён) =========
 
 NODE_CLASS_MAPPINGS = {
-    "KontextPresetsOrex": KontextPresetsOrex
+    "orex Kontext Presets": KontextPresetsOrex,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "KontextPresetsOrex": "📆 Kontext Presets (OreX)"
+    "orex Kontext Presets": "📦 Kontext Presets (OreX)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

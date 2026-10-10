@@ -75,3 +75,12 @@ class OreXRatio:
             {"samples": sd3_flux1_latent, "downscale_ratio_spacial": 8}, 
             {"samples": flux2_latent, "downscale_ratio_spacial": 16}
         )
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Ratio": OreXRatio,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Ratio": "📐 Ratio (OreX)",
+}

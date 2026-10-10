@@ -151,8 +151,8 @@ class OreX_Scail:
         return (out, out.shape[0], len(lengths))
 
 NODE_CLASS_MAPPINGS = {
-    "OreX_Scail": OreX_Scail,
+    "orex Scail2": OreX_Scail,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OreX_Scail": "OreX SCAIL Sampler",
+    "orex Scail2": "📼 Scail2 (OreX)",
 }

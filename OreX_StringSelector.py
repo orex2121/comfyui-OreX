@@ -27,3 +27,12 @@ class OreXStringSelector:
         selected = lines[index % len(lines)]
 
         return (selected, )
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex String Selector": OreXStringSelector,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex String Selector": "📝 String Selector (OreX)",
+}

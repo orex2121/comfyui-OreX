@@ -199,3 +199,12 @@ class OreX_SkinRetouchingAI:
             )
             m = np.asarray(m_img).astype(np.float32) / 255.0
         return m
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Skin Retouching AI": OreX_SkinRetouchingAI,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Skin Retouching AI": "✨ Skin Retouching AI (OreX)",
+}

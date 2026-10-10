@@ -301,5 +301,9 @@ class OreX_LoraLoader:
         return (model_lora, clip_lora, ", ".join(final_trigger_words), " + ".join(final_lora_names))
 
 NODE_CLASS_MAPPINGS = {
-    "orex Lora Loader": OreX_LoraLoader
+    "orex Lora Loader": OreX_LoraLoader,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Lora Loader": "🧩 Lora Loader (OreX)",
 }

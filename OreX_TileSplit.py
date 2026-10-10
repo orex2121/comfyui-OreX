@@ -397,3 +397,12 @@ tile # = the selected tile"""
             )
 
         return (upscaled_image, dac_data, selected_tiles)
+
+
+NODE_CLASS_MAPPINGS = {
+    "OreX_TileSplit": OreXTileSplit,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OreX_TileSplit": "⛓️‍💥 Image Tile Split (OreX)",
+}

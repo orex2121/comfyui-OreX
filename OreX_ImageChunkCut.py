@@ -51,3 +51,12 @@ class OreXImageChunkCut:
             chunks.append(chunk)
             
         return (chunks, shortfall, chunk_length, full_length)
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Image Chunk Cut": OreXImageChunkCut,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Image Chunk Cut": "🧩 Image Chunk Cut (OreX)",
+}

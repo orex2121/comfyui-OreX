@@ -195,3 +195,12 @@ class OreX_VideoPreview(io.ComfyNode):
             video, 
             ui=ui.PreviewVideo([ui.SavedResult(file, subfolder, folder_type)])
         )
+
+
+NODE_CLASS_MAPPINGS = {
+    "OreX Video Preview": OreX_VideoPreview,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OreX Video Preview": "📺 Video Preview (OreX)",
+}

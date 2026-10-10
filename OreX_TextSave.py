@@ -206,3 +206,12 @@ class OreX_TextSave:
             log_node_info("OreX_TextSave", f"Saving Image to {os.path.join(clean_output_path, imagepath + '.' + image_format)}")
 
         return result
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Save Text": OreX_TextSave,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Save Text": "📝 Save Text (OreX)",
+}

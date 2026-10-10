@@ -421,11 +421,11 @@ class OreXLMStudio:
 
 # ========= REGISTRATION =========
 NODE_CLASS_MAPPINGS = {
-    "OreXLMStudio": OreXLMStudio
+    "orex LMStudio": OreXLMStudio,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OreXLMStudio": "🤖 LMStudio (OreX)"
+    "orex LMStudio": "🤖 LMStudio (OreX)",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -206,3 +206,12 @@ class OreXStringSelectorV2:
     @staticmethod
     def _join_prompt(text_before, prompt, text_after):
         return " ".join(str(part) for part in (text_before, prompt, text_after) if part)
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex String Selector v2": OreXStringSelectorV2,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex String Selector v2": "📝 String Selector v2 (OreX)",
+}

@@ -287,6 +287,10 @@ class OreXOllama:
         except Exception as e:
             return (f"Ollama error: {str(e)}", json.dumps(request_log, indent=2, ensure_ascii=False))
 
-NODE_CLASS_MAPPINGS = {"OreXOllama": OreXOllama}
-NODE_DISPLAY_NAME_MAPPINGS = {"OreXOllama": "🦙 Ollama (OreX)"}
+NODE_CLASS_MAPPINGS = {
+    "orex Ollama": OreXOllama,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Ollama": "🦙 Ollama (OreX)",
+}
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

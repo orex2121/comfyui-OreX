@@ -190,11 +190,11 @@ class OreXImageLoadBatch:
         return (image_tensor, filename, processed_path, total_count, current_index)
 
 NODE_CLASS_MAPPINGS = {
-    "OreX Image Load Batch": OreXImageLoadBatch
+    "orex Load Image Batch": OreXImageLoadBatch,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OreX Image Load Batch": "🖼️ OreX Image Load Batch"
+    "orex Load Image Batch": "📦 Load Image Batch (OreX)",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

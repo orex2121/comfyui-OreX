@@ -265,3 +265,12 @@ if PromptServer is not None:
         except Exception as e:
             traceback.print_exc()
             return web.json_response({"error": str(e)}, status=500)
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Audio load v2": OreX_AudioLoad_v2,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Audio load v2": "🔉 Audio Load V2 (OreX)",
+}

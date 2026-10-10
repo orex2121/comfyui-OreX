@@ -336,7 +336,11 @@ class OreXImageSave:
             "result": (images, full_paths[0] if full_paths else "", filename_no_ext)
         }
 
-NODE_CLASS_MAPPINGS = {"OreX Image Save": OreXImageSave}
-NODE_DISPLAY_NAME_MAPPINGS = {"OreX Image Save": "💾 OreX Image Save"}
+NODE_CLASS_MAPPINGS = {
+    "orex Save Image": OreXImageSave,
+}
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Save Image": "💾 Save Image (OreX)",
+}
 WEB_DIRECTORY = "./js"
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']

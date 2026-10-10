@@ -620,14 +620,16 @@ app.registerExtension({
 
             if (img1 && img2) {
                 if (mode === "Slider") {
-                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    // Слева от линии — Image 2 (фон), справа — Image 1 (под шторкой):
+                    // слайдер справа → виден Image 2, слайдер слева → виден Image 1.
+                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
 
                     const splitX = rect.x + rect.w * st.sliderPos;
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(splitX, rect.y, rect.x + rect.w - splitX, rect.h);
                     ctx.clip();
-                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
                     ctx.restore();
 
                     // Тонкая жёлтая линия без тени и без компенсации под

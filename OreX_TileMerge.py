@@ -178,3 +178,12 @@ class OreXTileMerge:
             output[:, y : y + tile_height, x : x + tile_width, :] += image_tile * mask_tensor
 
         return (output,)
+
+
+NODE_CLASS_MAPPINGS = {
+    "OreX_TileMerge": OreXTileMerge,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OreX_TileMerge": "⛓️‍💥 Image Tile Stitch (OreX)",
+}

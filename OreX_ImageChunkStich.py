@@ -51,3 +51,12 @@ class OreXImageChunkStich:
         frame_count = stitched_video.shape[0]
                 
         return (stitched_video, frame_count)
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Image Chunk Stich": OreXImageChunkStich,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Image Chunk Stich": "🧵 Image Chunk Stich (OreX)",
+}

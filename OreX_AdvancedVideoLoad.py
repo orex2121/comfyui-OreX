@@ -121,3 +121,12 @@ class OreX_AdvancedVideoLoad:
             "result": (final_video_obj,)
         }
         return ui_result
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Advanced Video Load": OreX_AdvancedVideoLoad,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Advanced Video Load": "🎬 Advanced Video Load (OreX)",
+}

@@ -7,3 +7,5 @@ mediapipe
 opencv-contrib-python
 pymatting
 transformers>=4.43.2
+audiotsm
+lmstudio

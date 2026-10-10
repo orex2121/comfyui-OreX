@@ -469,3 +469,12 @@ class OrexStyleSelector:
                 file_name_list = [" "]
                 
             return (pos_list, neg_list, file_name_list)
+
+
+NODE_CLASS_MAPPINGS = {
+    "OrexStyleSelector": OrexStyleSelector,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "OrexStyleSelector": "🪄 Style Selector (OreX)",
+}

@@ -114,3 +114,12 @@ class OreX_TrimVideoToAudio:
             VideoComponents(images=images, audio=out_audio, frame_rate=comps.frame_rate)
         )
         return (new_video, video_dur)
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Trim Video To Audio": OreX_TrimVideoToAudio,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Trim Video To Audio": "✂️ Trim Video To Audio (OreX)",
+}

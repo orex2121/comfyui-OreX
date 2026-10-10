@@ -182,3 +182,12 @@ class OreX_AudioLoad:
         if not os.path.exists(audio_path):
             return "Invalid audio file path: {}".format(audio_path)
         return True
+
+
+NODE_CLASS_MAPPINGS = {
+    "orex Audio load": OreX_AudioLoad,
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "orex Audio load": "🔉 Audio Load (OreX)",
+}

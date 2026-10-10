@@ -314,9 +314,9 @@ class OrexImageMerging:
         return (pil2tensor(final_img), final_img.width, final_img.height,)
 
 NODE_CLASS_MAPPINGS = {
-    "OrexImageMerging": OrexImageMerging
+    "orex Image Merging": OrexImageMerging,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OrexImageMerging": "Orex Image Merging"
+    "orex Image Merging": "🧱 Image Merging (OreX)",
 }
