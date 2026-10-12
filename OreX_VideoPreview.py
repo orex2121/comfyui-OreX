@@ -13,7 +13,7 @@ class OreX_VideoPreview(io.ComfyNode):
         return io.Schema(
             node_id="OreX Video Preview",
             display_name="📺 Video Preview (OreX)",
-            category="OreX",
+            category="OreX/Video",
             is_output_node=True,
             inputs=[
                 io.Image.Input("images", optional=True),

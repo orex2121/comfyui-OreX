@@ -178,7 +178,7 @@ class OreXStringSelectorV2:
     RETURN_NAMES = ("String", "String Batch")
     OUTPUT_IS_LIST = (False, True)
     FUNCTION = "select_prompt"
-    CATEGORY = "OreX"
+    CATEGORY = "OreX/Prompt"
 
     def select_prompt(self, prompt_names, prompt, prompts_json, select, selection_state="{}", text_before="", text_after=""):
         if not prompt_names.strip():

@@ -27,7 +27,7 @@ class OreX_StringFunction:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("string",)
     FUNCTION = "execute"
-    CATEGORY = "OreX"
+    CATEGORY = "OreX/Prompt"
 
     def execute(self, string_function, A=None, B=None, C=None, D=None):
         # Если значение не подано, оставляем None.

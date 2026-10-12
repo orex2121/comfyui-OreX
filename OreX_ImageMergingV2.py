@@ -87,7 +87,7 @@ class OrexImageMergingV2:
     RETURN_TYPES = ("IMAGE", "INT", "INT",)
     RETURN_NAMES = ("image", "width", "height",)
     FUNCTION = "merge_images_v2"
-    CATEGORY = "OreX-nodes/Image Merging"
+    CATEGORY = "OreX/Image"
     
     def merge_images_v2(self, image_number, merging_mode, main_resolution_image,
                      footer_height, font_name, font_size, mode, border_thickness,

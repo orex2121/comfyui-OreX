@@ -48,7 +48,7 @@ class OreX_TextSave:
 
     FUNCTION = "save_text"
     OUTPUT_NODE = True
-    CATEGORY = "EasyUse/Logic"
+    CATEGORY = "OreX/Prompt"
 
     def save_image(self, images, filename_prefix='', extension='png', quality=100, optimize_png=False, prompt=None,
                    extra_pnginfo=None, delimiter='_', filename_number_start='true', number_padding=4,

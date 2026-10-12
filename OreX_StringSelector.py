@@ -10,7 +10,7 @@ class OreXStringSelector:
 
     RETURN_TYPES = ("STRING",)
     FUNCTION = "select_string"
-    CATEGORY = "OreX"
+    CATEGORY = "OreX/Prompt"
 
     def select_string(self, strings, select):
         # Разбиваем на строки
