@@ -301,7 +301,8 @@ app.registerExtension({
     async nodeCreated(node) {
         if (node.comfyClass !== NODE_CLASS) return;
 
-        setTimeout(() => {
+        const initialize = () => {
+            if (node.__orexStringSelectorV2Initialized) return true;
             const namesWidget = node.widgets?.find((widget) => widget.name === "prompt_names");
             const promptWidget = node.widgets?.find((widget) => widget.name === "prompt");
             const storageWidget = node.widgets?.find((widget) => widget.name === "prompts_json");
@@ -309,7 +310,8 @@ app.registerExtension({
             const selectionWidget = node.widgets?.find((widget) => widget.name === "selection_state");
             const namesArea = namesWidget?.inputEl;
             const promptArea = promptWidget?.inputEl;
-            if (!namesWidget || !promptWidget || !storageWidget || !selectWidget || !namesArea || !promptArea) return;
+            if (!namesWidget || !promptWidget || !storageWidget || !selectWidget || !namesArea || !promptArea) return false;
+            node.__orexStringSelectorV2Initialized = true;
 
             storageWidget.computeSize = () => [0, -4];
             storageWidget.draw = () => {};
@@ -1129,9 +1131,18 @@ app.registerExtension({
 
             const originalOnRemoved = node.onRemoved;
             node.onRemoved = function () {
+                node.__orexStringSelectorV2Initialized = false;
+                delete node.__orexRestoreStringSelectorV2;
+                delete node.__orexScheduleStringSelectorV2;
                 tagsResizeObserver.disconnect();
                 tagsLayer.remove();
                 dropMarker.remove();
+                tabs.remove();
+                splitter.remove();
+                for (const widget of [tabsWidget, splitterWidget]) {
+                    const index = node.widgets?.indexOf(widget) ?? -1;
+                    if (index >= 0) node.widgets.splice(index, 1);
+                }
                 document.removeEventListener("pointermove", onPromptDragMove);
                 document.removeEventListener("pointerup", onPromptDragEnd);
                 document.removeEventListener("pointercancel", onPromptDragEnd);
@@ -1140,8 +1151,46 @@ app.registerExtension({
                 return originalOnRemoved?.apply(this, arguments);
             };
 
-            restoreEntries();
-            switchTab(activeTab, true);
-        }, 100);
+            node.__orexRestoreStringSelectorV2 = () => {
+                if (!node.graph) return;
+                restoreEntries();
+                activeTab = validTabs.includes(node.properties?.orexActiveTab)
+                    ? node.properties.orexActiveTab
+                    : "custom";
+                switchTab(activeTab, true);
+                clampSelect();
+                refreshPrompt();
+                node.graph?.setDirtyCanvas(true, true);
+            };
+            node.__orexRestoreStringSelectorV2();
+            return true;
+        };
+
+        const schedule = () => {
+            const attempt = () => {
+                // Wait until LiteGraph finishes applying widgets_values. Adding
+                // DOM widgets sooner shifts saved values to the wrong fields.
+                if (app.configuringGraph || !node.graph) return;
+                try {
+                    if (initialize()) {
+                        requestAnimationFrame(() => node.__orexRestoreStringSelectorV2?.());
+                    }
+                } catch (error) {
+                    node.__orexStringSelectorV2Initialized = false;
+                    console.error("[OreX StringSelector v2] Failed to initialize node UI", error);
+                }
+            };
+            for (const delay of [0, 50, 150, 400]) setTimeout(attempt, delay);
+        };
+        node.__orexScheduleStringSelectorV2 = schedule;
+        schedule();
+    },
+    async afterConfigureGraph() {
+        const nodes = app.graph?._nodes ?? app.graph?.nodes ?? [];
+        for (const node of nodes) {
+            if (node?.comfyClass === NODE_CLASS) {
+                node.__orexScheduleStringSelectorV2?.();
+            }
+        }
     },
 });
