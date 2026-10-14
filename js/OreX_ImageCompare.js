@@ -165,8 +165,12 @@ app.registerExtension({
             // чтобы расчёты точки фокуса всегда совпадали с тем, что на экране.
             this._sbsHalfLayout = function (rect, img, boxX) {
                 const halfW = rect.w / 2 - SBS_GAP / 2;
-                const iw = img.naturalWidth || img.width;
-                const ih = img.naturalHeight || img.height;
+                // Общий холст (максимум по ширине и высоте обоих изображений) —
+                // обе половины используют одинаковую геометрию, меньшее
+                // изображение вписывается внутрь холста без растягивания.
+                const cd = this._canvasDims();
+                const iw = cd.w;
+                const ih = cd.h;
                 const fitScale = Math.min(halfW / iw, rect.h / ih);
                 return {
                     halfW, iw, ih, fitScale,
@@ -520,16 +524,23 @@ app.registerExtension({
             st.dim2 = null;
             st.meta1 = null;
             st.meta2 = null;
+            st.layout = null;
+            st.alignInfo = "";
 
             // Путь для сохранения (если подключён вход output_path) —
             // становится известен только после выполнения графа.
             st.outputPath = (message.output_path && message.output_path[0]) ? message.output_path[0] : "";
 
+            const loadPromises = [];
             message.images.forEach(imgData => {
                 const url = api.apiURL(`/view?filename=${encodeURIComponent(imgData.filename)}&subfolder=${encodeURIComponent(imgData.subfolder)}&type=${imgData.type}`);
                 const img = new Image();
                 img.src = url;
                 img.onload = () => this.setDirtyCanvas(true, true);
+                loadPromises.push(new Promise(res => {
+                    img.addEventListener("load", res, { once: true });
+                    img.addEventListener("error", res, { once: true });
+                }));
 
                 const meta = { filename: imgData.filename, subfolder: imgData.subfolder, type: imgData.type };
 
@@ -544,6 +555,18 @@ app.registerExtension({
                     if (imgData.width && imgData.height) st.dim2 = `${imgData.width}×${imgData.height}`;
                 }
             });
+
+            // Когда обе картинки загружены — ищем, где неизменённая часть
+            // (Image 1 и Image 2 могут быть разного размера, например аутпейнт).
+            const a = st.img1, b = st.img2;
+            Promise.all(loadPromises).then(() => {
+                if (st.img1 !== a || st.img2 !== b) return; // пришёл новый запуск
+                setTimeout(() => {
+                    if (st.img1 !== a || st.img2 !== b) return;
+                    this._computeLayout();
+                    this.setDirtyCanvas(true, true);
+                }, 0);
+            });
         };
 
         // Общая отрисовка композита текущего режима в произвольный ctx/rect.
@@ -555,10 +578,326 @@ app.registerExtension({
         // трансформацию на весь rect (как раньше) — иначе при зуме "плыло"
         // относительное положение картинок друг к другу и терялась привязка
         // к одному и тому же месту на фото.
+        // Раскладка двух изображений на общем холсте. Находится в
+        // st.layout (считает _computeLayout): одно изображение — опорное
+        // (большее, масштаб 1), второе — меньшее, оно сдвинуто на (ox, oy)
+        // и масштабировано в k раз, чтобы его содержимое совпало с опорным.
+        // Пока раскладка не найдена (или совпадения нет) — меньшее
+        // изображение центрируется в натуральном масштабе.
+        // Возвращает размер холста и позиции/масштабы обоих изображений.
+        proto._layout = function (img1, img2) {
+            const st = this.compareState;
+            const a = img1 !== undefined ? img1 : st.img1;
+            const b = img2 !== undefined ? img2 : st.img2;
+            const sz = (i) => i ? { w: i.naturalWidth || i.width, h: i.naturalHeight || i.height } : null;
+            const sa = sz(a), sb = sz(b);
+            if (!sa || !sb) {
+                const one = sa || sb;
+                return {
+                    w: one.w, h: one.h,
+                    p1: { x: 0, y: 0, s: 1 }, p2: { x: 0, y: 0, s: 1 }
+                };
+            }
+            let rA, rB;
+            const L = st.layout;
+            if (L && L.img1 === a && L.img2 === b) {
+                if (L.refIs1) {
+                    rA = { x: 0, y: 0, w: sa.w, h: sa.h, s: 1 };
+                    rB = { x: L.ox, y: L.oy, w: sb.w * L.k, h: sb.h * L.k, s: L.k };
+                } else {
+                    rB = { x: 0, y: 0, w: sb.w, h: sb.h, s: 1 };
+                    rA = { x: L.ox, y: L.oy, w: sa.w * L.k, h: sa.h * L.k, s: L.k };
+                }
+            } else {
+                rA = { x: 0, y: 0, w: sa.w, h: sa.h, s: 1 };
+                rB = {
+                    x: Math.round((sa.w - sb.w) / 2),
+                    y: Math.round((sa.h - sb.h) / 2),
+                    w: sb.w, h: sb.h, s: 1
+                };
+            }
+            const minX = Math.min(rA.x, rB.x), maxX = Math.max(rA.x + rA.w, rB.x + rB.w);
+            const minY = Math.min(rA.y, rB.y), maxY = Math.max(rA.y + rA.h, rB.y + rB.h);
+            return {
+                w: Math.ceil(maxX - minX),
+                h: Math.ceil(maxY - minY),
+                p1: { x: rA.x - minX, y: rA.y - minY, s: rA.s },
+                p2: { x: rB.x - minX, y: rB.y - minY, s: rB.s }
+            };
+        };
+
+        proto._canvasDims = function (img1, img2) {
+            const l = this._layout(img1, img2);
+            return { w: l.w, h: l.h };
+        };
+
+        // Поиск положения и масштаба меньшего изображения (mov) относительно
+        // опорного (ref) по совпадению пикселей общей (неизменённой) части.
+        // Поиск идёт «пирамидой»: грубо на малых копиях (перебор масштаба и
+        // смещения), затем уточнение на среднем размере и на оригинале.
+        // Возвращает { ox, oy, k, err }: левый верхний угол mov в координатах
+        // ref и коэффициент масштаба mov. grayFnOverride нужен только тестам.
+        proto._autoAlign = function (ref, mov, grayFnOverride) {
+            const dimsOf = (i) => ({ w: i.naturalWidth || i.width, h: i.naturalHeight || i.height });
+            const R = dimsOf(ref), M = dimsOf(mov);
+            if (R.w === M.w && R.h === M.h) return { ox: 0, oy: 0, k: 1, err: 0 };
+
+            // Структурный слой: вычитаем локальное среднее (убирает общую
+            // яркость/тон и плавные пятна), выбросы (трещины, засветы)
+            // ограничиваем. Так сравнивается форма (контуры, лицо), а не цвет.
+            // Радиус считается от размера опорного изображения на текущем
+            // уровне пирамиды, чтобы оба изображения обрабатывались одинаково.
+            const prep = (r, rad) => {
+                const { w, h, g } = r;
+                const iw = w + 1;
+                const I = new Float64Array(iw * (h + 1));
+                for (let y = 0; y < h; y++) {
+                    let row = 0;
+                    for (let x = 0; x < w; x++) {
+                        row += g[y * w + x];
+                        I[(y + 1) * iw + x + 1] = I[y * iw + x + 1] + row;
+                    }
+                }
+                const out = new Float32Array(w * h);
+                let sum = 0, sum2 = 0;
+                for (let y = 0; y < h; y++) {
+                    const y0 = Math.max(0, y - rad), y1 = Math.min(h, y + rad + 1);
+                    for (let x = 0; x < w; x++) {
+                        const x0 = Math.max(0, x - rad), x1 = Math.min(w, x + rad + 1);
+                        const area = (x1 - x0) * (y1 - y0);
+                        const m = (I[y1 * iw + x1] - I[y0 * iw + x1] - I[y1 * iw + x0] + I[y0 * iw + x0]) / area;
+                        const v = g[y * w + x] - m;
+                        out[y * w + x] = v;
+                        sum += v; sum2 += v * v;
+                    }
+                }
+                const n = w * h;
+                const sd = Math.sqrt(Math.max(1e-6, sum2 / n - (sum / n) * (sum / n)));
+                const c = 2.5 * sd;
+                for (let i = 0; i < n; i++) {
+                    out[i] = out[i] > c ? c : (out[i] < -c ? -c : out[i]);
+                }
+                return { w, h, g: out };
+            };
+
+            const grayRaw = grayFnOverride || ((img, s) => {
+                const d0 = dimsOf(img);
+                const w = Math.max(1, Math.round(d0.w * s));
+                const h = Math.max(1, Math.round(d0.h * s));
+                const c = document.createElement("canvas");
+                c.width = w; c.height = h;
+                const x = c.getContext("2d", { willReadFrequently: true });
+                x.imageSmoothingEnabled = true;
+                x.imageSmoothingQuality = "high";
+                x.drawImage(img, 0, 0, w, h);
+                const d = x.getImageData(0, 0, w, h).data;
+                const g = new Float32Array(w * h);
+                for (let i = 0, j = 0; i < g.length; i++, j += 4) {
+                    g[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2];
+                }
+                return { w, h, g };
+            });
+            const gray = (img, s, refScale) =>
+                prep(grayRaw(img, s), Math.max(2, Math.round(0.02 * Math.min(R.w, R.h) * refScale)));
+
+            const search = (A, B, oxMin, oxMax, oyMin, oyMax, samples, stepO) => {
+                let best = null;
+                stepO = stepO || 1;
+                for (let oy = oyMin; oy <= oyMax; oy += stepO) {
+                    for (let ox = oxMin; ox <= oxMax; ox += stepO) {
+                        const x0 = Math.max(0, ox), x1 = Math.min(A.w, ox + B.w);
+                        const y0 = Math.max(0, oy), y1 = Math.min(A.h, oy + B.h);
+                        const ow = x1 - x0, oh = y1 - y0;
+                        if (ow < 8 || oh < 8) continue;
+                        // Общая часть должна составлять не меньше половины
+                        // площади меньшего из двух изображений (иначе —
+                        // случайные совпадения). Меньшее изображение может
+                        // оказаться и больше опорного после подгонки масштаба
+                        // (если оно содержит нарощенные области).
+                        if (ow * oh < 0.5 * Math.min(A.w * A.h, B.w * B.h)) continue;
+                        const step = Math.max(1, Math.floor(Math.sqrt(ow * oh / samples)));
+                        // Нормированная взаимная корреляция (NCC): не зависит от
+                        // яркости/контраста, поэтому находит совпадение и у
+                        // отреставрированного/перекрашенного варианта.
+                        let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, n = 0;
+                        for (let y = y0; y < y1; y += step) {
+                            const ra = y * A.w;
+                            const rb = (y - oy) * B.w - ox;
+                            for (let x = x0; x < x1; x += step) {
+                                const va = A.g[ra + x], vb = B.g[rb + x];
+                                sa += va; sb += vb;
+                                saa += va * va; sbb += vb * vb; sab += va * vb;
+                                n++;
+                            }
+                        }
+                        const cov = sab - sa * sb / n;
+                        const varA = saa - sa * sa / n;
+                        const varB = sbb - sb * sb / n;
+                        const ncc = (varA > 1e-3 && varB > 1e-3) ? cov / Math.sqrt(varA * varB) : 0;
+                        const err = (1 - ncc) * 100; // 0 — идеальное совпадение
+                        if (!best || err < best.err) best = { ox, oy, err };
+                    }
+                }
+                return best;
+            };
+
+            const rng = (dA, dB) => [Math.min(0, dA - dB), Math.max(0, dA - dB)];
+
+            // Перебор смещений для заданного масштаба mov (k).
+            // cx, cy, rad заданы — локальный поиск вокруг центра;
+            // иначе — по всему допустимому диапазону (с шагом для скорости).
+            const trial = (A, scale, k, samples, cx, cy, rad) => {
+                const B = gray(mov, scale * k, scale);
+                if (B.w * B.h < 0.1 * A.w * A.h) return null; // слишком мелко — случайные совпадения
+                const [xMin, xMax] = rng(A.w, B.w);
+                const [yMin, yMax] = rng(A.h, B.h);
+                let r, stepO = 1;
+                if (cx === undefined) {
+                    stepO = Math.max(1, Math.ceil(Math.max(xMax - xMin, yMax - yMin) / 40));
+                    r = search(A, B, xMin, xMax, yMin, yMax, samples, stepO);
+                } else {
+                    r = search(
+                        A, B,
+                        Math.max(xMin, cx - rad), Math.min(xMax, cx + rad),
+                        Math.max(yMin, cy - rad), Math.min(yMax, cy + rad),
+                        samples, 1
+                    );
+                }
+                return r ? { ox: r.ox, oy: r.oy, err: r.err, k, stepO } : null;
+            };
+
+            const m = Math.max(R.w, R.h);
+            const cs = Math.min(1, 160 / m);   // грубый уровень
+            const ms = Math.min(1, 800 / m);   // средний уровень
+
+            // --- 1. Грубо: перебор масштаба k (0.33 … 3.0) и смещения
+            const cA = gray(ref, cs, cs);
+            const ks = [1];
+            for (let k = 0.33; k <= 3.0; k *= 1.03) ks.push(k);
+            const results = [];
+            let r1 = null;
+            for (const k of ks) {
+                const r = trial(cA, cs, k, 1200);
+                if (!r) continue;
+                if (k === 1) r1 = r;
+                results.push(r);
+            }
+            if (!results.length) return null;
+            results.sort((p, q) => p.err - q.err);
+
+            // Масштаб 1 предпочтителен, если он не заметно хуже лучшего.
+            // Иначе к нему добавляются до трёх лучших «кандидатов» с заметно
+            // разными масштабами; выбор — по итогам уточнения.
+            let cands = [];
+            if (r1) cands.push({ ...r1, unit: true });
+            if (!(r1 && r1.err <= results[0].err + 1.5)) {
+                const others = [];
+                for (const r of results) {
+                    if (others.length >= 3) break;
+                    if (r.k === 1) continue;
+                    if (others.every(c => Math.abs(Math.log(c.k / r.k)) > 0.08)) {
+                        others.push({ ...r, unit: false });
+                    }
+                }
+                cands = cands.concat(others);
+            }
+
+            let mA = null, fA = null;
+            const refine = (c) => {
+                let cur = c, kc = c.k;
+
+                // --- 2. Грубо: уточнение масштаба (шаг 0.6 %) для не-единичного k
+                if (!c.unit) {
+                    let b2 = cur;
+                    for (let i = 0; i <= 10; i++) {
+                        const k = c.k * (0.97 + 0.006 * i);
+                        const r = trial(cA, cs, k, 1200, c.ox, c.oy, c.stepO + 3);
+                        if (r && r.err < b2.err) b2 = r;
+                    }
+                    cur = b2; kc = b2.k;
+                }
+
+                // --- 3. Средний уровень: масштаб (шаг 0.12 %) и смещение
+                if (!mA) mA = gray(ref, ms, ms);
+                const f1 = ms / cs;
+                let cx = Math.round(cur.ox * f1), cy = Math.round(cur.oy * f1);
+                const rad1 = Math.ceil(f1) * (c.unit ? cur.stepO : 2) + 6;
+                let mb = null;
+                const kList1 = c.unit ? [1] : Array.from({ length: 11 }, (_, i) => kc * (1 + (i - 5) * 0.0012));
+                for (const k of kList1) {
+                    const r = trial(mA, ms, k, 3000, cx, cy, rad1);
+                    if (r && (!mb || r.err < mb.err)) mb = r;
+                }
+                if (!mb) return null;
+
+                // --- 4. Полный размер: итоговое смещение (и масштаб, шаг 0.06 %)
+                if (!fA) fA = gray(ref, 1, 1);
+                const f2 = 1 / ms;
+                cx = Math.round(mb.ox * f2); cy = Math.round(mb.oy * f2);
+                const rad2 = Math.ceil(f2) * 2 + 6;
+                let fb = null;
+                const kList2 = c.unit ? [1] : Array.from({ length: 5 }, (_, i) => mb.k * (1 + (i - 2) * 0.0006));
+                for (const k of kList2) {
+                    const r = trial(fA, 1, k, 6000, cx, cy, rad2);
+                    if (r && (!fb || r.err < fb.err)) fb = r;
+                }
+                return fb ? { ox: fb.ox, oy: fb.oy, k: fb.k, err: fb.err } : null;
+            };
+
+            let final = null, unitRes = null;
+            for (const c of cands) {
+                const f = refine(c);
+                if (!f) continue;
+                if (c.unit) unitRes = f;
+                if (!final || f.err < final.err) final = f;
+            }
+            // Ровный масштаб 1 побеждает, если он не заметно хуже лучшего
+            if (unitRes && final && unitRes.err <= final.err + 1.5) final = unitRes;
+            return final;
+        };
+
+        // Считает раскладку для текущей пары изображений (после загрузки).
+        proto._computeLayout = function () {
+            const st = this.compareState;
+            const a = st.img1, b = st.img2;
+            st.layout = null;
+            st.alignInfo = "";
+            if (!a || !b) return;
+            const wA = a.naturalWidth || a.width, hA = a.naturalHeight || a.height;
+            const wB = b.naturalWidth || b.width, hB = b.naturalHeight || b.height;
+            if (wA === wB && hA === hB) return; // размеры равны — выравнивать нечего
+            try {
+                // Опорное — большее по площади (масштаб 1); меньшее
+                // подгоняется к нему по положению и масштабу.
+                const refIs1 = wA * hA >= wB * hB;
+                const res = this._autoAlign(refIs1 ? a : b, refIs1 ? b : a);
+                // err = (1 − NCC)·100. Совпадением считаем NCC > 0.12:
+                // реставрация, перекраска и повреждения оригинала сильно
+                // снижают корреляцию, но структура (лицо, контуры) должна
+                // совпадать; у несвязанных изображений NCC около нуля.
+                if (res) {
+                    console.log(`[OreX Image Compare] align: offset=(${res.ox}, ${res.oy}) scale=${res.k.toFixed(4)} NCC=${(1 - res.err / 100).toFixed(3)}`);
+                }
+                if (res && res.err < 88) {
+                    st.layout = { img1: a, img2: b, refIs1, ox: res.ox, oy: res.oy, k: res.k };
+                    const ncc = (1 - res.err / 100).toFixed(2);
+                    st.alignInfo = Math.abs(res.k - 1) > 0.002
+                        ? `авто-совмещение: масштаб меньшего ×${res.k.toFixed(3)}, NCC ${ncc}`
+                        : `авто-совмещение: NCC ${ncc}`;
+                } else {
+                    st.alignInfo = "по центру (совпадение не найдено)";
+                }
+            } catch (err) {
+                console.warn("[OreX Image Compare] auto-align failed:", err);
+                st.alignInfo = "по центру";
+            }
+        };
+
         proto._drawSideBySideComposite = function (ctx, rect, img1, img2, st) {
             const focusU = st.sbsFocusU !== undefined ? st.sbsFocusU : 0.5;
             const focusV = st.sbsFocusV !== undefined ? st.sbsFocusV : 0.5;
 
+            const lay = this._layout(img1, img2);
             const boxes = [
                 { img: img1, boxX: rect.x },
                 { img: img2, boxX: rect.x + rect.w / 2 + SBS_GAP / 2 }
@@ -578,7 +917,18 @@ app.registerExtension({
                 ctx.beginPath();
                 ctx.rect(box.boxX, rect.y, halfW, rect.h);
                 ctx.clip();
-                ctx.drawImage(box.img, dX, dY, dW, dH);
+                // (dX, dY) — левый верхний угол ОБЩЕГО холста; картинка
+                // стоит на нём в своей позиции (авто-совмещение).
+                const nw = box.img.naturalWidth || box.img.width;
+                const nh = box.img.naturalHeight || box.img.height;
+                const pp = box.img === img1 ? lay.p1 : lay.p2;
+                ctx.drawImage(
+                    box.img,
+                    dX + pp.x * effScale,
+                    dY + pp.y * effScale,
+                    nw * pp.s * effScale,
+                    nh * pp.s * effScale
+                );
                 ctx.restore();
             }
 
@@ -607,9 +957,10 @@ app.registerExtension({
             ctx.scale(st.zoom, st.zoom);
             ctx.translate(-viewCenterX, -viewCenterY);
 
-            const baseImg = img1 || img2;
-            const baseW = baseImg.naturalWidth || baseImg.width;
-            const baseH = baseImg.naturalHeight || baseImg.height;
+            // Холст = максимум по обоим изображениям (а не размер img1)
+            const lay = this._layout(img1, img2);
+            const baseW = lay.w;
+            const baseH = lay.h;
 
             const fitScale = Math.min(rect.w / baseW, rect.h / baseH);
             const drawW = baseW * fitScale;
@@ -618,18 +969,43 @@ app.registerExtension({
             const drawX = rect.x + (rect.w - drawW) / 2;
             const drawY = rect.y + (rect.h - drawH) / 2;
 
+            // Рисует изображение в натуральном масштабе холста, в найденной позиции
+            const drawImg = (im) => {
+                const nw = im.naturalWidth || im.width;
+                const nh = im.naturalHeight || im.height;
+                const pp = im === img1 ? lay.p1 : lay.p2;
+                ctx.drawImage(
+                    im,
+                    drawX + pp.x * fitScale,
+                    drawY + pp.y * fitScale,
+                    nw * pp.s * fitScale,
+                    nh * pp.s * fitScale
+                );
+            };
+
             if (img1 && img2) {
                 if (mode === "Slider") {
-                    // Слева от линии — Image 2 (фон), справа — Image 1 (под шторкой):
+                    // Слева от линии — только Image 2, справа — только Image 1:
                     // слайдер справа → виден Image 2, слайдер слева → виден Image 1.
-                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    // Фон холста чёрный, поэтому там, где меньшего изображения
+                    // нет, большее не просвечивает.
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(drawX, drawY, drawW, drawH);
 
                     const splitX = rect.x + rect.w * st.sliderPos;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(rect.x, rect.y, splitX - rect.x, rect.h);
+                    ctx.clip();
+                    drawImg(img2);
+                    ctx.restore();
+
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(splitX, rect.y, rect.x + rect.w - splitX, rect.h);
                     ctx.clip();
-                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    drawImg(img1);
                     ctx.restore();
 
                     // Тонкая жёлтая линия без тени и без компенсации под
@@ -645,15 +1021,15 @@ app.registerExtension({
                     ctx.stroke();
 
                 } else if (mode === "Overlap") {
-                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    drawImg(img2);
                     ctx.globalAlpha = Math.max(0, Math.min(1, opacityVal));
-                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    drawImg(img1);
                     ctx.globalAlpha = 1.0;
 
                 } else if (mode === "Difference") {
-                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    drawImg(img1);
                     ctx.globalCompositeOperation = "difference";
-                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
+                    drawImg(img2);
                     ctx.globalCompositeOperation = "source-over";
 
                 } else if (mode === "Blink") {
@@ -690,18 +1066,26 @@ app.registerExtension({
                         }
                     }
 
-                    // Отрисовка Image 2 как базового фонового слоя
-                    ctx.drawImage(img2, drawX, drawY, drawW, drawH);
-                    // Отрисовка Image 1 поверх с вычисленной прозрачностью
-                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha1));
-                    ctx.drawImage(img1, drawX, drawY, drawW, drawH);
+                    // Чёрный фон + взвешенное сложение: результат = a·Image1 +
+                    // (1−a)·Image2. Там, где одного из изображений нет, на
+                    // этом месте чёрный фон (а не просвечивающее второе
+                    // изображение).
+                    const a1 = Math.max(0, Math.min(1, alpha1));
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(drawX, drawY, drawW, drawH);
+                    ctx.globalAlpha = 1 - a1;
+                    drawImg(img2);
+                    ctx.globalCompositeOperation = "lighter";
+                    ctx.globalAlpha = a1;
+                    drawImg(img1);
+                    ctx.globalCompositeOperation = "source-over";
                     ctx.globalAlpha = 1.0;
 
                     this.setDirtyCanvas(true, true);
                 }
             } else {
                 const targetImg = img1 || img2;
-                if (targetImg) ctx.drawImage(targetImg, drawX, drawY, drawW, drawH);
+                if (targetImg) drawImg(targetImg);
             }
             ctx.restore(); // Сброс матрицы трансформации
         };
@@ -719,10 +1103,9 @@ app.registerExtension({
             const w2 = st.img2.naturalWidth || st.img2.width;
             const h2 = st.img2.naturalHeight || st.img2.height;
 
-            const area1 = w1 * h1;
-            const area2 = w2 * h2;
-            const bigW = area1 >= area2 ? w1 : w2;
-            const bigH = area1 >= area2 ? h1 : h2;
+            const capLay = this._layout(st.img1, st.img2);
+            const bigW = capLay.w;
+            const bigH = capLay.h;
 
             // Side-by-Side: канвас вдвое шире — под ДВЕ половины размером с
             // более крупное изображение. Само вписывание картинок в половины
@@ -842,6 +1225,12 @@ app.registerExtension({
                 ctx.fillStyle = "#f43f5e";
                 ctx.textAlign = "right";
                 ctx.fillText(`${st.dim2}  Image 2`, rect.x + rect.w, barY);
+            }
+            if (st.alignInfo) {
+                ctx.fillStyle = st.layout ? "#a3e635" : "#fb923c";
+                ctx.font = "10px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText(`⌖ ${st.alignInfo}`, rect.x + rect.w / 2, barY + 1);
             }
             ctx.restore();
 

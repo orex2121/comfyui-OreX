@@ -296,6 +296,18 @@ function openPromptEditor(
     });
 }
 
+function removeOrexUiWidgets(node) {
+    for (const name of ["orex_tabs", "orex_splitter"]) {
+        for (let i = (node.widgets?.length ?? 0) - 1; i >= 0; i--) {
+            const widget = node.widgets[i];
+            if (widget?.name !== name) continue;
+            try { widget.onRemove?.(); } catch {}
+            widget.element?.remove?.();
+            node.widgets.splice(i, 1);
+        }
+    }
+}
+
 app.registerExtension({
     name: "OreX.StringSelectorV2",
     async nodeCreated(node) {
@@ -311,6 +323,7 @@ app.registerExtension({
             const namesArea = namesWidget?.inputEl;
             const promptArea = promptWidget?.inputEl;
             if (!namesWidget || !promptWidget || !storageWidget || !selectWidget || !namesArea || !promptArea) return false;
+            removeOrexUiWidgets(node);
             node.__orexStringSelectorV2Initialized = true;
 
             storageWidget.computeSize = () => [0, -4];
@@ -677,7 +690,6 @@ app.registerExtension({
             Object.assign(tagsLayer.style, {
                 position: "absolute", zIndex: "2", overflow: "hidden", pointerEvents: "none",
             });
-            namesArea.parentElement.appendChild(tagsLayer);
 
             const dropMarker = document.createElement("div");
             Object.assign(dropMarker.style, {
@@ -685,7 +697,16 @@ app.registerExtension({
                 background: "#ff9f2f", boxShadow: "0 0 5px rgba(255,159,47,.8)",
                 pointerEvents: "none", display: "none",
             });
-            namesArea.parentElement.appendChild(dropMarker);
+
+            // The DOM widget may not be attached to the page yet (new frontend
+            // attaches it lazily), so attach the overlay layers on first use.
+            const ensureLayers = () => {
+                if (tagsLayer.isConnected && dropMarker.isConnected) return true;
+                const host = namesArea.parentElement;
+                if (!host) return false;
+                host.append(tagsLayer, dropMarker);
+                return true;
+            };
 
             const syncFavoriteEntry = async (entry) => {
                 if (!entry?.id || !favoriteIds.has(entry.id)) return;
@@ -796,7 +817,7 @@ app.registerExtension({
             };
 
             const renderTypeLabels = () => {
-                if (!document.body.contains(namesArea)) return;
+                if (!document.body.contains(namesArea) || !ensureLayers()) return;
                 const entries = currentEntries();
                 const list = names();
                 const isCustom = activeTab === "custom";
@@ -867,9 +888,18 @@ app.registerExtension({
                 })
                 .catch((error) => console.error("[OreX StringSelector v2] Failed to load favorites", error));
 
-            const tagsResizeObserver = new ResizeObserver(renderTypeLabels);
+            let renderQueued = false;
+            const scheduleRender = () => {
+                if (renderQueued) return;
+                renderQueued = true;
+                requestAnimationFrame(() => {
+                    renderQueued = false;
+                    renderTypeLabels();
+                });
+            };
+            const tagsResizeObserver = new ResizeObserver(scheduleRender);
             tagsResizeObserver.observe(namesArea);
-            namesArea.addEventListener("scroll", renderTypeLabels);
+            namesArea.addEventListener("scroll", scheduleRender, { passive: true });
 
             const updateHighlight = () => {
                 const index = selectedIndex();
@@ -968,6 +998,7 @@ app.registerExtension({
                     dropMarker.style.display = "none";
                     return;
                 }
+                if (!ensureLayers()) return;
                 const { lineHeight, paddingTop } = lineMetrics();
                 Object.assign(dropMarker.style, {
                     display: "block",
@@ -1078,6 +1109,7 @@ app.registerExtension({
             node.onConfigure = function () {
                 const result = originalOnConfigure?.apply(this, arguments);
                 setTimeout(() => {
+                    if (!node.graph || !node.__orexStringSelectorV2Initialized) return;
                     restoreEntries();
                     activeTab = validTabs.includes(node.properties.orexActiveTab)
                         ? node.properties.orexActiveTab
@@ -1168,6 +1200,7 @@ app.registerExtension({
 
         const schedule = () => {
             const attempt = () => {
+                if (node.__orexStringSelectorV2Initialized) return;
                 // Wait until LiteGraph finishes applying widgets_values. Adding
                 // DOM widgets sooner shifts saved values to the wrong fields.
                 if (app.configuringGraph || !node.graph) return;
@@ -1177,10 +1210,11 @@ app.registerExtension({
                     }
                 } catch (error) {
                     node.__orexStringSelectorV2Initialized = false;
+                    removeOrexUiWidgets(node);
                     console.error("[OreX StringSelector v2] Failed to initialize node UI", error);
                 }
             };
-            for (const delay of [0, 50, 150, 400]) setTimeout(attempt, delay);
+            for (const delay of [0, 50, 150, 400, 1000, 2500]) setTimeout(attempt, delay);
         };
         node.__orexScheduleStringSelectorV2 = schedule;
         schedule();
