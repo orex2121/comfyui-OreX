@@ -31,9 +31,6 @@ app.registerExtension({
             const proto = nodeType.prototype;
             const onNodeCreated = proto.onNodeCreated;
 
-            proto.color = "#000000";
-            proto.bgcolor = "#0f0f0f";
-
             proto.onNodeCreated = function () {
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
                 
