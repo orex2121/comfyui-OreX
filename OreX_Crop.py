@@ -39,7 +39,7 @@ class OreXCrop:
     RETURN_TYPES = ("IMAGE", "MASK", "INT", "INT")
     RETURN_NAMES = ("image", "mask", "width", "height")
     FUNCTION = "execute_crop"
-    CATEGORY = "image/process"
+    CATEGORY = "OreX/Image"
     OUTPUT_NODE = True
 
     def execute_crop(self, image: torch.Tensor, crop_left: float, crop_right: float, crop_top: float, crop_bottom: float, 

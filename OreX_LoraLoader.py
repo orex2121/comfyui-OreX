@@ -20,6 +20,10 @@ class FlexibleOptionalInputType(dict):
     def __contains__(self, key):
         return True
     def __getitem__(self, key):
+        # Явно заданные входы (например, clip) сохраняют свой тип,
+        # все остальные (lora_*) принимаются как "любой тип"
+        if dict.__contains__(self, key):
+            return dict.__getitem__(self, key)
         return (any_type,)
 # =======================================
 
@@ -236,12 +240,14 @@ class OreX_LoraLoader:
         return {
             "required": {
                 "model": ("MODEL",),
-                "clip": ("CLIP",),
             },
-            "optional": FlexibleOptionalInputType()
+            # clip теперь необязательный: без него узел работает только с моделью
+            "optional": FlexibleOptionalInputType({
+                "clip": ("CLIP",),
+            })
         }
 
-    CATEGORY = "🤫OreX/Loaders"
+    CATEGORY = "OreX/Loaders"
     RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING")
     RETURN_NAMES = ("MODEL", "CLIP", "Trigger Words", "Lora Names")
     FUNCTION = "load_loras"
@@ -267,12 +273,12 @@ class OreX_LoraLoader:
             
         return True
 
-    def load_loras(self, model, clip, **kwargs):
+    def load_loras(self, model, clip=None, **kwargs):
         final_trigger_words = []
         final_lora_names = []
         lora_loader = LoraLoader()
         model_lora = model
-        clip_lora = clip
+        clip_lora = clip  # может быть None, если клип не подключен
 
         for key, value in sorted(kwargs.items()):
             if key.startswith('lora_') and isinstance(value, dict):

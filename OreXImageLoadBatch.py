@@ -39,7 +39,7 @@ class OreXImageLoadBatch:
     RETURN_TYPES = ("IMAGE", "STRING", "STRING", "INT", "INT")
     RETURN_NAMES = ("image", "filename", "folder_path", "number_of_files", "current_index")
     FUNCTION = "load_batch_images"
-    CATEGORY = "🤫OreX/Image"
+    CATEGORY = "OreX/Image"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):

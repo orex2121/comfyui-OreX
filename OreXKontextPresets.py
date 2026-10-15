@@ -3,7 +3,7 @@ import os
 import json
 import hashlib
 
-MY_CATEGORY = "🤫OreX/LLM"
+MY_CATEGORY = "OreX/LLM"
 
 # ========= Paths =========
 

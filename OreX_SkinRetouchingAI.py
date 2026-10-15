@@ -101,7 +101,7 @@ class OreX_SkinRetouchingAI:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("result",)
     FUNCTION = "process"
-    CATEGORY = "🤫OreX/Filters"
+    CATEGORY = "OreX/Filters"
     DESCRIPTION = ("AI-ретушь кожи через модель ModelScope, с регулировкой "
                    "силы эффекта и маской. / AI skin retouching via a "
                    "ModelScope model, with adjustable strength and mask.")

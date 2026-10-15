@@ -321,5 +321,5 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OrexImageMergingV2": "OreX Image Merging V2"
+    "OrexImageMergingV2": "🧱 Image Merging V2 (OreX)"
 }

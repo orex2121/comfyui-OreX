@@ -28,7 +28,7 @@ class OreX_CipTextEncode:
     RETURN_TYPES = ("CONDITIONING", "STRING")
     RETURN_NAMES = ("CONDITIONING", "PROMPT")
     FUNCTION = "encode"
-    CATEGORY = "🤫OreX/Conditioning"
+    CATEGORY = "OreX/Conditioning"
 
     def encode(self, clip, text, **kwargs):
         dynamic_strings = []

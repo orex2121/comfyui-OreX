@@ -16,7 +16,7 @@ class OreXImageLoad:
                     {"image": (sorted(files), {"image_upload": True})},
                 }
 
-    CATEGORY = "🤫OreX/Image"
+    CATEGORY = "OreX/Image"
 
     RETURN_TYPES = ("IMAGE", "MASK", "STRING", "INT", "INT")
     RETURN_NAMES = ("image", "mask", "filename", "width", "height")

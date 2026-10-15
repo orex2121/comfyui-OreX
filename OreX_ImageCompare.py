@@ -251,7 +251,7 @@ class OreXImageCompare:
 
 
 NODE_CLASS_MAPPINGS = {"OreX Image Compare": OreXImageCompare}
-NODE_DISPLAY_NAME_MAPPINGS = {"OreX Image Compare": "↔️ OreX Image Compare"}
+NODE_DISPLAY_NAME_MAPPINGS = {"OreX Image Compare": "↔️ Image Compare (OreX)"}
 WEB_DIRECTORY = "./js"
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
 

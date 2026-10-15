@@ -49,7 +49,7 @@ class OreXImageSave:
     RETURN_NAMES = ("images", "saved_path", "filename_text")
     FUNCTION = "save_image"
     OUTPUT_NODE = True
-    CATEGORY = "🤫OreX/Image"
+    CATEGORY = "OreX/Image"
 
     WINDOWS_FORBIDDEN = set('<>:"|?*') # Убраны слеши, они нужны для путей
     MAX_PATH_LEN = 260

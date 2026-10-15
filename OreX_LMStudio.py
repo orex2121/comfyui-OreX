@@ -254,7 +254,7 @@ class OreXLMStudio:
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("Generated Text", "Request_lmstudio")
     FUNCTION = "process_input"
-    CATEGORY = "🤫OreX/LLM"
+    CATEGORY = "OreX/LLM"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):

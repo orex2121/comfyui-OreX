@@ -770,38 +770,7 @@ app.registerExtension({
             const cs = Math.min(1, 160 / m);   // грубый уровень
             const ms = Math.min(1, 800 / m);   // средний уровень
 
-            // --- 1. Грубо: перебор масштаба k (0.33 … 3.0) и смещения
             const cA = gray(ref, cs, cs);
-            const ks = [1];
-            for (let k = 0.33; k <= 3.0; k *= 1.03) ks.push(k);
-            const results = [];
-            let r1 = null;
-            for (const k of ks) {
-                const r = trial(cA, cs, k, 1200);
-                if (!r) continue;
-                if (k === 1) r1 = r;
-                results.push(r);
-            }
-            if (!results.length) return null;
-            results.sort((p, q) => p.err - q.err);
-
-            // Масштаб 1 предпочтителен, если он не заметно хуже лучшего.
-            // Иначе к нему добавляются до трёх лучших «кандидатов» с заметно
-            // разными масштабами; выбор — по итогам уточнения.
-            let cands = [];
-            if (r1) cands.push({ ...r1, unit: true });
-            if (!(r1 && r1.err <= results[0].err + 1.5)) {
-                const others = [];
-                for (const r of results) {
-                    if (others.length >= 3) break;
-                    if (r.k === 1) continue;
-                    if (others.every(c => Math.abs(Math.log(c.k / r.k)) > 0.08)) {
-                        others.push({ ...r, unit: false });
-                    }
-                }
-                cands = cands.concat(others);
-            }
-
             let mA = null, fA = null;
             const refine = (c) => {
                 let cur = c, kc = c.k;
@@ -844,6 +813,56 @@ app.registerExtension({
                 return fb ? { ox: fb.ox, oy: fb.oy, k: fb.k, err: fb.err } : null;
             };
 
+            // --- 0. Пропорциональное изменение размера: у картинок одинаковое
+            // соотношение сторон — вероятнее всего, это то же изображение
+            // целиком в другом масштабе (увеличено/уменьшено). Гипотеза:
+            // масштаб = отношение размеров, смещение = 0. Её совпадение
+            // оценивается отдельно; уточнение (±пара пикселей) принимается,
+            // только если оно заметно лучше «чистой» гипотезы.
+            const arR = R.w / R.h, arM = M.w / M.h;
+            if (Math.abs(arR - arM) / arR < 0.02) {
+                const k0 = Math.sqrt((R.w * R.h) / (M.w * M.h));
+                if (!fA) fA = gray(ref, 1, 1);
+                const prior = trial(fA, 1, k0, 6000, 0, 0, 0);
+                if (prior && prior.err < 95) {
+                    const hres = refine({ k: k0, ox: 0, oy: 0, err: 100, stepO: 1, unit: false });
+                    return (hres && hres.err <= prior.err - 3)
+                        ? hres
+                        : { ox: prior.ox, oy: prior.oy, k: prior.k, err: prior.err };
+                }
+            }
+
+            // --- 1. Грубо: перебор масштаба k и смещения
+            const ks = [1, R.w / M.w, R.h / M.h];
+            for (let k = 0.2; k <= 6.0; k *= 1.04) ks.push(k);
+            const results = [];
+            let r1 = null;
+            for (const k of ks) {
+                const r = trial(cA, cs, k, 1200);
+                if (!r) continue;
+                if (k === 1) r1 = r;
+                results.push(r);
+            }
+            if (!results.length) return null;
+            results.sort((p, q) => p.err - q.err);
+
+            // Масштаб 1 предпочтителен, если он не заметно хуже лучшего.
+            // Иначе к нему добавляются до трёх лучших «кандидатов» с заметно
+            // разными масштабами; выбор — по итогам уточнения.
+            let cands = [];
+            if (r1) cands.push({ ...r1, unit: true });
+            if (!(r1 && r1.err <= results[0].err + 1.5)) {
+                const others = [];
+                for (const r of results) {
+                    if (others.length >= 3) break;
+                    if (r.k === 1) continue;
+                    if (others.every(c => Math.abs(Math.log(c.k / r.k)) > 0.08)) {
+                        others.push({ ...r, unit: false });
+                    }
+                }
+                cands = cands.concat(others);
+            }
+
             let final = null, unitRes = null;
             for (const c of cands) {
                 const f = refine(c);
@@ -878,7 +897,11 @@ app.registerExtension({
                 if (res) {
                     console.log(`[OreX Image Compare] align: offset=(${res.ox}, ${res.oy}) scale=${res.k.toFixed(4)} NCC=${(1 - res.err / 100).toFixed(3)}`);
                 }
-                if (res && res.err < 88) {
+                // При одинаковом соотношении сторон (пропорциональное
+                // масштабирование) гипотеза очень правдоподобна сама по себе,
+                // поэтому порог мягче.
+                const sameAspect = Math.abs(wA / hA - wB / hB) / (wA / hA) < 0.02;
+                if (res && res.err < (sameAspect ? 95 : 88)) {
                     st.layout = { img1: a, img2: b, refIs1, ox: res.ox, oy: res.oy, k: res.k };
                     const ncc = (1 - res.err / 100).toFixed(2);
                     st.alignInfo = Math.abs(res.k - 1) > 0.002

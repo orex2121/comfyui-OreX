@@ -42,7 +42,7 @@ class OreX_CameraRaw:
             }
         }
 
-    CATEGORY = "🤫OreX/Filters"
+    CATEGORY = "OreX/Filters"
     DESCRIPTION = "Advanced Color Correction Node featuring Camera Raw, HSL, and RGB Curves."
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("IMAGE",)

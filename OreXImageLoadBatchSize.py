@@ -35,7 +35,7 @@ class OreXImageLoadBatchSize:
     FUNCTION = "load_batch"
     OUTPUT_NODE = True
     OUTPUT_IS_LIST = (True, True, False, False)
-    CATEGORY = "🤫OreX/Image"
+    CATEGORY = "OreX/Image"
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):

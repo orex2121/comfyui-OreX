@@ -27,7 +27,7 @@ class OreXRatio:
     RETURN_TYPES = ("INT", "INT", "LATENT", "LATENT", "LATENT")
     RETURN_NAMES = ("width", "height", "empty_latent_image", "empty_sd3_flux1_latent", "empty_flux2_latent")
     FUNCTION = "calculate"
-    CATEGORY = "OreX"
+    CATEGORY = "OreX/Latent"
 
     def calculate(self, ratio, Megapixel, Multiplicity, custom_width, custom_height, **kwargs):
         # Проверяем состояние переключателя
