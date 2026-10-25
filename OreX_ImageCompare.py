@@ -180,7 +180,7 @@ class OreXImageCompare:
 
     RETURN_TYPES = ()
     FUNCTION = "compare_images"
-    CATEGORY = "🤫OreX/Image"
+    CATEGORY = "OreX/Image"
     OUTPUT_NODE = True
 
     def compare_images(

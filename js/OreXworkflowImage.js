@@ -47,8 +47,13 @@ class WorkflowImage {
 	saveState() {
 		this.state = {
 			scale: app.canvas.ds.scale,
+			dpr: app.canvas.dpr,
 			width: app.canvas.canvas.width,
 			height: app.canvas.canvas.height,
+			styleWidth: app.canvas.canvas.style.width,
+			styleHeight: app.canvas.canvas.style.height,
+			viewport: app.canvas.viewport ? [...app.canvas.viewport] : null,
+			viewportSize: app.canvas.ds.viewportSize ? [...app.canvas.ds.viewportSize] : null,
 			offset: app.canvas.ds.offset,
 			transform: app.canvas.canvas.getContext("2d").getTransform(), // Save the original transformation matrix / Сохраняем оригинальную матрицу трансформации
 		};
@@ -60,10 +65,20 @@ class WorkflowImage {
 	 */
 	restoreState() {
 		app.canvas.ds.scale = this.state.scale;
+		app.canvas.dpr = this.state.dpr;
 		app.canvas.canvas.width = this.state.width;
 		app.canvas.canvas.height = this.state.height;
+		app.canvas.canvas.style.width = this.state.styleWidth;
+		app.canvas.canvas.style.height = this.state.styleHeight;
+		app.canvas.viewport = this.state.viewport ? [...this.state.viewport] : null;
+		if (this.state.viewportSize) {
+			app.canvas.ds.setViewportSize?.(...this.state.viewportSize);
+		} else {
+			app.canvas.ds.invalidateViewportSize?.();
+		}
 		app.canvas.ds.offset = this.state.offset;
 		app.canvas.canvas.getContext("2d").setTransform(this.state.transform); // Reapply the original transformation matrix / Применяем оригинальную матрицу трансформации обратно
+		app.canvas.ds.computeVisibleArea?.(app.canvas.viewport);
 	}
 
 	/**
@@ -73,25 +88,31 @@ class WorkflowImage {
 	updateView(bounds) {
 		const w = bounds[2] - bounds[0];
 		const h = bounds[3] - bounds[1];
-		
-		// Scale only for PNG, SVG doesn't need it (vector).
-		// Масштабируем только для PNG, SVG в этом не нуждается (так как это векторная графика).
-		let scale = 1;
-		if (this.extension === "png") {
-			const MAX_DIM = 8192;
-			const TARGET_SCALE = 1.5; 
-			scale = TARGET_SCALE;
 
-			if (w * scale > MAX_DIM || h * scale > MAX_DIM) {
-				scale = Math.min(MAX_DIM / w, MAX_DIM / h);
-			}
+		// Recent ComfyUI frontends keep workflow zoom (ds.scale) separate from
+		// the canvas backing-store pixel ratio. Using the export resolution as
+		// ds.scale makes nodes, links and previews use different coordinate
+		// systems. Render at graph scale 1 and apply DPR on the 2D context.
+		// В новых версиях ComfyUI масштаб графа и плотность пикселей canvas
+		// разделены. ds.scale всегда 1, а DPR задается матрицей контекста.
+		const MAX_DIM = 8192;
+		let pixelRatio = window.devicePixelRatio || 1;
+		if (w * pixelRatio > MAX_DIM || h * pixelRatio > MAX_DIM) {
+			pixelRatio = Math.min(MAX_DIM / w, MAX_DIM / h);
 		}
 
-		// Pass scaling directly to LiteGraph / Передаем масштабирование напрямую в LiteGraph
-		app.canvas.ds.scale = scale; 
-		app.canvas.canvas.width = w * scale;
-		app.canvas.canvas.height = h * scale;
+		app.canvas.ds.scale = 1;
+		app.canvas.dpr = pixelRatio;
+		app.canvas.canvas.width = Math.max(1, Math.round(w * pixelRatio));
+		app.canvas.canvas.height = Math.max(1, Math.round(h * pixelRatio));
+		// Do not resize the CSS element: that moves DOM-backed widgets and can
+		// make nodes appear displaced from their groups. The current LiteGraph
+		// renderer has an explicit viewport-size cache for off-screen drawing.
+		app.canvas.viewport = null;
+		app.canvas.ds.setViewportSize?.(w, h);
 		app.canvas.ds.offset = [-bounds[0], -bounds[1]];
+		app.canvas.canvas.getContext("2d").setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+		app.canvas.ds.computeVisibleArea?.(null);
 	}
 
 	getDrawTextConfig(_, widget) {
@@ -103,122 +124,100 @@ class WorkflowImage {
 	}
 
 	/**
+	 * Draws images from ComfyUI's canvas image-preview widget. Recent
+	 * frontends lay out this widget during an off-screen draw, but do not pass
+	 * its transient previewImages collection to the export canvas.
+	 */
+	drawNodeImages() {
+		const ctx = app.canvas.ctx || app.canvas.canvas.getContext("2d");
+		if (!ctx) return;
+
+		ctx.save();
+		ctx.setTransform(app.canvas.dpr || 1, 0, 0, app.canvas.dpr || 1, 0, 0);
+		if (app.canvas.ds.toCanvasContext) {
+			app.canvas.ds.toCanvasContext(ctx);
+		} else {
+			ctx.scale(app.canvas.ds.scale, app.canvas.ds.scale);
+			ctx.translate(app.canvas.ds.offset[0], app.canvas.ds.offset[1]);
+		}
+
+		for (const node of app.graph._nodes) {
+			const images = node.imgs;
+			if (!images?.length) continue;
+
+			const widget = node.widgets?.find(
+				(w) => w?.name === "$$canvas-image-preview" || w?.type === "IMAGE_PREVIEW"
+			);
+			if (!widget || !Number.isFinite(widget.y)) continue;
+
+			const imageIndex = Number.isInteger(node.imageIndex) && node.imageIndex >= 0
+				? Math.min(node.imageIndex, images.length - 1)
+				: 0;
+			const img = images[imageIndex];
+			const imageWidth = img?.naturalWidth || img?.videoWidth || img?.width || 0;
+			const imageHeight = img?.naturalHeight || img?.videoHeight || img?.height || 0;
+			if (!imageWidth || !imageHeight || ("complete" in img && !img.complete)) continue;
+
+			const x = Number.isFinite(widget.x) ? widget.x : 0;
+			const y = widget.y;
+			const width = Number.isFinite(widget.computedWidth) && widget.computedWidth > 0
+				? widget.computedWidth
+				: node.size[0];
+			const height = Number.isFinite(widget.computedHeight) && widget.computedHeight > 0
+				? widget.computedHeight
+				: Math.max(0, node.size[1] - y);
+			if (width <= 0 || height <= 0) continue;
+
+			const scale = Math.min(width / imageWidth, height / imageHeight);
+			const drawWidth = imageWidth * scale;
+			const drawHeight = imageHeight * scale;
+			const drawX = x + (width - drawWidth) / 2;
+			const drawY = y + (height - drawHeight) / 2;
+
+			ctx.save();
+			ctx.translate(node.pos[0], node.pos[1]);
+			ctx.beginPath();
+			ctx.rect(x, y, width, height);
+			ctx.clip();
+			try {
+				ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+			} catch (error) {
+				console.warn("[OreX Workflow Image] Could not draw node preview", node.id, error);
+			}
+			ctx.restore();
+		}
+
+		ctx.restore();
+	}
+
+	/**
 	 * Main export method.
 	 * Основной метод экспорта.
 	 */
 	async export(includeWorkflow) {
-		// Save the current state of the canvas / Сохраняем текущее состояние холста
 		this.saveState();
-		
-		// Update to render the whole workflow / Обновляем вид для рендеринга всего рабочего процесса
-		const bounds = this.getBounds();
-		console.log("[OreX Workflow Image] Bounds / Границы:", bounds);
-		this.updateView(bounds);
-		
-		// Force full redraw of all nodes / Принудительно полностью перерисовываем все ноды
-		app.graph.setDirtyCanvas(true, true);
-		app.canvas.setDirty(true, true);
+		let blob;
+		try {
+			const bounds = this.getBounds();
+			console.log("[OreX Workflow Image] Bounds / Границы:", bounds);
+			this.updateView(bounds);
 
-		// Flag that we are saving and render the canvas / Устанавливаем флаг сохранения и рендерим холст
-		getDrawTextConfig = this.getDrawTextConfig;
-		app.canvas.draw(true, true);
-		
-		// Wait for async textures to load / Ждем загрузки асинхронных текстур
-		await new Promise(r => setTimeout(r, 500));
-		app.canvas.draw(true, true);
+			app.graph.setDirtyCanvas(true, true);
+			app.canvas.setDirty(true, true);
+			getDrawTextConfig = this.getDrawTextConfig;
+			app.canvas.draw(true, true);
+			this.drawNodeImages();
 
-		// FORCE DRAW IMAGES: Manual pass to draw images that standard draw might skip
-		// ПРИНУДИТЕЛЬНАЯ ОТРИСОВКА ИЗОБРАЖЕНИЙ: Ручной проход для отрисовки картинок, которые стандартный метод мог пропустить
-		const ctx = app.canvas.ctx;
-		
-		ctx.save();
-		// Replicate LiteGraph camera settings for accurate positioning / Воспроизводим настройки камеры LiteGraph для точного позиционирования
-		if (ctx.setTransform) {
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-		}
-		ctx.scale(app.canvas.ds.scale, app.canvas.ds.scale);
-		ctx.translate(app.canvas.ds.offset[0], app.canvas.ds.offset[1]);
-
-		for (const node of app.graph._nodes) {
-			if (node.imgs && node.imgs.length > 0) {
-				const img = node.imgs[0];
-				if (img.complete && img.width > 0) {
-					this.drawNodeImage(ctx, node, img);
-				}
-			}
-		}
-		ctx.restore();
-		
-		getDrawTextConfig = null;
-
-		// Generate a blob of the image containing the workflow / Генерируем blob изображения, содержащего рабочий процесс
-		const blob = await this.getBlob(includeWorkflow ? JSON.stringify(app.graph.serialize()) : undefined);
-		console.log("[OreX Workflow Image] Blob size / Размер Blob:", blob ? blob.size : "null");
-
-		// Restore initial state and redraw / Восстанавливаем исходное состояние и перерисовываем
-		this.restoreState();
-		app.canvas.draw(true, true);
-
-		// Download the generated image / Скачиваем сгенерированное изображение
-		this.download(blob);
-	}
-
-	/**
-	 * Draws an image inside a node with correct positioning.
-	 * Отрисовывает изображение внутри ноды с правильным позиционированием.
-	 */
-	drawNodeImage(ctx, node, img) {
-		ctx.save();
-		// Move to node position in world coordinates / Перемещаемся к позиции ноды в мировых координатах
-		ctx.translate(node.pos[0], node.pos[1]);
-		
-		// Calculate reserved height for widgets / Вычисляем зарезервированную высоту для виджетов
-		let contentStartY = 0;
-		if (node.widgets && node.widgets.length > 0) {
-			const headerHeight = 26; // LiteGraph header is usually ~26px / Заголовок LiteGraph обычно ~26px
-			let widgetsHeight = 0;
-			for (const w of node.widgets) {
-				widgetsHeight += 28; // Estimate 28px per widget / Оцениваем примерно 28px на виджет
-			}
-			contentStartY = headerHeight + widgetsHeight + 5;
+			blob = await this.getBlob(includeWorkflow ? JSON.stringify(app.graph.serialize()) : undefined);
+			console.log("[OreX Workflow Image] Blob size / Размер Blob:", blob ? blob.size : "null");
+		} finally {
+			getDrawTextConfig = null;
+			this.restoreState();
+			app.canvas.setDirty(true, true);
+			app.canvas.draw(true, true);
 		}
 
-		// Reserve space for specific node types / Резервируем место для специфических типов нод
-		const isSampler = node.type && node.type.includes("Sampler");
-		const isSave = node.type && (node.type.includes("Save") || node.type.includes("Output") || node.type.includes("Preview"));
-		if (isSampler && contentStartY < 220) contentStartY = 220;
-
-		const footerHeight = isSave ? 55 : 25; 
-		const drawHeight = node.size[1] - contentStartY - footerHeight;
-		
-		if (drawHeight > 0) {
-			try {
-				// Calculate proportional scale to fit image into available area / Вычисляем пропорциональный масштаб для вписывания картинки в доступную область
-				const imgAspect = img.width / img.height;
-				const areaAspect = node.size[0] / drawHeight;
-				
-				let targetWidth, targetHeight, offsetXImg, offsetYImg;
-				
-				if (imgAspect > areaAspect) {
-					// Image is wider than area / Изображение шире доступной области
-					targetWidth = node.size[0];
-					targetHeight = node.size[0] / imgAspect;
-					offsetXImg = 0;
-					offsetYImg = contentStartY + (drawHeight - targetHeight) / 2;
-				} else {
-					// Image is taller than area / Изображение выше доступной области
-					targetHeight = drawHeight;
-					targetWidth = drawHeight * imgAspect;
-					offsetXImg = (node.size[0] - targetWidth) / 2;
-					offsetYImg = contentStartY;
-				}
-				
-				ctx.drawImage(img, offsetXImg, offsetYImg, targetWidth, targetHeight);
-			} catch (e) {
-				console.error("[OreX Workflow Image] Failed to draw image for node / Не удалось отрисовать изображение для ноды", node.id, e);
-			}
-		}
-		ctx.restore();
+		if (blob) this.download(blob);
 	}
 
 	/**
