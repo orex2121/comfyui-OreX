@@ -53,6 +53,7 @@
 `29.` [🎭 Mask Selection — OreX (Олег К.)](#ru-29-mask-selection)  
 `30.` [⛓️‍💥 Image Tile Split — OreX (Олег К.)](#ru-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
+`32.` [🪄 Remove Background — PaBoKor (Павел К.)](#ru-32-remove-background)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -534,6 +535,23 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Сохранение типа данных, устройства и фактического количества каналов входных изображений.
 - Один выход `image` без дополнительного UI-выхода.
 
+<a id="ru-32-remove-background"></a>
+#### 32. 🪄 Remove Background
+Автор: PaBoKor (Павел К.)
+
+Удаляет фон одним узлом на основе BiRefNet. Заменяет цепочку стандартных узлов ComfyUI: Load Background Removal Model → Remove Background → Invert Mask → Join Image with Alpha.
+
+**Узел поддерживает:**
+- Выбор модели в списке `bg_removal_name` из папки `ComfyUI/models/background_removal/` (с учётом `extra_model_paths.yaml`).
+- Автоматическое скачивание `birefnet.safetensors` и `lucida.safetensors` с Hugging Face один раз при первом запуске, если файла нет: прогресс виден в консоли и в индикаторе ComfyUI, файл сначала пишется во временный `.part` и переименовывается только после полной загрузки.
+- Обработку батча изображений; загруженная модель кэшируется в памяти между запусками.
+- Два выхода: `image` — RGBA-изображение с прозрачным фоном и `mask` — маска переднего плана (белое = объект).
+- Работу на встроенной в ComfyUI реализации BiRefNet, поэтому нужна версия ComfyUI, в которой есть стандартные узлы Remove Background.
+
+**Чем отличаются модели:**
+- **birefnet.safetensors** — универсальная модель BiRefNet в сборке Comfy-Org: люди, волосы, шерсть, предметы, животные.
+- **lucida.safetensors** — дообученная версия BiRefNet_HR (автор egeorcun, лицензия MIT). По описанию автора, лучше справляется со сложными случаями: прозрачные материалы (стекло), текст и логотипы, иллюстрации, камуфляж. Файл заметно крупнее (885 МБ).
+
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -603,6 +621,7 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `29.` [🎭 Mask Selection — OreX (Oleg K.)](#en-29-mask-selection)  
 `30.` [⛓️‍💥 Image Tile Split — OreX (Oleg K.)](#en-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
+`32.` [🪄 Remove Background — PaBoKor (Pavel K.)](#en-32-remove-background)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1083,6 +1102,23 @@ Reassembles processed tiles from **⛓️‍💥 Image Tile Split** into one ima
 - Smooth overlap blending with masks: Box Blur is used for narrow overlaps and Gaussian Blur for wider overlaps.
 - Preservation of the input images' data type, device, and actual channel count.
 - A single `image` output with no additional UI output.
+
+<a id="en-32-remove-background"></a>
+#### 32. 🪄 Remove Background
+Author: PaBoKor (Pavel K.)
+
+Removes the background in a single node, based on BiRefNet. Replaces a chain of stock ComfyUI nodes: Load Background Removal Model → Remove Background → Invert Mask → Join Image with Alpha.
+
+**The node supports:**
+- Model selection from the `bg_removal_name` list, taken from the `ComfyUI/models/background_removal/` folder (`extra_model_paths.yaml` is respected).
+- Automatic one-time download of `birefnet.safetensors` and `lucida.safetensors` from Hugging Face on first run if the file is missing: progress is shown in the console and in the ComfyUI indicator, and the file is first written to a temporary `.part` and renamed only after a complete download.
+- Image batch processing; the loaded model is cached in memory between runs.
+- Two outputs: `image` — an RGBA image with a transparent background, and `mask` — the foreground mask (white = subject).
+- Running on ComfyUI's built-in BiRefNet implementation, so a ComfyUI version that includes the stock Remove Background nodes is required.
+
+**How the models differ:**
+- **birefnet.safetensors** — the general-purpose BiRefNet model as packaged by Comfy-Org: people, hair, fur, objects, animals.
+- **lucida.safetensors** — a fine-tuned BiRefNet_HR (author: egeorcun, MIT license). Per the author, it handles difficult cases better: transparent materials (glass), text and logos, illustrations, camouflage. The file is noticeably larger (885 MB).
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import

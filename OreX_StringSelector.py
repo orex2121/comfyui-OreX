@@ -21,10 +21,10 @@ class OreXStringSelector:
             return ("", )
 
         # Переводим из человеческого счета (начинается с 1) в программистский (начинается с 0)
-        index = select - 1
-        
-        # Берем строку, используя остаток от деления, чтобы избежать ошибок выхода за пределы
-        selected = lines[index % len(lines)]
+        # и ограничиваем значение: меньше первой строки -> первая, больше последней -> последняя
+        index = min(max(select, 1), len(lines)) - 1
+
+        selected = lines[index]
 
         return (selected, )
 
