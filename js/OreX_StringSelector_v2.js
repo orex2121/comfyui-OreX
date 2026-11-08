@@ -101,6 +101,60 @@ function parsePrompts(widget) {
     }
 }
 
+// Сопоставляет старый список названий с новым, чтобы после удаления или вставки
+// строки промпты остались у своих названий. Для каждой новой строки возвращает
+// индекс соответствующей старой строки или -1, если строка новая.
+function alignNames(previousNames, nextNames) {
+    const result = new Array(nextNames.length).fill(-1);
+    const shortest = Math.min(previousNames.length, nextNames.length);
+    let start = 0;
+    while (start < shortest && previousNames[start] === nextNames[start]) {
+        result[start] = start;
+        start++;
+    }
+    let previousEnd = previousNames.length;
+    let nextEnd = nextNames.length;
+    while (previousEnd > start && nextEnd > start && previousNames[previousEnd - 1] === nextNames[nextEnd - 1]) {
+        previousEnd--;
+        nextEnd--;
+        result[nextEnd] = previousEnd;
+    }
+    // Изменённый участок посередине: строки сопоставляются по порядку,
+    // лишние старые считаются удалёнными, лишние новые - вставленными
+    const common = Math.min(previousEnd - start, nextEnd - start);
+    for (let offset = 0; offset < common; offset++) result[start + offset] = start + offset;
+    return result;
+}
+
+// Положение текстового курсора после удаления строк: остаётся на своей строке в той же позиции;
+// если удалена сама строка с курсором, курсор переходит в начало следующей оставшейся строки.
+function mapCaretAfterRemoval(oldText, caret, keepIndices) {
+    const oldLines = oldText.split("\n");
+    let lineIndex = 0;
+    let lineStart = 0;
+    for (; lineIndex < oldLines.length - 1; lineIndex++) {
+        if (caret <= lineStart + oldLines[lineIndex].length) break;
+        lineStart += oldLines[lineIndex].length + 1;
+    }
+    const column = caret - lineStart;
+    const newLines = keepIndices.map((index) => oldLines[index]);
+    if (!newLines.length) return 0;
+    let target = keepIndices.indexOf(lineIndex);
+    let targetColumn = column;
+    if (target < 0) {
+        target = keepIndices.findIndex((index) => index > lineIndex);
+        targetColumn = 0;
+        if (target < 0) {
+            // Удалена последняя строка: курсор уходит в конец последней оставшейся
+            target = newLines.length - 1;
+            targetColumn = newLines[target].length;
+        }
+    }
+    let position = 0;
+    for (let i = 0; i < target; i++) position += newLines[i].length + 1;
+    return position + Math.min(targetColumn, newLines[target].length);
+}
+
 function openPromptEditor(
     node,
     namesWidget,
@@ -223,6 +277,18 @@ function openPromptEditor(
         const currentNames = String(namesWidget.value ?? "").split("\n");
         const currentPrompts = parsePrompts(storageWidget);
         if (index >= currentNames.length) return close();
+        if (nameInput.value.trim() === "") {
+            // Пустое название не сохраняется: окно остаётся открытым,
+            // фокус возвращается в поле названия (так же на всех вкладках)
+            nameInput.focus();
+            return;
+        }
+        if (promptEditor.value.trim() === "") {
+            // Название без промпта не сохраняется: окно остаётся открытым,
+            // фокус возвращается в поле промпта (так же на всех вкладках)
+            promptEditor.focus();
+            return;
+        }
         while (currentPrompts.length < currentNames.length) currentPrompts.push("");
 
         currentNames[index] = nameInput.value.replace(/[\r\n]+/g, " ");
@@ -339,7 +405,7 @@ app.registerExtension({
             namesArea.style.backgroundRepeat = "no-repeat";
             namesArea.style.whiteSpace = "pre";
             namesArea.style.overflowX = "auto";
-            namesArea.style.paddingRight = "108px";
+            namesArea.style.paddingRight = "136px";
             namesArea.style.boxSizing = "border-box";
 
             promptArea.wrap = "soft";
@@ -618,21 +684,52 @@ app.registerExtension({
                 writeSelectionState();
                 return clamped;
             };
-            const persistEntries = (list, prompts) => {
+            // mapping[i] - индекс старой записи для новой строки i (или -1, если строка новая)
+            const persistEntries = (list, prompts, mapping = null) => {
                 if (activeTab !== "custom") return;
                 const previousEntries = Array.isArray(node.properties.orexPromptEntries)
                     ? node.properties.orexPromptEntries
                     : [];
-                node.properties.orexPromptEntries = list.map((name, index) => ({
-                    id: typeof previousEntries[index]?.id === "string" && previousEntries[index].id
-                        ? previousEntries[index].id
-                        : makeEntryId(),
-                    name,
-                    prompt: prompts[index] ?? "",
-                    type: ["prompt", "style", "edit", "llm"].includes(previousEntries[index]?.type)
-                        ? previousEntries[index].type
-                        : "prompt",
-                }));
+                node.properties.orexPromptEntries = list.map((name, index) => {
+                    const previous = previousEntries[mapping ? mapping[index] : index];
+                    return {
+                        id: typeof previous?.id === "string" && previous.id ? previous.id : makeEntryId(),
+                        name,
+                        prompt: prompts[index] ?? "",
+                        type: ["prompt", "style", "edit", "llm"].includes(previous?.type)
+                            ? previous.type
+                            : "prompt",
+                    };
+                });
+            };
+
+            // Если число строк в поле названий изменилось (строку удалили или вставили прямо
+            // в тексте), промпты сопоставляются с названиями по содержимому, а не по номеру.
+            // Иначе все промпты ниже изменённой строки сдвинулись бы к чужим названиям.
+            const reconcileNames = () => {
+                if (activeTab !== "custom") return false;
+                const previous = customEntries();
+                const list = names();
+                if (!previous.length || previous.length === list.length) return false;
+
+                const blankAll = !String(namesWidget.value ?? "").trim();
+                const mapping = blankAll
+                    ? list.map(() => -1)
+                    : alignNames(previous.map((entry) => String(entry?.name ?? "")), list);
+                const prompts = mapping.map((oldIndex) => (
+                    oldIndex >= 0 ? String(previous[oldIndex]?.prompt ?? "") : ""
+                ));
+
+                // Выбранная строка остаётся той же, если она не удалена
+                const oldSelected = Math.max(0, Math.trunc(Number(selectWidget.value) || 1) - 1);
+                const newSelected = mapping.indexOf(oldSelected);
+
+                persistEntries(list, prompts, mapping);
+                const promptsText = JSON.stringify(prompts);
+                storageWidget.value = promptsText;
+                if (storageWidget.inputEl) storageWidget.inputEl.value = promptsText;
+                if (newSelected >= 0) selectWidget.value = newSelected + 1;
+                return true;
             };
 
             const restoreEntries = () => {
@@ -661,6 +758,7 @@ app.registerExtension({
             };
 
             const normalizeStorage = () => {
+                reconcileNames();
                 const list = names();
                 const prompts = parsePrompts(storageWidget);
                 while (prompts.length < list.length) prompts.push("");
@@ -680,8 +778,12 @@ app.registerExtension({
 
             const lineMetrics = () => {
                 const style = window.getComputedStyle(namesArea);
+                // Пока поле не вставлено в страницу, computed style пустой. Тогда берём
+                // высоту строки из inline-стиля, а при неудаче возвращаем 0 (подсветку не рисуем)
+                let lineHeight = parseFloat(style.lineHeight);
+                if (!(lineHeight > 0)) lineHeight = parseFloat(namesArea.style.lineHeight);
                 return {
-                    lineHeight: parseFloat(style.lineHeight),
+                    lineHeight: lineHeight > 0 ? lineHeight : 0,
                     paddingTop: parseFloat(style.paddingTop) || 0,
                 };
             };
@@ -746,7 +848,7 @@ app.registerExtension({
             };
 
             let closeDeleteConfirmation = null;
-            const openDeleteConfirmation = (entry, control) => {
+            const openDeleteConfirmation = (entry, control, action = null) => {
                 closeDeleteConfirmation?.();
 
                 const overlay = document.createElement("div");
@@ -793,7 +895,8 @@ app.registerExtension({
                 const confirm = async () => {
                     okButton.disabled = true;
                     cancelButton.disabled = true;
-                    if (await toggleFavorite(entry, control)) close();
+                    const done = action ? await action() : await toggleFavorite(entry, control);
+                    if (done) close();
                     else {
                         okButton.disabled = false;
                         cancelButton.disabled = false;
@@ -821,7 +924,7 @@ app.registerExtension({
                 const entries = currentEntries();
                 const list = names();
                 const isCustom = activeTab === "custom";
-                namesArea.style.paddingRight = isCustom ? "108px" : "38px";
+                namesArea.style.paddingRight = isCustom ? "136px" : "38px";
                 const { lineHeight, paddingTop } = lineMetrics();
                 Object.assign(tagsLayer.style, {
                     left: `${namesArea.offsetLeft}px`,
@@ -830,50 +933,78 @@ app.registerExtension({
                     height: `${namesArea.offsetHeight}px`,
                 });
                 tagsLayer.replaceChildren();
+                // Пока нет высоты строки или поле пустое, значки не рисуем
+                if (!(lineHeight > 0) || !String(namesWidget.value ?? "").trim()) return;
+                const rowFont = window.getComputedStyle(namesArea).font;
+
+                const addRowButton = (glyph, title, color, right, top, onClick) => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.textContent = glyph;
+                    button.title = title;
+                    Object.assign(button.style, {
+                        position: "absolute", right, top: `${top}px`,
+                        width: "25px", height: `${lineHeight}px`, padding: "0", border: "0",
+                        background: "transparent", color,
+                        font: `bold ${Math.max(14, lineHeight - 1)}px/${lineHeight}px "Segoe UI Symbol",Arial,sans-serif`,
+                        cursor: "pointer", pointerEvents: "auto",
+                    });
+                    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+                    // Кнопка не забирает фокус у текстового поля: иначе blur успеет
+                    // пересобрать список и клик по кнопке потеряется
+                    button.addEventListener("mousedown", (event) => event.preventDefault());
+                    button.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onClick(button);
+                    });
+                    tagsLayer.appendChild(button);
+                    return button;
+                };
 
                 for (let index = 0; index < list.length; index++) {
                     const top = paddingTop + index * lineHeight - namesArea.scrollTop;
                     if (top + lineHeight < 0 || top > namesArea.clientHeight) continue;
-                    if (isCustom) {
-                        const type = ["prompt", "style", "edit", "llm"].includes(entries[index]?.type)
-                            ? entries[index].type
-                            : "prompt";
-                        const label = document.createElement("span");
-                        label.textContent = type;
-                        Object.assign(label.style, {
-                            position: "absolute", right: "33px", top: `${top}px`,
-                            font: window.getComputedStyle(namesArea).font,
-                            height: `${lineHeight}px`, lineHeight: `${lineHeight}px`,
-                            minWidth: "52px", paddingLeft: "7px", textAlign: "right",
-                            boxSizing: "border-box", background: "#222", color: "#48d56a",
-                        });
-                        tagsLayer.appendChild(label);
+                    const entry = entries[index];
+
+                    if (!isCustom) {
+                        addRowButton("🗑", "Delete prompt", "#ff3b3b", "5px", top,
+                            (button) => openDeleteConfirmation(entry, button));
+                        continue;
                     }
 
-                    const entry = entries[index];
-                    const actionButton = document.createElement("button");
-                    actionButton.type = "button";
+                    const type = ["prompt", "style", "edit", "llm"].includes(entry?.type)
+                        ? entry.type
+                        : "prompt";
+                    const label = document.createElement("span");
+                    label.textContent = type;
+                    Object.assign(label.style, {
+                        position: "absolute", right: "61px", top: `${top}px`,
+                        font: rowFont,
+                        height: `${lineHeight}px`, lineHeight: `${lineHeight}px`,
+                        minWidth: "52px", paddingLeft: "7px", textAlign: "right",
+                        boxSizing: "border-box", background: "#222", color: "#48d56a",
+                    });
+                    tagsLayer.appendChild(label);
+
                     const isFavorite = Boolean(entry?.id && favoriteIds.has(entry.id));
-                    actionButton.textContent = isCustom ? (isFavorite ? "♥" : "♡") : "🗑";
-                    actionButton.title = isCustom
-                        ? (isFavorite ? "Remove from favorites" : "Add to favorites")
-                        : "Delete prompt";
-                    Object.assign(actionButton.style, {
-                        position: "absolute", right: "5px", top: `${top}px`,
-                        width: "25px", height: `${lineHeight}px`, padding: "0", border: "0",
-                        background: "transparent",
-                        color: isCustom ? (isFavorite ? "#ff3b3b" : "#b8b8b8") : "#ff3b3b",
-                        font: `bold ${Math.max(14, lineHeight - 1)}px/${lineHeight}px "Segoe UI Symbol",Arial,sans-serif`,
-                        cursor: "pointer", pointerEvents: "auto",
+                    addRowButton(
+                        isFavorite ? "\u2665" : "\u2661",
+                        isFavorite ? "Remove from favorites" : "Add to favorites",
+                        isFavorite ? "#ff3b3b" : "#b8b8b8",
+                        "33px", top,
+                        (button) => toggleFavorite(entry, button),
+                    );
+                    addRowButton("🗑", "Delete prompt", "#ff3b3b", "5px", top, (button) => {
+                        openDeleteConfirmation(entry, button, () => {
+                            // Строка могла сместиться после открытия окна, поэтому ищем её по id
+                            const target = entry?.id
+                                ? customEntries().findIndex((item) => item.id === entry.id)
+                                : index;
+                            if (target >= 0) removeCustomEntries([target]);
+                            return true;
+                        });
                     });
-                    actionButton.addEventListener("pointerdown", (event) => event.stopPropagation());
-                    actionButton.addEventListener("click", (event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (isCustom) toggleFavorite(entry, actionButton);
-                        else openDeleteConfirmation(entry, actionButton);
-                    });
-                    tagsLayer.appendChild(actionButton);
                 }
             };
 
@@ -894,7 +1025,9 @@ app.registerExtension({
                 renderQueued = true;
                 requestAnimationFrame(() => {
                     renderQueued = false;
-                    renderTypeLabels();
+                    // updateHighlight заодно перерисовывает значки. Вызывается и при появлении
+                    // поля на странице (ResizeObserver), поэтому подсветка не остаётся «пустой»
+                    updateHighlight();
                 });
             };
             const tagsResizeObserver = new ResizeObserver(scheduleRender);
@@ -903,19 +1036,22 @@ app.registerExtension({
 
             const updateHighlight = () => {
                 const index = selectedIndex();
-                if (index < 0) {
+                const { lineHeight, paddingTop } = lineMetrics();
+                // Без корректной высоты строки подсветку не рисуем: некорректный
+                // background-size игнорируется браузером, и градиент заливает всё поле
+                if (index < 0 || !(lineHeight > 0)) {
                     namesArea.style.backgroundImage = "none";
                     renderTypeLabels();
                     return;
                 }
-                const { lineHeight, paddingTop } = lineMetrics();
                 const startY = paddingTop + index * lineHeight;
-                namesArea.style.backgroundImage = "linear-gradient(rgba(0,200,50,.35),rgba(0,200,50,.35))";
                 namesArea.style.backgroundSize = `100% ${lineHeight}px`;
-                namesArea.style.backgroundPosition = `0 ${startY}px`;
+                namesArea.style.backgroundPosition = `${namesArea.scrollLeft}px ${startY}px`;
+                namesArea.style.backgroundImage = "linear-gradient(rgba(0,200,50,.35),rgba(0,200,50,.35))";
                 renderTypeLabels();
             };
 
+            let lastSelectedRowId = null;
             const refreshPrompt = () => {
                 if (syncing) return;
                 syncing = true;
@@ -927,6 +1063,14 @@ app.registerExtension({
                 promptWidget.callback?.(value);
                 updateHighlight();
                 syncing = false;
+                // Выбор ушёл со строки на другую (клик, стрелки, Enter): если у прежней строки
+                // нет промпта, она удаляется. Удаление откладывается, чтобы не мешать текущему действию.
+                const rowId = activeTab === "custom" && index >= 0 ? (customEntries()[index]?.id ?? null) : null;
+                const abandonedRowId = lastSelectedRowId;
+                lastSelectedRowId = rowId;
+                if (abandonedRowId && rowId && abandonedRowId !== rowId) {
+                    setTimeout(() => dropAbandonedRow(abandonedRowId), 0);
+                }
             };
 
             const saveVisiblePrompt = () => {
@@ -941,6 +1085,102 @@ app.registerExtension({
                 storageWidget.callback?.(storageWidget.value);
                 persistEntries(names(), prompts);
                 node.graph?.setDirtyCanvas(true, true);
+            };
+
+            const setNamesText = (text) => {
+                if (namesWidget.options?.setValue) namesWidget.options.setValue(text);
+                else namesWidget.value = text;
+                namesArea.value = text;
+            };
+
+            const setStorageText = (text) => {
+                if (storageWidget.options?.setValue) storageWidget.options.setValue(text);
+                else storageWidget.value = text;
+                if (storageWidget.inputEl) storageWidget.inputEl.value = text;
+            };
+
+            // Удаляет строки целиком: и название, и связанный с ним промпт
+            const removeCustomEntries = (indices) => {
+                if (activeTab !== "custom") return false;
+                reconcileNames();
+                const prompts = normalizeStorage();
+                const list = names();
+                const entries = customEntries();
+                const removeSet = new Set(indices.filter((index) => index >= 0 && index < list.length));
+                if (!removeSet.size) return false;
+
+                const keep = list.map((_, index) => index).filter((index) => !removeSet.has(index));
+                const selected = Math.max(0, Math.trunc(Number(selectWidget.value) || 1) - 1);
+                const removedAbove = [...removeSet].filter((index) => index < selected).length;
+
+                node.properties.orexPromptEntries = keep.map((index) => entries[index]);
+                const namesHadFocus = document.activeElement === namesArea;
+                const oldNamesText = namesArea.value;
+                const oldCaret = namesArea.selectionStart;
+                const oldScrollTop = namesArea.scrollTop;
+                setNamesText(keep.map((index) => list[index]).join("\n"));
+                if (namesHadFocus) {
+                    // Строки могут удаляться, пока пользователь печатает: курсор остаётся на своей строке
+                    const caret = mapCaretAfterRemoval(oldNamesText, oldCaret, keep);
+                    namesArea.setSelectionRange(caret, caret);
+                    namesArea.scrollTop = oldScrollTop;
+                }
+                setStorageText(JSON.stringify(keep.map((index) => prompts[index] ?? "")));
+                // Выбранная строка остаётся той же; если удалили её саму, выбор переходит на следующую
+                selectWidget.value = Math.max(1, selected + 1 - removedAbove);
+                selectWidget.callback?.(selectWidget.value);
+                node.graph?.setDirtyCanvas(true, true);
+                return true;
+            };
+
+            // Строки, в которых пользователь печатал название в текущем сеансе работы с полем
+            const touchedRowIds = new Set();
+
+            // Строки с пустым названием удаляются целиком вместе с промптом
+            const removeBlankEntries = () => {
+                if (activeTab !== "custom") return false;
+                reconcileNames();
+                if (!String(namesWidget.value ?? "")) return false;
+                const blank = names().flatMap((name, index) => (name.trim() === "" ? [index] : []));
+                return blank.length ? removeCustomEntries(blank) : false;
+            };
+
+            const hasPromptEntry = (entry) => String(entry?.prompt ?? "").trim() !== "";
+            const selectedRowId = () => (
+                activeTab === "custom" ? (customEntries()[selectedIndex()]?.id ?? null) : null
+            );
+
+            // Строка только с названием не нужна, поэтому строки без промпта удаляются целиком.
+            // keepRowId - строка, которую пока не трогаем (в неё вернулись, чтобы поправить название).
+            // Список, где нет ни одного промпта (свежий узел, неудачная загрузка), не стираем:
+            // в нём удаляются только строки, названия которых вводили в этом сеансе.
+            const removeEmptyPromptRows = (keepRowId = null) => {
+                if (activeTab !== "custom") {
+                    touchedRowIds.clear();
+                    return false;
+                }
+                reconcileNames();
+                const entries = customEntries();
+                const listHasPrompts = entries.some(hasPromptEntry);
+                const indices = entries.flatMap((entry, index) => {
+                    if (hasPromptEntry(entry) || entry?.id === keepRowId) return [];
+                    if (!listHasPrompts && !touchedRowIds.has(entry?.id)) return [];
+                    return [index];
+                });
+                indices.forEach((index) => touchedRowIds.delete(entries[index]?.id));
+                return indices.length ? removeCustomEntries(indices) : false;
+            };
+
+            // Выбор ушёл с этой строки: если промпта у неё нет, строка удаляется
+            const dropAbandonedRow = (rowId) => {
+                if (activeTab !== "custom") return false;
+                reconcileNames();
+                const entries = customEntries();
+                const index = entries.findIndex((entry) => entry.id === rowId);
+                if (index < 0 || hasPromptEntry(entries[index])) return false;
+                if (!entries.some(hasPromptEntry) && !touchedRowIds.has(rowId)) return false;
+                touchedRowIds.delete(rowId);
+                return removeCustomEntries([index]);
             };
 
             switchTab = (tab, force = false) => {
@@ -992,6 +1232,8 @@ app.registerExtension({
 
             let dragState = null;
             let suppressNameClick = false;
+            // Кнопка мыши нажата на списке названий (нужно, чтобы не сдвигать строки до обработки клика)
+            let pointerOnNames = false;
 
             const showDropMarker = (index) => {
                 if (index < 0) {
@@ -1010,6 +1252,7 @@ app.registerExtension({
 
             namesArea.addEventListener("pointerdown", (event) => {
                 if (event.button !== 0) return;
+                pointerOnNames = true;
                 const sourceIndex = lineIndexFromEvent(event);
                 if (sourceIndex < 0) return;
                 dragState = {
@@ -1082,6 +1325,7 @@ app.registerExtension({
             const originalNamesCallback = namesWidget.callback;
             namesWidget.callback = function () {
                 const result = originalNamesCallback?.apply(this, arguments);
+                reconcileNames();
                 clampSelect();
                 rememberSelection(activeTab);
                 refreshPrompt();
@@ -1161,6 +1405,138 @@ app.registerExtension({
                 );
             });
 
+            // Зелёная подсветка и счётчик следуют за текстовым курсором
+            // при перемещении клавишами (стрелки, PageUp/PageDown, Home/End)
+            const syncSelectToCaret = () => {
+                if (syncing) return;
+                // Число строк могло измениться (Enter, удаление): сначала согласуем промпты с названиями
+                reconcileNames();
+                const text = namesArea.value;
+                if (!text.trim()) return;
+                const caret = namesArea.selectionDirection === "backward"
+                    ? namesArea.selectionStart
+                    : namesArea.selectionEnd;
+                const lineNumber = Math.min(names().length, text.slice(0, caret).split("\n").length);
+                if (Number(selectWidget.value) === lineNumber) return;
+                selectWidget.value = lineNumber;
+                selectWidget.callback?.(selectWidget.value);
+            };
+
+            const NAVIGATION_KEYS = new Set([
+                "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+                "PageUp", "PageDown", "Home", "End",
+            ]);
+            namesArea.addEventListener("keydown", (event) => {
+                if (!NAVIGATION_KEYS.has(event.key)) return;
+                // Текстовый курсор переместится уже после обработки клавиши браузером
+                setTimeout(syncSelectToCaret, 0);
+            });
+
+            // При вводе (в том числе Enter, который создаёт новую строку) подсвечивается строка
+            // с курсором, а поле промпта показывает промпт этой строки (у новой строки он пустой)
+            namesArea.addEventListener("input", () => {
+                syncSelectToCaret();
+                if (activeTab !== "custom") return;
+                const rowId = customEntries()[selectedIndex()]?.id;
+                if (rowId) touchedRowIds.add(rowId);
+            });
+
+            // Когда курсор уходит из поля названий, пустые строки удаляются целиком.
+            // Во время набора этого не происходит, чтобы Enter не стирал только что созданную строку.
+            // Фокус внутри полей этого узла (названия или промпт)?
+            const focusIsInsideNode = () => {
+                const active = document.activeElement;
+                if (!active || active === document.body) return false;
+                return active === namesArea
+                    || active === promptArea
+                    || Boolean(namesWidget?.element?.contains?.(active))
+                    || Boolean(promptWidget?.element?.contains?.(active));
+            };
+
+            const editorOrConfirmationIsOpen = () => Boolean(
+                document.querySelector(`[data-orex-prompt-editor="${node.id}"]`)
+                || document.querySelector(`[data-orex-delete-prompt="${node.id}"]`),
+            );
+
+            // Чистка откладывается, чтобы увидеть, куда на самом деле ушёл фокус: в некоторых случаях
+            // (например, клик по полю промпта) браузер не сообщает цель в событии blur
+            let namesCleanupTimer = null;
+            const cancelNamesCleanup = () => {
+                if (namesCleanupTimer === null) return;
+                clearTimeout(namesCleanupTimer);
+                namesCleanupTimer = null;
+            };
+
+            namesArea.addEventListener("focus", cancelNamesCleanup);
+            namesArea.addEventListener("blur", (event) => {
+                // Окно браузера потеряло фокус (например, переключились в другую программу) - ничего не удаляем
+                if (!document.hasFocus()) return;
+                // Пока открыто окно редактирования или подтверждения, номера строк трогать нельзя
+                if (editorOrConfirmationIsOpen()) return;
+                removeBlankEntries();
+                // Если фокус перешёл в поле промпта, его сейчас будут заполнять - строку не трогаем.
+                // Если промпт останется пустым, строку удалит уход из поля промпта.
+                if (event.relatedTarget === promptArea) return;
+                cancelNamesCleanup();
+                namesCleanupTimer = setTimeout(() => {
+                    namesCleanupTimer = null;
+                    if (!document.hasFocus() || editorOrConfirmationIsOpen() || focusIsInsideNode()) return;
+                    removeEmptyPromptRows();
+                }, 250);
+            });
+
+            // Строка с названием, но без промпта не нужна: когда курсор уходит из поля промпта
+            // и оно пустое, строка удаляется целиком. Строка запоминается по id при входе в поле,
+            // потому что к моменту удаления выбор мог уже перейти на другую строку.
+            let promptFocusRowId = null;
+            let pendingEmptyPromptRowId = null;
+
+            // Выход из поля промпта: строки без промпта удаляются. Исключение - возврат в поле названий
+            // на той же строке (например, чтобы поправить название): её не трогаем, пока выбор не уйдёт.
+            const finishPromptLeave = (rowId, viaNames) => {
+                const returned = viaNames || document.activeElement === namesArea;
+                const keepRowId = returned && rowId && selectedRowId() === rowId ? rowId : null;
+                removeEmptyPromptRows(keepRowId);
+            };
+
+            promptArea.addEventListener("focus", () => {
+                cancelNamesCleanup();
+                if (activeTab !== "custom") {
+                    promptFocusRowId = null;
+                    return;
+                }
+                const index = selectedIndex();
+                promptFocusRowId = index >= 0 ? (customEntries()[index]?.id ?? null) : null;
+            });
+
+            promptArea.addEventListener("blur", () => {
+                const rowId = promptFocusRowId;
+                promptFocusRowId = null;
+                // Окно браузера потеряло фокус - ничего не удаляем (при возврате сработает focus)
+                if (!document.hasFocus()) return;
+                if (document.querySelector(`[data-orex-prompt-editor="${node.id}"]`)) return;
+                if (document.querySelector(`[data-orex-delete-prompt="${node.id}"]`)) return;
+                // Фокус ушёл из-за нажатия на список названий: удаляем после клика,
+                // иначе строки сдвинутся раньше, чем клик определит, на какую из них нажали
+                if (pointerOnNames) {
+                    pendingEmptyPromptRowId = rowId ?? "";
+                    return;
+                }
+                // Куда ушёл фокус, видно только после его перехода
+                setTimeout(() => finishPromptLeave(rowId, false), 0);
+            });
+
+            const onPointerRelease = () => {
+                pointerOnNames = false;
+                if (pendingEmptyPromptRowId === null) return;
+                const rowId = pendingEmptyPromptRowId || null;
+                pendingEmptyPromptRowId = null;
+                // setTimeout: событие click на списке должно успеть обработаться до удаления
+                setTimeout(() => finishPromptLeave(rowId, true), 0);
+            };
+            document.addEventListener("pointerup", onPointerRelease);
+            document.addEventListener("pointercancel", onPointerRelease);
+
             const originalOnRemoved = node.onRemoved;
             node.onRemoved = function () {
                 node.__orexStringSelectorV2Initialized = false;
@@ -1178,6 +1554,9 @@ app.registerExtension({
                 document.removeEventListener("pointermove", onPromptDragMove);
                 document.removeEventListener("pointerup", onPromptDragEnd);
                 document.removeEventListener("pointercancel", onPromptDragEnd);
+                document.removeEventListener("pointerup", onPointerRelease);
+                document.removeEventListener("pointercancel", onPointerRelease);
+                cancelNamesCleanup();
                 closeDeleteConfirmation?.();
                 document.querySelector(`[data-orex-prompt-editor="${node.id}"]`)?.remove();
                 return originalOnRemoved?.apply(this, arguments);

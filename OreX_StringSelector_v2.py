@@ -174,16 +174,16 @@ class OreXStringSelectorV2:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("String", "String Batch")
-    OUTPUT_IS_LIST = (False, True)
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("String", "String Batch", "prompt_name")
+    OUTPUT_IS_LIST = (False, True, False)
     FUNCTION = "select_prompt"
     CATEGORY = "OreX/Prompt"
 
     def select_prompt(self, prompt_names, prompt, prompts_json, select, selection_state="{}", text_before="", text_after=""):
         if not prompt_names.strip():
             selected = self._join_prompt(text_before, "", text_after)
-            return (selected, [])
+            return (selected, [], "")
 
         names = prompt_names.split("\n")
         try:
@@ -201,7 +201,17 @@ class OreXStringSelectorV2:
         selected = self._join_prompt(text_before, str(prompt), text_after)
         batch = [self._join_prompt(text_before, item, text_after) for item in prompts]
 
-        return (selected, batch)
+        return (selected, batch, self._selected_name(names, select))
+
+    @staticmethod
+    def _selected_name(names, select):
+        # Название выбранной строки; номер за пределами списка приводится к первой или последней строке
+        try:
+            number = int(select)
+        except (TypeError, ValueError):
+            number = 1
+        index = min(max(number, 1), len(names)) - 1
+        return names[index]
 
     @staticmethod
     def _join_prompt(text_before, prompt, text_after):
