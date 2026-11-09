@@ -151,8 +151,12 @@ app.registerExtension({
                     this.syncPropertiesFromWidgets();
                 }
 
-                const minSize = this.computeSize([this.size[0], this.size[1]]);
-                this.size[1] = minSize[1]; 
+                if (this.properties.previewHidden) {
+                    this._fitHiddenPreview();
+                } else {
+                    const minSize = this.computeSize([this.size[0], this.size[1]]);
+                    this.size[1] = minSize[1];
+                }
                 this.setDirtyCanvas(true);
             };
 
@@ -162,10 +166,16 @@ app.registerExtension({
         const onResize = proto.onResize;
         proto.onResize = function(size) {
             if (onResize) onResize.apply(this, arguments);
-            if (this.imageLoaded && this.image) {
+            if (this.imageLoaded && this.image && !this.properties.previewHidden) {
                 const minSize = this.computeSize([this.size[0], this.size[1]]);
                 this.size[1] = minSize[1];
             }
+        };
+
+        const onDrawBackground = proto.onDrawBackground;
+        proto.onDrawBackground = function () {
+            onDrawBackground?.apply(this, arguments);
+            if (this.properties?.previewHidden) this._fitHiddenPreview();
         };
 
         const onConnectionsChange = proto.onConnectionsChange;
@@ -203,11 +213,19 @@ app.registerExtension({
             node.addWidget("button", "Full Image", null, () => node.applyAspectRatio("Full"));
             node.addWidget("button", "Center", null, () => node.centerSelection());
             node.addWidget("button", "Maximize", null, () => node.applyAspectRatio());
+            const hideWidget = node.addWidget("button", node.properties.previewHidden ? "Show" : "Hide", null, () => {
+                node.properties.previewHidden = !node.properties.previewHidden;
+                hideWidget.name = hideWidget.label = node.properties.previewHidden ? "Show" : "Hide";
+                if (node.properties.previewHidden) node._fitHiddenPreview();
+                else node.setSize(node.computeSize([node.size[0], node.size[1]]));
+                node.setDirtyCanvas(true, true);
+            });
 
             const canvasWidget = {
                 type: "custom_canvas", name: "crop_preview",
                 draw: (ctx, node, width, y) => this._drawPreviewCanvas(ctx, node, width, y),
                 computeSize: function(width) {
+                    if (node.properties.previewHidden) return [width, 0];
                     const margin = 10;
                     const drawW = width - margin * 2;
                     if (node.imageLoaded && node.image && node.image.width > 0 && node.image.height > 0) {
@@ -223,6 +241,22 @@ app.registerExtension({
                 }
             };
             node.addCustomWidget(canvasWidget);
+        };
+
+        proto._fitHiddenPreview = function () {
+            this.imgs = null;
+            const previewNames = new Set(["$$canvas-image-preview", "$$comfy_animation_preview"]);
+            for (let i = (this.widgets?.length || 0) - 1; i >= 0; i--) {
+                if (previewNames.has(this.widgets[i]?.name)) {
+                    this.widgets[i].onRemove?.();
+                    this.widgets.splice(i, 1);
+                }
+            }
+            const height = this.computeSize()[1];
+            if (this.size[1] !== height) {
+                this.size[1] = height;
+                this.setDirtyCanvas(true, true);
+            }
         };
 
         proto.syncWidgetsFromProperties = function (force = false) {
@@ -596,6 +630,7 @@ app.registerExtension({
         };
 
         proto.onDrawForeground = function (ctx) {
+            this.imgs = null;
             if (this.flags?.collapsed) return;
 
             if (this.widgets) {
@@ -733,6 +768,7 @@ app.registerExtension({
         };
 
         proto._drawPreviewCanvas = function (ctx, node, width, y) {
+            if (node.properties.previewHidden) return;
             const margin = 10;
             const drawW = width - margin * 2;
 
@@ -903,6 +939,7 @@ app.registerExtension({
         };
 
         proto.onExecuted = function (message) {
+            this.imgs = null;
             if (message?.images && message.images.length > 0) {
                 const img = message.images[0];
                 const url = api.apiURL(`/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder || "")}`);
@@ -939,6 +976,14 @@ app.registerExtension({
                 this.image.src = url; 
                 this.imageLoaded = false; 
                 this.setDirtyCanvas(true);
+            }
+            if (this.properties.previewHidden) {
+                requestAnimationFrame(() => {
+                    if (this.properties.previewHidden) {
+                        this._fitHiddenPreview();
+                        this.setDirtyCanvas(true, true);
+                    }
+                });
             }
         };
     },
