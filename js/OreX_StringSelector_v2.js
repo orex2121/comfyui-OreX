@@ -374,10 +374,53 @@ function removeOrexUiWidgets(node) {
     }
 }
 
+// Копирование (Ctrl+C) и пункт Clone создают временный узел без графа, но с тем же номером,
+// что у исходного (LGraphNode.clone: node.id = this.id, затем configure). Для узла без графа
+// фронтенд берёт корневой граф приложения, поэтому текстовые поля клона обращаются к тем же
+// записям хранилища значений, что и поля исходного узла, и configure клона записывает в них
+// чужие, сдвинутые значения. Пока узла нет в графе, его текстовые поля работают только
+// со своим <textarea>; когда узел попадает в граф, всё идёт прежним путём.
+const ISOLATED_TEXT_WIDGETS = ["prompt_names", "prompt", "prompts_json"];
+
+function isolateDetachedTextWidgets(node) {
+    let guarded = 0;
+    for (const name of ISOLATED_TEXT_WIDGETS) {
+        const widget = node.widgets?.find((candidate) => candidate.name === name);
+        const options = widget?.options;
+        const element = widget?.element instanceof HTMLTextAreaElement ? widget.element : widget?.inputEl;
+        if (!options || !(element instanceof HTMLTextAreaElement)) continue;
+        if (options.__orexDetachedGuard) {
+            guarded++;
+            continue;
+        }
+        const originalGetValue = options.getValue;
+        const originalSetValue = options.setValue;
+        options.getValue = function () {
+            if (!node.graph) return element.value;
+            return originalGetValue ? originalGetValue.apply(this, arguments) : element.value;
+        };
+        options.setValue = function (value) {
+            if (!node.graph) {
+                element.value = value;
+                return;
+            }
+            if (originalSetValue) originalSetValue.apply(this, arguments);
+            else element.value = value;
+        };
+        options.__orexDetachedGuard = true;
+        guarded++;
+    }
+    return guarded;
+}
+
 app.registerExtension({
     name: "OreX.StringSelectorV2",
     async nodeCreated(node) {
         if (node.comfyClass !== NODE_CLASS) return;
+
+        // Должно выполниться сразу при создании узла, до configure временного клона
+        // __orexDetachedGuard = сколько текстовых полей защищено (в норме 3), видно в консоли
+        node.__orexDetachedGuard = isolateDetachedTextWidgets(node);
 
         const initialize = () => {
             if (node.__orexStringSelectorV2Initialized) return true;
@@ -703,11 +746,31 @@ app.registerExtension({
                 });
             };
 
+            const normalizeLineBreaks = (value) => String(value ?? "").replace(/\r\n?/g, "\n");
+
+            // Текст в полях - то, что видит пользователь. Если значение виджета разошлось с текстом
+            // в поле (испорченное состояние страницы), верным считается поле: иначе список названий
+            // читается как пустой и промпты стираются.
+            const healWidgetValues = () => {
+                const pairs = [
+                    [namesWidget, namesArea],
+                    [storageWidget, storageWidget.inputEl],
+                    [promptWidget, promptArea],
+                ];
+                for (const [widget, area] of pairs) {
+                    if (!area) continue;
+                    if (normalizeLineBreaks(widget.value) === normalizeLineBreaks(area.value)) continue;
+                    if (widget.options?.setValue) widget.options.setValue(area.value);
+                    else widget.value = area.value;
+                }
+            };
+
             // Если число строк в поле названий изменилось (строку удалили или вставили прямо
             // в тексте), промпты сопоставляются с названиями по содержимому, а не по номеру.
             // Иначе все промпты ниже изменённой строки сдвинулись бы к чужим названиям.
             const reconcileNames = () => {
                 if (activeTab !== "custom") return false;
+                healWidgetValues();
                 const previous = customEntries();
                 const list = names();
                 if (!previous.length || previous.length === list.length) return false;
@@ -1078,6 +1141,7 @@ app.registerExtension({
                 if (activeTab !== "custom") return;
                 const index = selectedIndex();
                 if (index < 0) return;
+                healWidgetValues();
                 const prompts = normalizeStorage();
                 prompts[index] = String(promptWidget.value ?? "");
                 storageWidget.value = JSON.stringify(prompts);
@@ -1099,15 +1163,66 @@ app.registerExtension({
                 if (storageWidget.inputEl) storageWidget.inputEl.value = text;
             };
 
-            // Удаляет строки целиком: и название, и связанный с ним промпт
-            const removeCustomEntries = (indices) => {
+            // Автоматическое удаление строк разрешено, только если данные узла в порядке.
+            // Иначе испорченное состояние (значения виджетов не совпадают с текстом в полях,
+            // узел вне графа, граф ещё загружается) превратило бы все строки в «пустые» и стёрло их.
+            const autoDeleteIsSafe = () => {
+                if (!node.graph || app.configuringGraph) return false;
+                const registered = node.graph.getNodeById?.(node.id);
+                if (registered !== undefined && registered !== node) return false;
+                if (normalizeLineBreaks(namesWidget.value) !== normalizeLineBreaks(namesArea.value)) return false;
+                const storageArea = storageWidget.inputEl;
+                if (storageArea
+                    && normalizeLineBreaks(storageWidget.value) !== normalizeLineBreaks(storageArea.value)) return false;
+                try {
+                    if (!Array.isArray(JSON.parse(String(storageWidget.value ?? "")))) return false;
+                } catch {
+                    return false;
+                }
+                return true;
+            };
+
+            // Перед автоудалением удаляемые строки записываются в node.properties.orexDeletedRows
+            // (последние 5 удалений), чтобы их можно было вернуть. Не записалось - не удаляем.
+            const backupRemovedRows = (removeSet, list, entries, prompts) => {
+                try {
+                    const removed = [...removeSet].sort((a, b) => a - b).map((index) => ({
+                        index,
+                        id: entries[index]?.id ?? null,
+                        name: String(list[index] ?? ""),
+                        prompt: String(entries[index]?.prompt ?? ""),
+                        storagePrompt: String(prompts[index] ?? ""),
+                    }));
+                    const history = Array.isArray(node.properties.orexDeletedRows)
+                        ? node.properties.orexDeletedRows
+                        : [];
+                    history.push({
+                        time: new Date().toISOString(),
+                        selected: Math.trunc(Number(selectWidget.value) || 1),
+                        total: list.length,
+                        removed,
+                    });
+                    node.properties.orexDeletedRows = history.slice(-5);
+                    return true;
+                } catch {
+                    return false;
+                }
+            };
+
+            // Удаляет строки целиком: и название, и связанный с ним промпт.
+            // auto: удаление по правилам очистки (а не по кнопке пользователя), поэтому с защитой;
+            // allowMany: автоудалению разрешено убрать сразу несколько строк (строки с пустым названием).
+            const removeCustomEntries = (indices, { auto = false, allowMany = false } = {}) => {
                 if (activeTab !== "custom") return false;
                 reconcileNames();
+                if (auto && !autoDeleteIsSafe()) return false;
                 const prompts = normalizeStorage();
                 const list = names();
                 const entries = customEntries();
                 const removeSet = new Set(indices.filter((index) => index >= 0 && index < list.length));
                 if (!removeSet.size) return false;
+                if (auto && !allowMany && removeSet.size > 1) return false;
+                if (auto && !backupRemovedRows(removeSet, list, entries, prompts)) return false;
 
                 const keep = list.map((_, index) => index).filter((index) => !removeSet.has(index));
                 const selected = Math.max(0, Math.trunc(Number(selectWidget.value) || 1) - 1);
@@ -1142,7 +1257,7 @@ app.registerExtension({
                 reconcileNames();
                 if (!String(namesWidget.value ?? "")) return false;
                 const blank = names().flatMap((name, index) => (name.trim() === "" ? [index] : []));
-                return blank.length ? removeCustomEntries(blank) : false;
+                return blank.length ? removeCustomEntries(blank, { auto: true, allowMany: true }) : false;
             };
 
             const hasPromptEntry = (entry) => String(entry?.prompt ?? "").trim() !== "";
@@ -1168,19 +1283,22 @@ app.registerExtension({
                     return [index];
                 });
                 indices.forEach((index) => touchedRowIds.delete(entries[index]?.id));
-                return indices.length ? removeCustomEntries(indices) : false;
+                return indices.length ? removeCustomEntries(indices, { auto: true }) : false;
             };
 
-            // Выбор ушёл с этой строки: если промпта у неё нет, строка удаляется
+            // Выбор ушёл с этой строки: если у неё нет промпта или нет названия, строка удаляется
             const dropAbandonedRow = (rowId) => {
                 if (activeTab !== "custom") return false;
                 reconcileNames();
                 const entries = customEntries();
                 const index = entries.findIndex((entry) => entry.id === rowId);
-                if (index < 0 || hasPromptEntry(entries[index])) return false;
+                if (index < 0) return false;
+                // Строка без названия не нужна, даже если в ней остался промпт (как при уходе из поля названий)
+                const blankName = String(entries[index]?.name ?? "").trim() === "";
+                if (hasPromptEntry(entries[index]) && !blankName) return false;
                 if (!entries.some(hasPromptEntry) && !touchedRowIds.has(rowId)) return false;
                 touchedRowIds.delete(rowId);
-                return removeCustomEntries([index]);
+                return removeCustomEntries([index], { auto: true });
             };
 
             switchTab = (tab, force = false) => {
@@ -1426,8 +1544,59 @@ app.registerExtension({
                 "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
                 "PageUp", "PageDown", "Home", "End",
             ]);
+            // Вкладки Prompt/Style/Edit/LLM: поле только для чтения, поэтому подсветка двигается
+            // по строкам напрямую, без опоры на текстовый курсор. Выбор доходит до краёв без перехода по кругу.
+            const scrollRowIntoView = (rowIndex) => {
+                const { lineHeight, paddingTop } = lineMetrics();
+                if (!(lineHeight > 0)) return;
+                const top = paddingTop + rowIndex * lineHeight;
+                const bottom = top + lineHeight;
+                if (top < namesArea.scrollTop + paddingTop) {
+                    namesArea.scrollTop = Math.max(0, top - paddingTop);
+                } else if (bottom > namesArea.scrollTop + namesArea.clientHeight) {
+                    namesArea.scrollTop = bottom - namesArea.clientHeight + paddingTop;
+                }
+            };
+
+            const placeCaretOnRow = (rowIndex) => {
+                const lines = namesArea.value.split("\n");
+                let position = 0;
+                for (let i = 0; i < rowIndex && i < lines.length; i++) position += lines[i].length + 1;
+                try { namesArea.setSelectionRange(position, position); } catch {}
+            };
+
+            const moveSelectionByKey = (event) => {
+                const count = currentEntries().length;
+                if (count <= 0) return;
+                const current = Math.min(count, Math.max(1, Math.trunc(Number(selectWidget.value) || 1)));
+                const { lineHeight } = lineMetrics();
+                const page = lineHeight > 0
+                    ? Math.max(1, Math.floor(namesArea.clientHeight / lineHeight) - 1)
+                    : 1;
+                let target;
+                if (event.key === "ArrowUp") target = current - 1;
+                else if (event.key === "ArrowDown") target = current + 1;
+                else if (event.key === "PageUp") target = current - page;
+                else if (event.key === "PageDown") target = current + page;
+                else if (event.key === "Home") target = 1;
+                else if (event.key === "End") target = count;
+                else return false;
+                event.preventDefault();
+                target = Math.min(count, Math.max(1, target));
+                placeCaretOnRow(target - 1);
+                if (target !== current) {
+                    selectWidget.value = target;
+                    selectWidget.callback?.(selectWidget.value);
+                }
+                scrollRowIntoView(target - 1);
+                return true;
+            };
+
             namesArea.addEventListener("keydown", (event) => {
                 if (!NAVIGATION_KEYS.has(event.key)) return;
+                if (activeTab !== "custom"
+                    && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
+                    && moveSelectionByKey(event)) return;
                 // Текстовый курсор переместится уже после обработки клавиши браузером
                 setTimeout(syncSelectToCaret, 0);
             });
