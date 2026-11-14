@@ -129,7 +129,7 @@ class OreX_CameraRaw:
         parsed_points.sort(key=lambda pt: pt[0])
         dedup_points = []
         for pt in parsed_points:
-            if dedup_points and abs(dedup_points[-1][0] - pt[0]) < 1e-6:
+            if dedup_points and abs(dedup_points[-1][0] - pt[0]) < 0.01:
                 dedup_points[-1] = pt
             else:
                 dedup_points.append(pt)
@@ -140,36 +140,52 @@ class OreX_CameraRaw:
         if parsed_points[-1][0] < 255:
             parsed_points.append((255.0, parsed_points[-1][1]))
 
-        # Сплайн Catmull-Rom через все контрольные точки — та же математика,
-        # что и evalCurveSpline в OreX_CameraRaw.js, чтобы финальный рендер
-        # (Run) совпадал с живым превью в редакторе, а не давал ломаную
-        # линию вместо плавной кривой.
+        # Натуральный кубический сплайн через все контрольные точки — та же
+        # математика, что и makeCurveEvaluator в OreX_CameraRaw.js (и тот же
+        # принцип, что в Photoshop): параметризация по реальному x, без
+        # выбросов при неравномерно расположенных точках. Финальный рендер
+        # (Run) совпадает с живым превью в редакторе.
         xs = [p[0] for p in parsed_points]
         ys = [p[1] for p in parsed_points]
         n = len(xs)
+        h = [(xs[i + 1] - xs[i]) or 1e-6 for i in range(n - 1)]
+
+        # Вторые производные (c), естественные граничные условия c[0] = c[n-1] = 0.
+        c = [0.0] * n
+        if n > 2:
+            sub = [0.0] * n
+            diag = [0.0] * n
+            sup = [0.0] * n
+            rhs = [0.0] * n
+            for i in range(1, n - 1):
+                sub[i] = h[i - 1]
+                diag[i] = 2.0 * (h[i - 1] + h[i])
+                sup[i] = h[i]
+                rhs[i] = 3.0 * ((ys[i + 1] - ys[i]) / h[i] - (ys[i] - ys[i - 1]) / h[i - 1])
+            for i in range(2, n - 1):
+                m = sub[i] / diag[i - 1]
+                diag[i] -= m * sup[i - 1]
+                rhs[i] -= m * rhs[i - 1]
+            c[n - 2] = rhs[n - 2] / diag[n - 2]
+            for i in range(n - 3, 0, -1):
+                c[i] = (rhs[i] - sup[i] * c[i + 1]) / diag[i]
+
+        bb = [(ys[i + 1] - ys[i]) / h[i] - h[i] * (2.0 * c[i] + c[i + 1]) / 3.0 for i in range(n - 1)]
+        dd = [(c[i + 1] - c[i]) / (3.0 * h[i]) for i in range(n - 1)]
+
         lut = np.zeros(256, dtype=np.float32)
         for x_int in range(256):
             x = float(x_int)
-            i = 0
-            while i < n - 2 and x > xs[i + 1]:
-                i += 1
-            p1x, p1y = xs[i], ys[i]
-            p2x, p2y = xs[min(i + 1, n - 1)], ys[min(i + 1, n - 1)]
-            # На границах линейно экстраполируем недостающего соседа,
-            # а не дублируем крайнюю точку — иначе даже прямая линия
-            # из 2 точек искривлялась бы у краёв.
-            p0y = ys[i - 1] if i > 0 else (2 * p1y - p2y)
-            p3y = ys[i + 2] if i < n - 2 else (2 * p2y - p1y)
-            dx = (p2x - p1x) or 1.0
-            t = max(0.0, min(1.0, (x - p1x) / dx))
-            t2 = t * t
-            t3 = t2 * t
-            y = 0.5 * (
-                (2 * p1y) +
-                (-p0y + p2y) * t +
-                (2 * p0y - 5 * p1y + 4 * p2y - p3y) * t2 +
-                (-p0y + 3 * p1y - 3 * p2y + p3y) * t3
-            )
+            if x <= xs[0]:
+                y = ys[0]
+            elif x >= xs[-1]:
+                y = ys[-1]
+            else:
+                i = 0
+                while i < n - 2 and x > xs[i + 1]:
+                    i += 1
+                dx = x - xs[i]
+                y = ys[i] + bb[i] * dx + c[i] * dx * dx + dd[i] * dx * dx * dx
             lut[x_int] = y
         return np.clip(lut, 0, 255).astype(np.uint8)
 

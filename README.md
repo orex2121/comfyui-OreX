@@ -54,6 +54,7 @@
 `30.` [⛓️‍💥 Image Tile Split — OreX (Олег К.)](#ru-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
 `32.` [🪄 Remove Background — PaBoKor (Павел К.)](#ru-32-remove-background)  
+`33.` [⚙️ KSampler Config — PaBoKor (Павел К.)](#ru-33-ksampler-config)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -552,6 +553,19 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - **birefnet.safetensors** — универсальная модель BiRefNet в сборке Comfy-Org: люди, волосы, шерсть, предметы, животные.
 - **lucida.safetensors** — дообученная версия BiRefNet_HR (автор egeorcun, лицензия MIT). По описанию автора, лучше справляется со сложными случаями: прозрачные материалы (стекло), текст и логотипы, иллюстрации, камуфляж. Файл заметно крупнее (885 МБ).
 
+<a id="ru-33-ksampler-config"></a>
+#### 33. ⚙️ KSampler Config
+Автор: PaBoKor (Павел К.)
+
+Собирает основные настройки сэмплера в одном узле и отдаёт их отдельными выходами для подключения к KSampler и аналогичным узлам: один узел вместо четырёх отдельных значений, которые удобно менять в одном месте.
+
+**Узел поддерживает:**
+- Количество шагов `steps` (1–10000, по умолчанию 20).
+- Значение `cfg` (0–100, шаг 0.1, по умолчанию 8.0).
+- Выбор сэмплера `sampler_name` и планировщика `scheduler` из списков стандартного KSampler — выходы совместимы с ним напрямую, без конвертации.
+- Двуязычные подсказки.
+- Вывод: `steps`, `cfg`, `sampler_name` и `scheduler`.
+
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -622,6 +636,7 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `30.` [⛓️‍💥 Image Tile Split — OreX (Oleg K.)](#en-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
 `32.` [🪄 Remove Background — PaBoKor (Pavel K.)](#en-32-remove-background)  
+`33.` [⚙️ KSampler Config — PaBoKor (Pavel K.)](#en-33-ksampler-config)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1119,6 +1134,19 @@ Removes the background in a single node, based on BiRefNet. Replaces a chain of 
 **How the models differ:**
 - **birefnet.safetensors** — the general-purpose BiRefNet model as packaged by Comfy-Org: people, hair, fur, objects, animals.
 - **lucida.safetensors** — a fine-tuned BiRefNet_HR (author: egeorcun, MIT license). Per the author, it handles difficult cases better: transparent materials (glass), text and logos, illustrations, camouflage. The file is noticeably larger (885 MB).
+
+<a id="en-33-ksampler-config"></a>
+#### 33. ⚙️ KSampler Config
+Author: PaBoKor (Pavel K.)
+
+Gathers the main sampler settings in a single node and passes them on as separate outputs to wire into KSampler and similar nodes: one node instead of four separate values, all adjustable in one place.
+
+**The node supports:**
+- The number of steps `steps` (1–10000, default 20).
+- The `cfg` value (0–100, step 0.1, default 8.0).
+- Selecting the sampler `sampler_name` and the scheduler `scheduler` from the stock KSampler lists — the outputs are directly compatible with it, no conversion needed.
+- Bilingual tooltips.
+- Output: `steps`, `cfg`, `sampler_name`, and `scheduler`.
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import

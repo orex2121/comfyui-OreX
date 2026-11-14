@@ -241,40 +241,76 @@ function curveHasAdjustments(curveState) {
     return !(isDefault(normalized.rgb) && isDefault(normalized.r) && isDefault(normalized.g) && isDefault(normalized.b));
 }
 
-// Сглаженное значение кривой в произвольной точке x — сплайн Catmull-Rom
-// через все контрольные точки (pts должны быть отсортированы по x, как
-// это гарантирует normalizeCurvePoints). В отличие от линейной
-// интерполяции даёт плавную кривую без изломов в контрольных точках,
-// как в Photoshop/Lightroom.
-function evalCurveSpline(pts, x) {
+// Строит функцию-вычислитель кривой: натуральный кубический сплайн
+// через все контрольные точки (pts отсортированы по x, как гарантирует
+// normalizeCurvePoints). Это то, как строится кривая в Photoshop:
+// сплайн проходит через все точки, а параметризация идёт по реальному x,
+// поэтому неравномерно расположенные точки (например 0, 249 и 255) не
+// дают выбросов за пределы диапазона. Коэффициенты считаются один раз
+// на вызов makeCurveEvaluator, дальше значения берутся из замыкания.
+function makeCurveEvaluator(pts) {
     const n = pts.length;
-    let i = 0;
-    while (i < n - 2 && x > pts[i + 1].x) i++;
-    const p1 = pts[i];
-    const p2 = pts[Math.min(i + 1, n - 1)];
-    // На границах (нет реального соседа) линейно экстраполируем, а не
-    // дублируем крайнюю точку — иначе даже прямая линия из 2 точек
-    // искривлялась бы у краёв.
-    const p0y = i > 0 ? pts[i - 1].y : (2 * p1.y - p2.y);
-    const p3y = i < n - 2 ? pts[i + 2].y : (2 * p2.y - p1.y);
-    const dx = (p2.x - p1.x) || 1;
-    const t = Math.max(0, Math.min(1, (x - p1.x) / dx));
-    const t2 = t * t;
-    const t3 = t2 * t;
-    return 0.5 * (
-        (2 * p1.y) +
-        (-p0y + p2.y) * t +
-        (2 * p0y - 5 * p1.y + 4 * p2.y - p3y) * t2 +
-        (-p0y + 3 * p1.y - 3 * p2.y + p3y) * t3
-    );
+    if (n === 0) return () => 0;
+    if (n === 1) return () => pts[0].y;
+    const xs = pts.map(p => p.x);
+    const ys = pts.map(p => p.y);
+    const h = new Array(n - 1);
+    for (let i = 0; i < n - 1; i++) h[i] = (xs[i + 1] - xs[i]) || 1e-6;
+
+    // Вторые производные (c) с естественными граничными условиями c[0] = c[n-1] = 0.
+    const c = new Array(n).fill(0);
+    if (n > 2) {
+        const sub = new Array(n).fill(0);
+        const diag = new Array(n).fill(0);
+        const sup = new Array(n).fill(0);
+        const rhs = new Array(n).fill(0);
+        for (let i = 1; i < n - 1; i++) {
+            sub[i] = h[i - 1];
+            diag[i] = 2 * (h[i - 1] + h[i]);
+            sup[i] = h[i];
+            rhs[i] = 3 * ((ys[i + 1] - ys[i]) / h[i] - (ys[i] - ys[i - 1]) / h[i - 1]);
+        }
+        // Метод прогонки (Thomas) для внутренних узлов 1..n-2.
+        for (let i = 2; i < n - 1; i++) {
+            const m = sub[i] / diag[i - 1];
+            diag[i] -= m * sup[i - 1];
+            rhs[i] -= m * rhs[i - 1];
+        }
+        c[n - 2] = rhs[n - 2] / diag[n - 2];
+        for (let i = n - 3; i >= 1; i--) {
+            c[i] = (rhs[i] - sup[i] * c[i + 1]) / diag[i];
+        }
+    }
+
+    const b = new Array(n - 1);
+    const d = new Array(n - 1);
+    for (let i = 0; i < n - 1; i++) {
+        b[i] = (ys[i + 1] - ys[i]) / h[i] - h[i] * (2 * c[i] + c[i + 1]) / 3;
+        d[i] = (c[i + 1] - c[i]) / (3 * h[i]);
+    }
+
+    return (x) => {
+        if (x <= xs[0]) return ys[0];
+        if (x >= xs[n - 1]) return ys[n - 1];
+        let i = 0;
+        while (i < n - 2 && x > xs[i + 1]) i++;
+        const dx = x - xs[i];
+        return ys[i] + b[i] * dx + c[i] * dx * dx + d[i] * dx * dx * dx;
+    };
+}
+
+// Значение кривой в одной точке x (для разовых вызовов). Для расчёта
+// многих точек подряд лучше один раз взять makeCurveEvaluator(pts).
+function evalCurveSpline(pts, x) {
+    return makeCurveEvaluator(pts)(x);
 }
 
 function buildCurveLut(points) {
     const pts = normalizeCurvePoints(points);
+    const evalCurve = makeCurveEvaluator(pts);
     const lut = new Uint8Array(256);
     for (let x = 0; x <= 255; x++) {
-        const y = evalCurveSpline(pts, x);
-        lut[x] = Math.max(0, Math.min(255, Math.round(y)));
+        lut[x] = Math.max(0, Math.min(255, Math.round(evalCurve(x))));
     }
     return lut;
 }
@@ -1621,9 +1657,10 @@ export function openOreX_CameraRawEditor(node) {
         curvesCtx.strokeStyle = getChannelColor(curvesState.activeChannel);
         curvesCtx.lineWidth = 2;
         curvesCtx.beginPath();
+        const evalCurve = makeCurveEvaluator(points);
         for (let px = 0; px <= w; px++) {
             const curveX = (px / w) * 255;
-            const curveY = Math.max(0, Math.min(255, evalCurveSpline(points, curveX)));
+            const curveY = Math.max(0, Math.min(255, evalCurve(curveX)));
             const canvasY = (1 - curveY / 255) * h;
             if (px === 0) curvesCtx.moveTo(px, canvasY);
             else curvesCtx.lineTo(px, canvasY);
