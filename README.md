@@ -591,10 +591,13 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 Удаляет фон генеративной моделью RMBG-3.0. Узел использует уже загруженные компоненты Fibo 2, поэтому входы `clip` и `vae` подключаются из соответствующих загрузчиков workflow.
 
 **Узел поддерживает:**
-- INT8-модель `rmbg_3.0_int8_convrot.safetensors` из `ComfyUI/models/diffusion_models/Fibo2/`.
+- Раскрывающийся список всех моделей из `ComfyUI/models/Diffusion_Models/`, включая подпапки; это позволяет выбрать переименованную или перемещённую модель.
+- Первый пункт `Download rmbg_3.0_int8_convrot`: сначала ищет `rmbg_3.0_int8_convrot.safetensors` во всём дереве `ComfyUI/models/Diffusion_Models/` и использует его без сетевого запроса; если файла нет, скачивает его из [OreX/Models2](https://huggingface.co/OreX/Models2/blob/main/RMBG/rmbg_3.0_int8_convrot.safetensors) в корень этой папки.
 - Подключение CLIP `qwen3vl_4b_int8_convrot.safetensors` и VAE `flux2-vae.safetensors`, используемых в workflow Fibo 2; повторно загружать их внутри узла не требуется.
-- Автоматическую подготовку изображения примерно до 1 мегапикселя с сохранением пропорций и размеров, совместимых с моделью, а также возврат маски к исходному разрешению.
-- Обработку каждого изображения в батче отдельно с фиксированным официальным промптом RMBG-3.0 и четырьмя шагами генерации.
+- Настраиваемое целевое разрешение `processing_resolution` (по умолчанию 1024, примерно 1 мегапиксель) с сохранением пропорций, кратностью размеров 16 и возвратом маски к исходному разрешению.
+- Настройки генерации `steps` (4), `cfg` (1.0), `sampler_name` (`euler`) и `scheduler` (`simple`) с официально совместимыми значениями по умолчанию.
+- Редактируемый `prompt` с официальной инструкцией RMBG-3.0 по умолчанию; negative conditioning всегда остаётся пустым, как в официальной конфигурации.
+- Обработку каждого изображения в батче отдельно.
 - Управление `seed`, `sensitivity`, `mask_blur`, `mask_offset`, инвертированием маски, уточнением переднего плана и выгрузкой модели из памяти.
 - Прозрачный (`Alpha`) или однотонный (`Color`) фон и три выхода: `IMAGE`, `MASK`, `MASK IMAGE`.
 - Двуязычные подсказки для каждого параметра: английский текст, разделитель и русский текст.
@@ -1208,10 +1211,13 @@ Author: OreX (Oleg K.)
 Removes backgrounds with the generative RMBG-3.0 model. The node reuses already loaded Fibo 2 components, so its `clip` and `vae` inputs are connected to the corresponding loaders in the workflow.
 
 **The node supports:**
-- The INT8 `rmbg_3.0_int8_convrot.safetensors` model from `ComfyUI/models/diffusion_models/Fibo2/`.
+- A drop-down list of every model in `ComfyUI/models/Diffusion_Models/`, including subfolders, so a renamed or moved model can be selected.
+- The first option, `Download rmbg_3.0_int8_convrot`: it first searches the entire `ComfyUI/models/Diffusion_Models/` tree for `rmbg_3.0_int8_convrot.safetensors` and uses it without a network request; when absent, it downloads the model from [OreX/Models2](https://huggingface.co/OreX/Models2/blob/main/RMBG/rmbg_3.0_int8_convrot.safetensors) into that folder's root.
 - Connected CLIP `qwen3vl_4b_int8_convrot.safetensors` and VAE `flux2-vae.safetensors` components already used by the Fibo 2 workflow; the node does not load duplicate copies internally.
-- Automatic image preparation to approximately one megapixel while preserving aspect ratio and model-compatible dimensions, followed by resizing the matte back to the original resolution.
-- Processing every batch image independently with the fixed official RMBG-3.0 prompt and four generation steps.
+- Configurable target `processing_resolution` (default 1024, approximately one megapixel), preserving aspect ratio and dimensions divisible by 16, followed by resizing the matte back to the original resolution.
+- Generation controls for `steps` (4), `cfg` (1.0), `sampler_name` (`euler`), and `scheduler` (`simple`) with official-compatible defaults.
+- An editable `prompt` containing the official RMBG-3.0 instruction by default; negative conditioning always remains empty, matching the official configuration.
+- Independent processing of every image in a batch.
 - Controls for `seed`, `sensitivity`, `mask_blur`, `mask_offset`, mask inversion, foreground refinement, and unloading the model from memory.
 - Transparent (`Alpha`) or solid-color (`Color`) backgrounds and three outputs: `IMAGE`, `MASK`, and `MASK IMAGE`.
 - Bilingual tooltips for every parameter: English text, a separator, then Russian text.
