@@ -54,7 +54,9 @@
 `30.` [⛓️‍💥 Image Tile Split — OreX (Олег К.)](#ru-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Олег К.)](#ru-31-image-tile-stitch)  
 `32.` [🪄 Remove Background — PaBoKor (Павел К.)](#ru-32-remove-background)  
-`33.` [⚙️ KSampler Config — PaBoKor (Павел К.)](#ru-33-ksampler-config)  
+`33.` [⚙️ KSampler Config — OreX (Олег К.)](#ru-33-ksampler-config)  
+`34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Олег К.)](#ru-34-remove-background-rmbg-20-int8)  
+`35.` [🪄 Remove Background RMBG 3.0 — OreX (Олег К.)](#ru-35-remove-background-rmbg-30)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -555,7 +557,7 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 <a id="ru-33-ksampler-config"></a>
 #### 33. ⚙️ KSampler Config
-Автор: PaBoKor (Павел К.)
+Автор: OreX (Олег К.)
 
 Собирает основные настройки сэмплера в одном узле и отдаёт их отдельными выходами для подключения к KSampler и аналогичным узлам: один узел вместо четырёх отдельных значений, которые удобно менять в одном месте.
 
@@ -565,6 +567,39 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 - Выбор сэмплера `sampler_name` и планировщика `scheduler` из списков стандартного KSampler — выходы совместимы с ним напрямую, без конвертации.
 - Двуязычные подсказки.
 - Вывод: `steps`, `cfg`, `sampler_name` и `scheduler`.
+
+<a id="ru-34-remove-background-rmbg-20-int8"></a>
+#### 34. 🪄 Remove Background RMBG 2.0 Int8
+Автор: OreX (Олег К.)
+
+Удаляет фон с помощью компактной INT8-версии RMBG-2.0 и позволяет сразу получить изображение с прозрачным или цветным фоном, маску и визуализацию маски.
+
+**Узел поддерживает:**
+- Автоматическую загрузку `rmbg-2.0-int8.safetensors` из репозитория [OreX/Models2](https://huggingface.co/OreX/Models2/blob/main/RMBG/rmbg-2.0-int8.safetensors), только если модель отсутствует в `ComfyUI/models/background_removal/`.
+- Немедленную загрузку локальной модели без обращения к сети, если файл уже находится в папке моделей.
+- Понятное сообщение об ошибке со ссылкой для ручного скачивания и ожидаемым путём к файлу, если ресурс недоступен.
+- Обработку батча изображений и кэширование модели между запусками; параметр `unload_model` освобождает модель после выполнения.
+- Настройку `sensitivity`, разрешения обработки `process_res`, размытия `mask_blur`, смещения границы `mask_offset`, инвертирования маски и уточнения переднего плана.
+- Два режима фона: `Alpha` для прозрачности и `Color` для заливки цветом `background_color`.
+- Три выхода: `IMAGE`, `MASK` и `MASK IMAGE`.
+- Двуязычные подсказки для каждого параметра: английский текст, разделитель и русский текст.
+
+<a id="ru-35-remove-background-rmbg-30"></a>
+#### 35. 🪄 Remove Background RMBG 3.0
+Автор: OreX (Олег К.)
+
+Удаляет фон генеративной моделью RMBG-3.0. Узел использует уже загруженные компоненты Fibo 2, поэтому входы `clip` и `vae` подключаются из соответствующих загрузчиков workflow.
+
+**Узел поддерживает:**
+- INT8-модель `rmbg_3.0_int8_convrot.safetensors` из `ComfyUI/models/diffusion_models/Fibo2/`.
+- Подключение CLIP `qwen3vl_4b_int8_convrot.safetensors` и VAE `flux2-vae.safetensors`, используемых в workflow Fibo 2; повторно загружать их внутри узла не требуется.
+- Автоматическую подготовку изображения примерно до 1 мегапикселя с сохранением пропорций и размеров, совместимых с моделью, а также возврат маски к исходному разрешению.
+- Обработку каждого изображения в батче отдельно с фиксированным официальным промптом RMBG-3.0 и четырьмя шагами генерации.
+- Управление `seed`, `sensitivity`, `mask_blur`, `mask_offset`, инвертированием маски, уточнением переднего плана и выгрузкой модели из памяти.
+- Прозрачный (`Alpha`) или однотонный (`Color`) фон и три выхода: `IMAGE`, `MASK`, `MASK IMAGE`.
+- Двуязычные подсказки для каждого параметра: английский текст, разделитель и русский текст.
+
+> Официальные веса RMBG-3.0 распространяются по лицензии CC BY-NC 4.0. Для коммерческого использования требуется отдельное соглашение с Bria; подробности приведены на [странице модели](https://huggingface.co/briaai/RMBG-3.0).
 
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
@@ -636,7 +671,9 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `30.` [⛓️‍💥 Image Tile Split — OreX (Oleg K.)](#en-30-image-tile-split)  
 `31.` [⛓️‍💥 Image Tile Stitch — OreX (Oleg K.)](#en-31-image-tile-stitch)  
 `32.` [🪄 Remove Background — PaBoKor (Pavel K.)](#en-32-remove-background)  
-`33.` [⚙️ KSampler Config — PaBoKor (Pavel K.)](#en-33-ksampler-config)  
+`33.` [⚙️ KSampler Config — OreX (Oleg K.)](#en-33-ksampler-config)  
+`34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Oleg K.)](#en-34-remove-background-rmbg-20-int8)  
+`35.` [🪄 Remove Background RMBG 3.0 — OreX (Oleg K.)](#en-35-remove-background-rmbg-30)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1137,7 +1174,7 @@ Removes the background in a single node, based on BiRefNet. Replaces a chain of 
 
 <a id="en-33-ksampler-config"></a>
 #### 33. ⚙️ KSampler Config
-Author: PaBoKor (Pavel K.)
+Author: OreX (Oleg K.)
 
 Gathers the main sampler settings in a single node and passes them on as separate outputs to wire into KSampler and similar nodes: one node instead of four separate values, all adjustable in one place.
 
@@ -1147,6 +1184,39 @@ Gathers the main sampler settings in a single node and passes them on as separat
 - Selecting the sampler `sampler_name` and the scheduler `scheduler` from the stock KSampler lists — the outputs are directly compatible with it, no conversion needed.
 - Bilingual tooltips.
 - Output: `steps`, `cfg`, `sampler_name`, and `scheduler`.
+
+<a id="en-34-remove-background-rmbg-20-int8"></a>
+#### 34. 🪄 Remove Background RMBG 2.0 Int8
+Author: OreX (Oleg K.)
+
+Removes backgrounds with a compact INT8 version of RMBG-2.0 and returns an image with either a transparent or solid-color background, a mask, and a mask visualization.
+
+**The node supports:**
+- Automatic download of `rmbg-2.0-int8.safetensors` from [OreX/Models2](https://huggingface.co/OreX/Models2/blob/main/RMBG/rmbg-2.0-int8.safetensors), only when the model is absent from `ComfyUI/models/background_removal/`.
+- Immediate local loading without a network request when the model file is already present.
+- A clear error containing the manual download link and expected destination path when the resource is unavailable.
+- Image batch processing and model caching between runs; `unload_model` releases the model after execution.
+- Controls for `sensitivity`, processing resolution `process_res`, mask blur `mask_blur`, edge offset `mask_offset`, mask inversion, and foreground refinement.
+- Two background modes: `Alpha` for transparency and `Color` for a solid `background_color`.
+- Three outputs: `IMAGE`, `MASK`, and `MASK IMAGE`.
+- Bilingual tooltips for every parameter: English text, a separator, then Russian text.
+
+<a id="en-35-remove-background-rmbg-30"></a>
+#### 35. 🪄 Remove Background RMBG 3.0
+Author: OreX (Oleg K.)
+
+Removes backgrounds with the generative RMBG-3.0 model. The node reuses already loaded Fibo 2 components, so its `clip` and `vae` inputs are connected to the corresponding loaders in the workflow.
+
+**The node supports:**
+- The INT8 `rmbg_3.0_int8_convrot.safetensors` model from `ComfyUI/models/diffusion_models/Fibo2/`.
+- Connected CLIP `qwen3vl_4b_int8_convrot.safetensors` and VAE `flux2-vae.safetensors` components already used by the Fibo 2 workflow; the node does not load duplicate copies internally.
+- Automatic image preparation to approximately one megapixel while preserving aspect ratio and model-compatible dimensions, followed by resizing the matte back to the original resolution.
+- Processing every batch image independently with the fixed official RMBG-3.0 prompt and four generation steps.
+- Controls for `seed`, `sensitivity`, `mask_blur`, `mask_offset`, mask inversion, foreground refinement, and unloading the model from memory.
+- Transparent (`Alpha`) or solid-color (`Color`) backgrounds and three outputs: `IMAGE`, `MASK`, and `MASK IMAGE`.
+- Bilingual tooltips for every parameter: English text, a separator, then Russian text.
+
+> The official RMBG-3.0 weights are licensed under CC BY-NC 4.0. Commercial use requires a separate agreement with Bria; see the [model page](https://huggingface.co/briaai/RMBG-3.0) for details.
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import
