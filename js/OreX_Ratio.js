@@ -60,6 +60,24 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function(info) {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 this.setupWidgetsAndCallbacks();
+                this._removeHiddenWidgetSockets();
+                setTimeout(() => this._removeHiddenWidgetSockets(), 0);
+            };
+
+            // Новый фронтенд ComfyUI создаёт для КАЖДОГО виджета скрытый входной сокет
+            // (он проявляется при наведении мыши). У скрытых custom_width / custom_height
+            // он нам не нужен, поэтому убираем его, если к нему ничего не подключено.
+            nodeType.prototype._removeHiddenWidgetSockets = function() {
+                if (!this.inputs) return;
+                const hiddenNames = ["custom_width", "custom_height"];
+                for (let i = this.inputs.length - 1; i >= 0; i--) {
+                    const inp = this.inputs[i];
+                    const wName = inp?.widget?.name || inp?.name;
+                    if (hiddenNames.includes(wName) && inp.link == null) {
+                        this.removeInput(i);
+                    }
+                }
+                this.setDirtyCanvas(true, true);
             };
 
             nodeType.prototype.onMouseMove = function(e, pos, canvas) {
@@ -236,6 +254,8 @@ app.registerExtension({
                 this.lastHoveredWidget = null;
                 
                 this.setupWidgetsAndCallbacks();
+                this._removeHiddenWidgetSockets();
+                setTimeout(() => this._removeHiddenWidgetSockets(), 0);
 
                 const canvasWidget = {
                     type: "custom_canvas", 
