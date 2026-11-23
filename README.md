@@ -57,6 +57,8 @@
 `33.` [⚙️ KSampler Config — OreX (Олег К.)](#ru-33-ksampler-config)  
 `34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Олег К.)](#ru-34-remove-background-rmbg-20-int8)  
 `35.` [🪄 Remove Background RMBG 3.0 — OreX (Олег К.)](#ru-35-remove-background-rmbg-30)  
+`36.` [🎬 RelayVSR Auto Chunked (OreX) — OreX (Олег К.)](#ru-36-relayvsr-auto-chunked)  
+`37.` [🎬 Load Video (OreX) — OreX (Олег К.)](#ru-37-load-video-orex)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -604,6 +606,49 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 > Официальные веса RMBG-3.0 распространяются по лицензии CC BY-NC 4.0. Для коммерческого использования требуется отдельное соглашение с Bria; подробности приведены на [странице модели](https://huggingface.co/briaai/RMBG-3.0).
 
+<a id="ru-36-relayvsr-auto-chunked"></a>
+#### 36. 🎬 RelayVSR Auto Chunked (OreX)
+Автор: OreX (Олег К.)
+
+Автоматически разбивает видео на последовательные чанки, обрабатывает каждый чанк через RelayVSR и собирает итоговый MP4 с исходным звуком. Это позволяет обрабатывать длинные видео с контролируемым потреблением RAM и VRAM.
+
+**Узел поддерживает:**
+- Размер чанка и перекрытие (`chunk_frames`, `overlap_frames`) с шагом 15 кадров.
+- Возобновление после Stop, ошибки или перезапуска ComfyUI (`Continue if stopped`); готовые части сохраняются в `ComfyUI/output/relayvsr_resume` и автоматически удаляются после успешного завершения, при смене видео или при выключенном продолжении.
+- Настройки KSampler: `seed`, `steps`, `cfg`, `sampler_name`, `scheduler`. Рекомендация разработчика RelayVSR: `steps = 1`, `cfg = 1`; оригинальный workflow использует `euler` и `simple`.
+- Управление деталями Flash decoder (`detail`); `1.0` сохраняет полный результат модели.
+- CPU-апскейл входа до обработки (`input_resolution`) и конечное CPU-масштабирование (`output_resolution`) с пресетами Default, 720p, 1080p, 2k и 4k.
+- Кодирование `x264_medium`, `x264_veryfast` или NVIDIA NVENC; для кадров крупнее 4096 px NVENC автоматически использует HEVC.
+- Потоковый режим `stream_flash_decode`, передающий готовые кадры прямо в FFmpeg и уменьшающий пиковое потребление RAM.
+- Фоновое кодирование предыдущего чанка параллельно расчёту следующего и сборку результата без повторного кодирования видеопотока.
+- При получении обрезанного объекта VIDEO исходное аудио берётся из того же временного диапазона; активное окно обрезки также входит в идентификатор продолжения.
+- Двуязычные подсказки EN/RU для всех параметров.
+
+**Требования:** актуальная версия ComfyUI с `RelayVSRConditioning`, `VSRDecode` и Video API; совместимая пара RelayVSR model + Flash VAE (x2 или x4); FFmpeg в `PATH`. Дополнительные Python-пакеты не требуются.
+
+<a id="ru-37-load-video-orex"></a>
+#### 37. 🎬 Load Video (OreX)
+Автор: OreX (Олег К.)
+
+Загружает обычный видеофайл через штатный загрузчик и видеоплеер ComfyUI и автоматически выбирает один из двух режимов по подключённому выходу: ленивый объект `video` либо декодированную секвенцию `images`.
+
+**Узел поддерживает:**
+- Стандартный выбор, загрузку и видеоплеер ComfyUI через параметр `file`.
+- Выход `video` над выходом `images`. Если подключён `video`, узел работает как штатный Load Video: возвращает ленивый объект VIDEO без декодирования кадров, resize и преобразования FPS.
+- Если подключён `images`, узел декодирует выбранный диапазон в секвенцию изображений. Одновременное подключение `video` и `images` запрещено, чтобы обе системы не запускались вместе.
+- Встроенный проигрыватель сразу переходит к выбранному началу и ограничивает воспроизведение выбранным диапазоном при изменении параметров — запуск workflow для этого не нужен. Если ни `video`, ни `images` не подключены, параметры обрезки интерпретируются в секундах, как в режиме `video`.
+- При подключённом выходе `audio` звуковая дорожка декодируется отдельно и обрезается по тому же диапазону, что и `video`, без декодирования видеокадров.
+- Двойное назначение `start_time (frame)`: в режиме `video` это время начала в секундах, в режиме `images` — номер исходного кадра с нуля.
+- Двойное назначение `durations (max_frames)`: в режиме `video` это длительность в секундах, в режиме `images` — максимальное количество исходных кадров; `0` означает загрузку до конца.
+- Изменение частоты кадров через `set_fps` в режиме `images` с удалением или дублированием кадров без изменения длительности; `0` сохраняет исходный FPS. В режиме `video` параметр не применяется.
+- Пресеты разрешения `Default`, 360p, 480p, 540p, 720p, 900p, 1080p, 1152p, 2k, 1620p, 1800p и 4k.
+- Масштабирование на CPU в режиме `images` с сохранением пропорций; для вертикального видео рамка пресета автоматически поворачивается. В режиме `video` исходный размер сохраняется.
+- Зелёный индикатор исходного разрешения видео непосредственно на узле.
+- Выходы `video`, `images`, `audio`, `frame_count`, `fps`, `width`, `height` и `duration`.
+- Двуязычные подсказки EN/RU для всех входов и выходов.
+
+Узел использует штатные Video API и PyTorch из ComfyUI; дополнительные Python-пакеты не требуются.
+
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -677,6 +722,8 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `33.` [⚙️ KSampler Config — OreX (Oleg K.)](#en-33-ksampler-config)  
 `34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Oleg K.)](#en-34-remove-background-rmbg-20-int8)  
 `35.` [🪄 Remove Background RMBG 3.0 — OreX (Oleg K.)](#en-35-remove-background-rmbg-30)  
+`36.` [🎬 RelayVSR Auto Chunked (OreX) — OreX (Oleg K.)](#en-36-relayvsr-auto-chunked)  
+`37.` [🎬 Load Video (OreX) — OreX (Oleg K.)](#en-37-load-video-orex)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1223,6 +1270,49 @@ Removes backgrounds with the generative RMBG-3.0 model. The node reuses already 
 - Bilingual tooltips for every parameter: English text, a separator, then Russian text.
 
 > The official RMBG-3.0 weights are licensed under CC BY-NC 4.0. Commercial use requires a separate agreement with Bria; see the [model page](https://huggingface.co/briaai/RMBG-3.0) for details.
+
+<a id="en-36-relayvsr-auto-chunked"></a>
+#### 36. 🎬 RelayVSR Auto Chunked (OreX)
+Author: OreX (Oleg K.)
+
+Automatically splits a video into sequential chunks, processes every chunk through RelayVSR, and assembles the final MP4 with the source audio. This makes long-video processing possible with controlled RAM and VRAM usage.
+
+**The node supports:**
+- Chunk size and overlap controls (`chunk_frames`, `overlap_frames`) in 15-frame increments.
+- Resume after Stop, error, or a ComfyUI restart (`Continue if stopped`); completed parts are stored in `ComfyUI/output/relayvsr_resume` and removed automatically after success, when the source video changes, or when resume is disabled.
+- KSampler controls: `seed`, `steps`, `cfg`, `sampler_name`, and `scheduler`. The RelayVSR developer recommendation is `steps = 1`, `cfg = 1`; the original workflow uses `euler` and `simple`.
+- Flash decoder detail control (`detail`); `1.0` keeps the full model output.
+- CPU input upscaling before processing (`input_resolution`) and final CPU output scaling (`output_resolution`) with Default, 720p, 1080p, 2k, and 4k presets.
+- `x264_medium`, `x264_veryfast`, or NVIDIA NVENC encoding; NVENC automatically switches to HEVC for frames larger than 4096 px.
+- A `stream_flash_decode` mode that sends completed frames directly to FFmpeg and lowers peak RAM usage.
+- Background encoding of the previous chunk while the next one is processed, followed by final assembly without re-encoding the video stream.
+- When the input VIDEO object is trimmed, source audio is taken from the same time window; the active trim window is also included in the resume identifier.
+- Bilingual EN/RU tooltips for every parameter.
+
+**Requirements:** a current ComfyUI version with `RelayVSRConditioning`, `VSRDecode`, and the Video API; a matching RelayVSR model + Flash VAE pair (x2 or x4); and FFmpeg available in `PATH`. No additional Python packages are required.
+
+<a id="en-37-load-video-orex"></a>
+#### 37. 🎬 Load Video (OreX)
+Author: OreX (Oleg K.)
+
+Loads a regular video file through ComfyUI's native uploader and video player and automatically selects one of two modes from the connected output: a lazy `video` object or a decoded `images` sequence.
+
+**The node supports:**
+- Native ComfyUI file selection, upload, and video player through the `file` parameter.
+- A `video` output above `images`. When `video` is connected, the node behaves like the native Load Video node and returns a lazy VIDEO object without decoding frames, resizing, or frame-rate conversion.
+- When `images` is connected, the selected range is decoded into an image sequence. Connecting `video` and `images` simultaneously is rejected so both systems never run together.
+- The built-in player immediately seeks to the selected start and limits playback to the selected range when trim values change; running the workflow is not required. If neither `video` nor `images` is connected, trimming values are interpreted as seconds, just like in `video` mode.
+- When the `audio` output is connected, the audio track is decoded separately and trimmed to exactly the same range as `video`, without decoding video frames.
+- Dual-purpose `start_time (frame)`: in `video` mode it is the start time in seconds; in `images` mode it is the zero-based source frame number.
+- Dual-purpose `durations (max_frames)`: in `video` mode it is duration in seconds; in `images` mode it is the maximum number of source frames; `0` loads to the end.
+- Frame-rate conversion through `set_fps` in `images` mode, dropping or duplicating frames without changing playback duration; `0` keeps the source FPS. The setting is ignored in `video` mode.
+- `Default`, 360p, 480p, 540p, 720p, 900p, 1080p, 1152p, 2k, 1620p, 1800p, and 4k resolution presets.
+- CPU scaling in `images` mode with aspect-ratio preservation and automatic preset rotation for portrait video. `video` mode preserves the source dimensions.
+- A green source-resolution indicator drawn directly on the node.
+- `video`, `images`, `audio`, `frame_count`, `fps`, `width`, `height`, and `duration` outputs.
+- Bilingual EN/RU tooltips for every input and output.
+
+The node uses ComfyUI's native Video API and bundled PyTorch; no additional Python packages are required.
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import
