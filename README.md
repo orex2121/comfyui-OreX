@@ -57,7 +57,6 @@
 `33.` [⚙️ KSampler Config — OreX (Олег К.)](#ru-33-ksampler-config)  
 `34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Олег К.)](#ru-34-remove-background-rmbg-20-int8)  
 `35.` [🪄 Remove Background RMBG 3.0 — OreX (Олег К.)](#ru-35-remove-background-rmbg-30)  
-`36.` [🔊 OmniVoice Longform TTS (OreX) — OreX (Олег К.)](#ru-36-omnivoice-longform-tts)  
 `+` [🧰 Экспорт/импорт workflow как изображения](#ru-extra-workflow-image)  
 
 ### 📝 Описание узлов
@@ -605,21 +604,6 @@ AI-ретушь кожи через модель ModelScope (`damo/cv_unet_skin_
 
 > Официальные веса RMBG-3.0 распространяются по лицензии CC BY-NC 4.0. Для коммерческого использования требуется отдельное соглашение с Bria; подробности приведены на [странице модели](https://huggingface.co/briaai/RMBG-3.0).
 
-<a id="ru-36-omnivoice-longform-tts"></a>
-#### 36. 🔊 OmniVoice Longform TTS (OreX)
-Автор: OreX (Олег К.)
-
-OreX-вариант узла **OmniVoice Longform TTS** для озвучивания обычного текста и субтитров. Файл узла: `OreX_OmniVoiceLongformTTS.py`.
-
-**Узел поддерживает:**
-- Все модели, параметры генерации, клонирование голоса, разбиение длинного текста и выход `AUDIO` исходного узла OmniVoice Longform TTS.
-- Переключатель `srt` перед параметром `steps`.
-- При `srt = false` — обычный текст и строки вида `[00:00:15 - 00:01:11]: Текст`; таймкоды удаляются перед озвучиванием.
-- При `srt = true` — стандартные SRT-субтитры с номерами и таймкодами вида `00:00:00,151 --> 00:00:01,112`; служебные строки удаляются перед озвучиванием.
-- Голосовые теги OmniVoice, например `[laughter]`, остаются без изменений.
-
-> Требуется установленный и включённый пакет `ComfyUI-omnivoice-tts`. После установки или обновления узла перезапустите ComfyUI.
-
 <a id="ru-extra-workflow-image"></a>
 ### 🧰 Дополнительно: экспорт/импорт workflow как изображения
 
@@ -693,7 +677,6 @@ You can support this project via this link: ❤️❤️❤️ **[D O N A T](htt
 `33.` [⚙️ KSampler Config — OreX (Oleg K.)](#en-33-ksampler-config)  
 `34.` [🪄 Remove Background RMBG 2.0 Int8 — OreX (Oleg K.)](#en-34-remove-background-rmbg-20-int8)  
 `35.` [🪄 Remove Background RMBG 3.0 — OreX (Oleg K.)](#en-35-remove-background-rmbg-30)  
-`36.` [🔊 OmniVoice Longform TTS (OreX) — OreX (Oleg K.)](#en-36-omnivoice-longform-tts)  
 `+` [🧰 Workflow image export/import](#en-extra-workflow-image)  
 
 ### 📝 Node descriptions
@@ -1240,21 +1223,6 @@ Removes backgrounds with the generative RMBG-3.0 model. The node reuses already 
 - Bilingual tooltips for every parameter: English text, a separator, then Russian text.
 
 > The official RMBG-3.0 weights are licensed under CC BY-NC 4.0. Commercial use requires a separate agreement with Bria; see the [model page](https://huggingface.co/briaai/RMBG-3.0) for details.
-
-<a id="en-36-omnivoice-longform-tts"></a>
-#### 36. 🔊 OmniVoice Longform TTS (OreX)
-Author: OreX (Oleg K.)
-
-An OreX variant of **OmniVoice Longform TTS** for synthesizing ordinary text and subtitles. Node file: `OreX_OmniVoiceLongformTTS.py`.
-
-**The node supports:**
-- All models, generation controls, voice cloning, long-text chunking, and the `AUDIO` output of the original OmniVoice Longform TTS node.
-- An `srt` toggle placed before the `steps` parameter.
-- With `srt = false`, ordinary text and lines such as `[00:00:15 - 00:01:11]: Text`; timestamps are removed before synthesis.
-- With `srt = true`, standard SRT subtitles containing cue numbers and timestamps such as `00:00:00,151 --> 00:00:01,112`; service lines are removed before synthesis.
-- OmniVoice voice tags such as `[laughter]` are preserved.
-
-> The `ComfyUI-omnivoice-tts` package must be installed and enabled. Restart ComfyUI after installing or updating the node.
 
 <a id="en-extra-workflow-image"></a>
 ### 🧰 Extra: workflow image export/import
