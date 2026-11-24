@@ -233,7 +233,8 @@ class OreXLMStudio:
                 "system_prompt": ("STRING", {"default": ""}),
                 "system_preset": (PRESET_NAMES, ),
                 "model_key": (fetch_available_models(DEFAULT_LLM), ),
-                "include_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Thinking ON", "label_off": "🔴 Thinking OFF"}),
+                "show_reasoning": ("BOOLEAN", {"default": False, "label_on": "🟢 Show Thinking", "label_off": "🔴 Hide Thinking"}),
+                "enable_thinking": ("BOOLEAN", {"default": True, "label_on": "🟢 Thinking ON", "label_off": "🔴 Thinking OFF"}),
                 "auto_unload_model": ("BOOLEAN", {"default": True, "label_on": "🟢 Auto Unload ON", "label_off": "🔴 Auto Unload OFF"}),
                 "unload_delay": ("INT", {"default": 0, "min": 0, "max": 3600, "step": 1}),
                 "clean_vram_before": ("BOOLEAN", {"default": False, "label_on": "🟢 Clean VRAM ON", "label_off": "🔴 Clean VRAM OFF"}),
@@ -267,7 +268,7 @@ class OreXLMStudio:
             m.update(str(img_mean).encode())
         return m.hexdigest()
 
-    def process_input(self, text_input, system_prompt, system_preset, model_key, include_reasoning, auto_unload_model, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
+    def process_input(self, text_input, system_prompt, system_preset, model_key, show_reasoning, enable_thinking, auto_unload_model, unload_delay, clean_vram_before, seed, image=None, context_length=4096, max_tokens=1024, generation_parameters=False, temperature=0.7, top_k=40, top_p=0.95, repeat_penalty=1.1):
         global _UNLOAD_TIMERS
         
         # Если поступил новый запрос для этой модели, отменяем старый таймер выгрузки (предотвращает Channel Error при Batch-обработке)
@@ -286,12 +287,12 @@ class OreXLMStudio:
         elif user_max_tokens > 0:
             user_max_tokens = int(max(256, round(user_max_tokens / 256.0) * 256))
 
-        is_include_reasoning = include_reasoning if isinstance(include_reasoning, bool) else str(include_reasoning).upper() in ["TRUE", "ON"]
+        is_show_reasoning = show_reasoning if isinstance(show_reasoning, bool) else str(show_reasoning).upper() in ["TRUE", "ON"]
 
-        # Если Thinking OFF (скрываем размышления), отключаем лимит (-1), 
+        # Если Show Reasoning OFF (скрываем размышления), отключаем лимит (-1),
         # чтобы модель гарантированно дописала ответ до конца.
-        # Если Thinking ON (показываем всё), применяем лимит пользователя.
-        if not is_include_reasoning:
+        # Если Show Reasoning ON (показываем всё), применяем лимит пользователя.
+        if not is_show_reasoning:
             api_max_tokens = -1
         else:
             api_max_tokens = user_max_tokens
@@ -299,6 +300,7 @@ class OreXLMStudio:
         # Исправление логики Boolean для новых параметров
         is_auto_unload = auto_unload_model if isinstance(auto_unload_model, bool) else str(auto_unload_model).upper() in ["TRUE", "ON"]
         is_clean_vram = clean_vram_before if isinstance(clean_vram_before, bool) else str(clean_vram_before).upper() in ["TRUE", "ON"]
+        is_enable_thinking = enable_thinking if isinstance(enable_thinking, bool) else str(enable_thinking).upper() in ["TRUE", "ON"]
         
         # Очистка VRAM перед генерацией
         if is_clean_vram and mm is not None:
@@ -357,6 +359,13 @@ class OreXLMStudio:
             }
             payload.update(options)
 
+            # Отключаем thinking на уровне LM Studio API
+            # thinking_budget=0 — лимит thinking-токенов = 0 (модель не думает)
+            # reasoning_effort="none" — OpenAI-совместимый способ отключить reasoning
+            if not is_enable_thinking:
+                payload["thinking_budget"] = 0
+                payload["reasoning_effort"] = "none"
+
             if final_system_prompt:
                 payload["messages"].append({"role": "system", "content": final_system_prompt})
 
@@ -391,10 +400,10 @@ class OreXLMStudio:
                 reasoning_content = ""
                 
             # Возвращаем размышления обратно в текст, если LM Studio их отделил на уровне API
-            if is_include_reasoning and reasoning_content:
+            if is_show_reasoning and reasoning_content:
                 final_content = f"<think>\n{reasoning_content}\n</think>\n\n{final_content}"
 
-            if not is_include_reasoning:
+            if not is_show_reasoning:
                 cleaned_content = _clean_reasoning_content(final_content)
                 # Если после удаления скрытых размышлений текст оказался пустым (например, сбой генерации)
                 if not cleaned_content.strip() and final_content.strip():
